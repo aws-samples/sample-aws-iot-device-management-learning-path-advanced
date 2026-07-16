@@ -1,0 +1,59 @@
+{
+  "Parameters": {
+    "SerialNumber": {
+      "Type": "String"
+    },
+    "ModelType": {
+      "Type": "String",
+      "Default": "SedanVehicle"
+    },
+    "provisionedBy": {
+      "Type": "String",
+      "Default": "unknown"
+    },
+    "AWS::IoT::Certificate::Id": {
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "thing": {
+      "Type": "AWS::IoT::Thing",
+      "Properties": {
+        "ThingName": {
+          "Ref": "SerialNumber"
+        },
+        "ThingTypeName": {
+          "Ref": "ModelType"
+        },
+        "AttributePayload": {
+          "serialNumber": {
+            "Ref": "SerialNumber"
+          },
+          "provisionedBy": {
+            "Ref": "provisionedBy"
+          }
+        },
+        "ThingGroups": ["fleet-connected-vehicles"]
+      },
+      "OverrideSettings": {
+        "AttributePayload": "MERGE",
+        "ThingGroups": "DO_NOTHING"
+      }
+    },
+    "certificate": {
+      "Type": "AWS::IoT::Certificate",
+      "Properties": {
+        "CertificateId": {
+          "Ref": "AWS::IoT::Certificate::Id"
+        },
+        "Status": "ACTIVE"
+      }
+    },
+    "policy": {
+      "Type": "AWS::IoT::Policy",
+      "Properties": {
+        "PolicyName": "FleetProvisionedDevicePolicy"
+      }
+    }
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "Parameters": {
+    "SerialNumber": {
+      "Type": "String"
+    },
+    "DeviceType": {
+      "Type": "String",
+      "Default": "SmartHomeSensor"
+    },
+    "provisionedBy": {
+      "Type": "String",
+      "Default": "trusted-user"
+    },
+    "AWS::IoT::Certificate::Id": {
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "thing": {
+      "Type": "AWS::IoT::Thing",
+      "Properties": {
+        "ThingName": {
+          "Ref": "SerialNumber"
+        },
+        "ThingTypeName": {
+          "Ref": "DeviceType"
+        },
+        "AttributePayload": {
+          "serialNumber": {
+            "Ref": "SerialNumber"
+          },
+          "provisionedBy": {
+            "Ref": "provisionedBy"
+          }
+        }
+      },
+      "OverrideSettings": {
+        "AttributePayload": "MERGE"
+      }
+    },
+    "certificate": {
+      "Type": "AWS::IoT::Certificate",
+      "Properties": {
+        "CertificateId": {
+          "Ref": "AWS::IoT::Certificate::Id"
+        },
+        "Status": "ACTIVE"
+      }
+    },
+    "policy": {
+      "Type": "AWS::IoT::Policy",
+      "Properties": {
+        "PolicyName": "SmartHomeDevicePolicy"
+      }
+    }
+  }
+}

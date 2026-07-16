@@ -1,0 +1,2 @@
+# AWS Lambda functions (JITR handler, pre-provisioning hooks) are added by later
+# tasks. This placeholder keeps the empty directory in version control.

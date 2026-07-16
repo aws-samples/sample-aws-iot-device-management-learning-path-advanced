@@ -1,0 +1,2 @@
+# Provisioning template JSON files are added by later tasks (JITP, fleet-by-claim,
+# trusted-user). This placeholder keeps the empty directory in version control.

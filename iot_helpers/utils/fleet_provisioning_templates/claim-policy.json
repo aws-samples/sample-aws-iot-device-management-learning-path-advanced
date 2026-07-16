@@ -1,0 +1,29 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ClaimConnect",
+      "Effect": "Allow",
+      "Action": ["iot:Connect"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ClaimPublishReceiveFleetProvisioningOnly",
+      "Effect": "Allow",
+      "Action": ["iot:Publish", "iot:Receive"],
+      "Resource": [
+        "arn:aws:iot:*:*:topic/$aws/certificates/create/*",
+        "arn:aws:iot:*:*:topic/$aws/provisioning-templates/FleetClaimTemplate/provision/*"
+      ]
+    },
+    {
+      "Sid": "ClaimSubscribeFleetProvisioningOnly",
+      "Effect": "Allow",
+      "Action": ["iot:Subscribe"],
+      "Resource": [
+        "arn:aws:iot:*:*:topicfilter/$aws/certificates/create/*",
+        "arn:aws:iot:*:*:topicfilter/$aws/provisioning-templates/FleetClaimTemplate/provision/*"
+      ]
+    }
+  ]
+}

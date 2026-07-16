@@ -1,0 +1,25 @@
+# AWS IoT Device Management - Learning Path - Advanced
+# Two-plane sample: a boto3 CONTROL plane composed with an
+# aws-iot-device-sdk-python-v2 DEVICE plane (see README.md).
+
+# --- Control plane (device management via boto3 / `aws iot ...` APIs) ---
+boto3>=1.40.27
+colorama>=0.4.4
+requests>=2.32.4
+
+# --- Device plane (simulated device MQTT connectivity) ---
+# aws-iot-device-sdk-python-v2 provides the awscrt / awsiot packages used by
+# the reused AWS IoT Core Learning SDK MQTT connection construct
+# (awsiot.mqtt_connection_builder.mtls_from_path over awscrt.mqtt).
+git+https://github.com/aws/aws-iot-device-sdk-python-v2.git
+
+# --- Certificate parsing (Module 2 JITR handler) ---
+# The Just-in-Time Registration (JITR) handler parses the device certificate
+# subject (common name / country) out of the certificate PEM returned by
+# describe-certificate, to run the country allow-list guardrail.
+cryptography>=41.0.0
+
+# --- Testing / validation ---
+hypothesis>=6.0.0
+pytest>=7.0.0
+jsonschema>=4.0.0

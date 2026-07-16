@@ -1,0 +1,29 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ConnectAsThisDevice",
+      "Effect": "Allow",
+      "Action": "iot:Connect",
+      "Resource": "arn:aws:iot:us-east-1:ACCOUNT_ID:client/${iot:Connection.Thing.ThingName}"
+    },
+    {
+      "Sid": "PublishToOwnTopics",
+      "Effect": "Allow",
+      "Action": "iot:Publish",
+      "Resource": "arn:aws:iot:us-east-1:ACCOUNT_ID:topic/devices/${iot:Connection.Thing.ThingName}/*"
+    },
+    {
+      "Sid": "SubscribeToOwnTopics",
+      "Effect": "Allow",
+      "Action": "iot:Subscribe",
+      "Resource": "arn:aws:iot:us-east-1:ACCOUNT_ID:topicfilter/devices/${iot:Connection.Thing.ThingName}/*"
+    },
+    {
+      "Sid": "ReceiveOnOwnTopics",
+      "Effect": "Allow",
+      "Action": "iot:Receive",
+      "Resource": "arn:aws:iot:us-east-1:ACCOUNT_ID:topic/devices/${iot:Connection.Thing.ThingName}/*"
+    }
+  ]
+}
