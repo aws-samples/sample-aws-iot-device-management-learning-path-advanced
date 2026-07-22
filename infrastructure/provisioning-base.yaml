@@ -1,0 +1,653 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: >-
+  Advanced Device Provisioning End-to-End — base infrastructure (Region 1 / us-east-1
+  "lobby"). Pre-deploys the *undifferentiated plumbing* for the provisioning topic:
+  the AWS IoT Just-in-Time Provisioning (JITP) registration role, the AWS IoT fleet
+  provisioning service role, the two AWS Lambda execution roles, and two empty AWS
+  Lambda function skeletons (JITR registration handler + pre-provisioning hook).
+  Learners author and deploy the actual function code in Modules 3 and 4 via
+  'aws lambda update-function-code' against these pre-created function names/ARNs
+  (see design section 2.10, item 4 — RESOLVED: hybrid pre-deploy the plumbing,
+  learners deploy the code). No hardcoded secrets; IAM is scoped to this account and
+  region.
+
+# ---------------------------------------------------------------------------
+# Parameters
+# ---------------------------------------------------------------------------
+Parameters:
+  HomeFolder:
+    Type: String
+    Default: /workshop
+    Description: >-
+      Absolute path of the VS Code Server home/working folder provided by the
+      module-vscode-server-setup dependency. Surfaced to the Lambda skeletons and
+      the stack outputs so downstream module steps can reference a consistent
+      workspace path.
+    AllowedPattern: "^/.*"
+    ConstraintDescription: HomeFolder must be an absolute path beginning with '/'.
+
+# ---------------------------------------------------------------------------
+# Resources
+# ---------------------------------------------------------------------------
+Resources:
+
+  # =========================================================================
+  # AWS IoT service roles (trusted by iot.amazonaws.com)
+  # =========================================================================
+
+  # Role that AWS IoT Core assumes to register things during Just-in-Time
+  # Provisioning (referenced by the JITP registration-config RoleArn in Module 3).
+  JitpRegistrationRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: >-
+              Explicit RoleName is a fixed, module-prefixed stable identifier
+              (ws-aws-iot-dm-adv-prov-*, not ${AWS::StackName}-derived) that module steps
+              look up by exact name via iam get-role. The stack is disposable workshop
+              infrastructure, so replace-on-update is acceptable.
+    Properties:
+      RoleName: ws-aws-iot-dm-adv-prov-jitp-registration-role
+      Description: >-
+        Assumed by AWS IoT Core to register things and manage certificates during
+        Just-in-Time Provisioning (JITP). Referenced by the JITP registration-config
+        RoleArn authored in Module 3.
+      # Restrict who can make AWS IoT assume this role (confused-deputy prevention).
+      # SourceAccount is this account; SourceArn is a CA certificate ARN because this
+      # workshop defines the JITP provisioning template INSIDE the CA certificate's
+      # registrationConfig (not as a standalone provisioningtemplate resource). For
+      # that setup AWS IoT passes a `cacert/...` SourceArn, so a `provisioningtemplate/*`
+      # ARN here would NOT match and would deny every JITP registration. We use a
+      # `cacert/*` wildcard because the CA certificate ID is not known until the CA is
+      # registered (a chicken-and-egg with RegisterCACertificate).
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: iot.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount:
+                  Ref: AWS::AccountId
+              ArnLike:
+                aws:SourceArn:
+                  Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:cacert/*"
+      # AWS-managed policy for provisioning registration roles. A hand-scoped policy
+      # was tried first but the JITP provisioning engine calls actions (e.g. the
+      # RegisterThing entry point) beyond an easily enumerated registry/cert subset,
+      # so registration failed with a bare AccessDeniedException and the certificate
+      # stayed PENDING_ACTIVATION. This managed policy is what AWS documents for JITP
+      # registration roles; least-privilege is instead enforced by the trust-policy
+      # SourceArn/SourceAccount conditions above (this role is only ever assumed by
+      # iot.amazonaws.com during provisioning).
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSIoTThingsRegistration
+      Tags:
+        - Key: workshop
+          Value: aws-iot-dm-advanced-provisioning
+        - Key: purpose
+          Value: jitp-registration
+
+  # Role that AWS IoT Core assumes to register things during Fleet Provisioning
+  # (referenced as the provisioning template's provisioningRoleArn in Module 4/5).
+  FleetProvisioningRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: >-
+              Explicit RoleName is a fixed, module-prefixed stable identifier
+              (ws-aws-iot-dm-adv-prov-*, not ${AWS::StackName}-derived) that module steps
+              look up by exact name via iam get-role. The stack is disposable workshop
+              infrastructure, so replace-on-update is acceptable.
+    Properties:
+      RoleName: ws-aws-iot-dm-adv-prov-fleet-provisioning-role
+      Description: >-
+        Assumed by AWS IoT Core to register things during Fleet Provisioning by
+        claim (Module 4) and by trusted user (Module 5). Referenced as the
+        provisioning template's provisioningRoleArn.
+      # Restrict who can make AWS IoT assume this role (confused-deputy prevention).
+      # SourceAccount is this account; SourceArn is a `provisioningtemplate/<name>` ARN
+      # because fleet provisioning uses standalone AWS::IoT::ProvisioningTemplate resources
+      # (unlike JITP, which embeds its template in the CA and therefore uses a `cacert/*`
+      # SourceArn — see JitpRegistrationRole). We scope to exactly the two templates this
+      # workshop creates. If a template is renamed, update these ARNs or the assume-role
+      # will be denied and provisioning will stall in PENDING_ACTIVATION.
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: iot.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount:
+                  Ref: AWS::AccountId
+              ArnLike:
+                aws:SourceArn:
+                  - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:provisioningtemplate/FleetClaimTemplate"
+                  - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:provisioningtemplate/TrustedUserTemplate"
+      # AWS-managed policy for provisioning registration roles. A hand-scoped inline policy
+      # was used originally but it mirrors the JITP one that failed end-to-end: the
+      # provisioning engine calls actions (e.g. the RegisterThing entry point) beyond an
+      # easily enumerated registry/cert subset, so fleet registration would stall with a
+      # bare AccessDeniedException and the certificate stuck in PENDING_ACTIVATION. This is
+      # the policy AWS documents for provisioning registration roles; least-privilege is
+      # enforced by the trust-policy SourceArn/SourceAccount conditions above. See
+      # authoring-standards/base-infrastructure-iam-conventions.md.
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSIoTThingsRegistration
+      Tags:
+        - Key: workshop
+          Value: aws-iot-dm-advanced-provisioning
+        - Key: purpose
+          Value: fleet-provisioning
+
+  # Role that MODELS THE TRUSTED USER (the mobile app) in Fleet Provisioning by
+  # Trusted User (Module 5). Unlike the two service roles above (assumed by
+  # iot.amazonaws.com), this role is assumed by the LEARNER's own workshop identity so
+  # they can run — and prove the boundary of — exactly the scoped permission a real
+  # Amazon Cognito-backed app would carry: create provisioning claims for the one named
+  # TrustedUserTemplate and nothing else. It is pre-created here because a Workshop
+  # Studio participant account typically cannot create IAM roles interactively; the
+  # module looks its ARN up by exact name with iam get-role and assumes it.
+  #
+  # RoleName and inline-policy name are FIXED module-prefixed names on purpose:
+  # the module content references them by literal name (the assume-role challenge shows
+  # 'assumed-role/ws-aws-iot-dm-adv-prov-trusted-user-role/...' and verifies the scoped
+  # policy with get-role-policy --policy-name TrustedUserCreateClaimScoped). Requires
+  # CAPABILITY_NAMED_IAM (already required by the other named roles in this stack).
+  TrustedUserRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: >-
+              RoleName is fixed as ws-aws-iot-dm-adv-prov-trusted-user-role on purpose:
+              Module 5 content references it by literal name (the assume-role challenge and
+              get-role-policy --policy-name TrustedUserCreateClaimScoped). Per workshop
+              authoring convention 18, roles referenced by literal name must have a
+              fixed name. Replace-on-update is acceptable for this disposable stack.
+    Properties:
+      RoleName: ws-aws-iot-dm-adv-prov-trusted-user-role
+      Description: >-
+        Models the trusted user (mobile app) in Fleet Provisioning by Trusted User
+        (Module 5). Assumed by the learner's workshop identity; scoped to
+        iot:CreateProvisioningClaim on TrustedUserTemplate only.
+      # Trusted by this account's principals (the learner's workshop identity assumes it).
+      # Actual assume is still gated by the caller's own identity-based permissions.
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS:
+                Fn::Sub: "arn:${AWS::Partition}:iam::${AWS::AccountId}:root"
+            Action: sts:AssumeRole
+      # Least privilege: exactly one action, scoped to exactly one named template. This is
+      # the teaching artifact of Module 5 — a claim for any OTHER template is denied by IAM
+      # before AWS IoT Core is even consulted.
+      Policies:
+        - PolicyName: TrustedUserCreateClaimScoped
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: TrustedUserCreateClaimForTrustedUserTemplateOnly
+                Effect: Allow
+                Action: iot:CreateProvisioningClaim
+                Resource:
+                  Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:provisioningtemplate/TrustedUserTemplate"
+      Tags:
+        - Key: workshop
+          Value: aws-iot-dm-advanced-provisioning
+        - Key: purpose
+          Value: trusted-user-model
+
+  # =========================================================================
+  # AWS Lambda execution roles (trusted by lambda.amazonaws.com)
+  # =========================================================================
+
+  # Execution role for the Just-in-Time Registration (JITR) handler (Module 3).
+  # Basic execution (Amazon CloudWatch Logs) + the scoped iot:* actions the JITR
+  # handler needs to activate the certificate and attach the policy/thing.
+  JitrHandlerExecutionRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: >-
+              Explicit RoleName is a fixed, module-prefixed stable identifier
+              (ws-aws-iot-dm-adv-prov-*, not ${AWS::StackName}-derived) that module steps
+              look up by exact name via iam get-role. The stack is disposable workshop
+              infrastructure, so replace-on-update is acceptable.
+    Properties:
+      RoleName: ws-aws-iot-dm-adv-prov-jitr-handler-role
+      Description: >-
+        Execution role for the Just-in-Time Registration (JITR) AWS Lambda handler.
+        Grants Amazon CloudWatch Logs write access and the scoped AWS IoT actions
+        the handler uses (UpdateCertificate, AttachPolicy, CreateThing,
+        AttachThingPrincipal).
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: cloudwatch-logs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: WriteLogs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - Fn::Sub: "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/ws-aws-iot-dm-adv-prov-jitr-registration-handler:*"
+        - PolicyName: jitr-iot-permissions
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ActivateCertificate
+                Effect: Allow
+                Action:
+                  - iot:UpdateCertificate
+                  - iot:DescribeCertificate
+                Resource:
+                  - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:cert/*"
+              - Sid: AttachPolicyAndThing
+                Effect: Allow
+                Action:
+                  - iot:AttachPolicy
+                  - iot:AttachThingPrincipal
+                  - iot:CreateThing
+                  - iot:DescribeThing
+                Resource:
+                  - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:cert/*"
+                  - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:policy/*"
+                  - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:thing/*"
+      Tags:
+        - Key: workshop
+          Value: aws-iot-dm-advanced-provisioning
+        - Key: purpose
+          Value: jitr-handler-execution
+
+  # Execution role for the fleet pre-provisioning hook (Module 4). Basic execution
+  # (Amazon CloudWatch Logs) + minimal read-only AWS IoT describe access for the
+  # advanced hook's allow/deny lookups. The hook itself returns allow/deny +
+  # parameterOverrides; it does not mutate the registry.
+  PreProvisioningHookExecutionRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: >-
+              Explicit RoleName is a fixed, module-prefixed stable identifier
+              (ws-aws-iot-dm-adv-prov-*, not ${AWS::StackName}-derived) that module steps
+              look up by exact name via iam get-role. The stack is disposable workshop
+              infrastructure, so replace-on-update is acceptable.
+    Properties:
+      RoleName: ws-aws-iot-dm-adv-prov-pre-prov-hook-role
+      Description: >-
+        Execution role for the fleet pre-provisioning hook AWS Lambda function.
+        Grants Amazon CloudWatch Logs write access and read-only AWS IoT describe
+        access for the advanced hook's validation lookups.
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: cloudwatch-logs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: WriteLogs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - Fn::Sub: "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/ws-aws-iot-dm-adv-prov-pre-provisioning-hook:*"
+        - PolicyName: hook-iot-read
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: DescribeForValidation
+                Effect: Allow
+                Action:
+                  - iot:DescribeCertificate
+                  - iot:DescribeThing
+                Resource:
+                  - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:cert/*"
+                  - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:thing/*"
+      Tags:
+        - Key: workshop
+          Value: aws-iot-dm-advanced-provisioning
+        - Key: purpose
+          Value: pre-provisioning-hook-execution
+
+  # =========================================================================
+  # Amazon CloudWatch Logs groups (pre-created so log wiring is clean on day one)
+  # =========================================================================
+
+  JitrHandlerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W84
+            reason: >-
+              Ephemeral workshop log group for a disposable stack; log data is
+              non-sensitive placeholder/handler output. A customer-managed KMS key
+              adds cost and operational complexity with no security benefit here.
+      checkov:
+        skip:
+          - id: CKV_AWS_158
+            comment: >-
+              Ephemeral workshop log group; non-sensitive logs, no CMK encryption
+              required for disposable teaching infrastructure.
+    Properties:
+      LogGroupName: /aws/lambda/ws-aws-iot-dm-adv-prov-jitr-registration-handler
+      RetentionInDays: 14
+
+  PreProvisioningHookLogGroup:
+    Type: AWS::Logs::LogGroup
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W84
+            reason: >-
+              Ephemeral workshop log group for a disposable stack; log data is
+              non-sensitive placeholder/handler output. A customer-managed KMS key
+              adds cost and operational complexity with no security benefit here.
+      checkov:
+        skip:
+          - id: CKV_AWS_158
+            comment: >-
+              Ephemeral workshop log group; non-sensitive logs, no CMK encryption
+              required for disposable teaching infrastructure.
+    Properties:
+      LogGroupName: /aws/lambda/ws-aws-iot-dm-adv-prov-pre-provisioning-hook
+      RetentionInDays: 14
+
+  # =========================================================================
+  # AWS Lambda function SKELETONS
+  # Minimal inline placeholders so the function ARNs, log groups, and role wiring
+  # exist and are bootstrap-clean from first deploy. Learners replace the code in
+  # Modules 3 and 4 via 'aws lambda update-function-code' (design section 2.10,
+  # item 4). These skeletons intentionally return a "not yet implemented" marker.
+  # =========================================================================
+
+  JitrRegistrationHandlerFunction:
+    Type: AWS::Lambda::Function
+    DependsOn:
+      - JitrHandlerLogGroup
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W58
+            reason: >-
+              False positive: JitrHandlerExecutionRole grants logs:CreateLogStream
+              and logs:PutLogEvents scoped to this function's log group. cfn_nag does
+              not trace the scoped inline policy.
+          - id: W89
+            reason: >-
+              Function calls public AWS IoT and CloudWatch Logs APIs only; a VPC would
+              add NAT plumbing with no benefit for disposable workshop infrastructure.
+          - id: W92
+            reason: >-
+              Single-learner invocation in a disposable stack; reserved concurrency is
+              unnecessary.
+      checkov:
+        skip:
+          - id: CKV_AWS_115
+            comment: Single-learner workshop function; no concurrency limit needed.
+          - id: CKV_AWS_116
+            comment: >-
+              Fail-fast skeleton with no async payloads to preserve; a DLQ is
+              unnecessary for disposable teaching infrastructure.
+          - id: CKV_AWS_117
+            comment: Function uses only public AWS APIs; VPC deployment not required.
+          - id: CKV_AWS_173
+            comment: >-
+              Environment variables are non-sensitive (HOME_FOLDER path and a topic
+              string); CMK encryption not required.
+    Properties:
+      FunctionName: ws-aws-iot-dm-adv-prov-jitr-registration-handler
+      Description: >-
+        Just-in-Time Registration (JITR) handler skeleton. Learners deploy the real
+        handler code in Module 3 (Task 9.9) via aws lambda update-function-code.
+      Runtime: python3.12
+      Handler: index.handler
+      Timeout: 30
+      MemorySize: 128
+      Role:
+        Fn::GetAtt:
+          - JitrHandlerExecutionRole
+          - Arn
+      Environment:
+        Variables:
+          HOME_FOLDER:
+            Ref: HomeFolder
+          WORKSHOP_TOPIC: aws-iot-dm-advanced-provisioning
+      Code:
+        ZipFile: |
+          """JITR registration handler skeleton (placeholder).
+
+          Learners replace this in Module 3 (Task 9.9) with the real handler that
+          activates the device certificate and attaches the policy/thing on the
+          registration event delivered from an AWS IoT topic rule.
+          """
+
+          def handler(event, context):
+              raise NotImplementedError(
+                  "JITR registration handler not yet implemented. "
+                  "Deploy your Module 3 code with 'aws lambda update-function-code'."
+              )
+      Tags:
+        - Key: workshop
+          Value: aws-iot-dm-advanced-provisioning
+        - Key: purpose
+          Value: jitr-registration-handler
+
+  PreProvisioningHookFunction:
+    Type: AWS::Lambda::Function
+    DependsOn:
+      - PreProvisioningHookLogGroup
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W58
+            reason: >-
+              False positive: PreProvisioningHookExecutionRole grants
+              logs:CreateLogStream and logs:PutLogEvents scoped to this function's log
+              group. cfn_nag does not trace the scoped inline policy.
+          - id: W89
+            reason: >-
+              Function calls public AWS IoT and CloudWatch Logs APIs only; a VPC would
+              add NAT plumbing with no benefit for disposable workshop infrastructure.
+          - id: W92
+            reason: >-
+              Single-learner invocation in a disposable stack; reserved concurrency is
+              unnecessary.
+      checkov:
+        skip:
+          - id: CKV_AWS_115
+            comment: Single-learner workshop function; no concurrency limit needed.
+          - id: CKV_AWS_116
+            comment: >-
+              Fail-closed skeleton with no async payloads to preserve; a DLQ is
+              unnecessary for disposable teaching infrastructure.
+          - id: CKV_AWS_117
+            comment: Function uses only public AWS APIs; VPC deployment not required.
+          - id: CKV_AWS_173
+            comment: >-
+              Environment variables are non-sensitive (HOME_FOLDER path and a topic
+              string); CMK encryption not required.
+    Properties:
+      FunctionName: ws-aws-iot-dm-adv-prov-pre-provisioning-hook
+      Description: >-
+        Fleet pre-provisioning hook skeleton. Learners deploy the real hook code in
+        Module 4 (Task 10.9) via aws lambda update-function-code. Until then the
+        skeleton denies provisioning (fail-closed) so the wiring can be exercised
+        safely.
+      Runtime: python3.12
+      Handler: index.handler
+      Timeout: 30
+      MemorySize: 128
+      Role:
+        Fn::GetAtt:
+          - PreProvisioningHookExecutionRole
+          - Arn
+      Environment:
+        Variables:
+          HOME_FOLDER:
+            Ref: HomeFolder
+          WORKSHOP_TOPIC: aws-iot-dm-advanced-provisioning
+      Code:
+        ZipFile: |
+          """Fleet pre-provisioning hook skeleton (placeholder).
+
+          Learners replace this in Module 4 (Task 10.9) with the real hook that
+          returns an allow/deny decision plus optional parameterOverrides. Until
+          then the skeleton is fail-closed (allowProvisioning: false) so the
+          template wiring can be exercised without accidentally provisioning
+          devices.
+          """
+
+          def handler(event, context):
+              return {
+                  "allowProvisioning": False,
+                  "parameterOverrides": {
+                      "provisionedBy": "pre-provisioning-hook-skeleton"
+                  }
+              }
+      Tags:
+        - Key: workshop
+          Value: aws-iot-dm-advanced-provisioning
+        - Key: purpose
+          Value: pre-provisioning-hook
+
+  # Allow AWS IoT Core to invoke the pre-provisioning hook when a fleet
+  # provisioning template references it (Module 4 create-provisioning-template
+  # --pre-provisioning-hook).
+  PreProvisioningHookInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName:
+        Fn::GetAtt:
+          - PreProvisioningHookFunction
+          - Arn
+      Action: lambda:InvokeFunction
+      Principal: iot.amazonaws.com
+      SourceAccount:
+        Ref: AWS::AccountId
+
+  # Allow AWS IoT Core (topic rule action) to invoke the JITR handler when the
+  # Module 3 rule on $aws/events/certificates/registered/+ fires.
+  JitrHandlerInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName:
+        Fn::GetAtt:
+          - JitrRegistrationHandlerFunction
+          - Arn
+      Action: lambda:InvokeFunction
+      Principal: iot.amazonaws.com
+      SourceAccount:
+        Ref: AWS::AccountId
+
+# ---------------------------------------------------------------------------
+# Outputs — stable identifiers the module steps reference (CLI-first)
+# ---------------------------------------------------------------------------
+Outputs:
+  HomeFolder:
+    Description: The VS Code Server home/working folder path passed to the stack.
+    Value:
+      Ref: HomeFolder
+
+  JitpRegistrationRoleArn:
+    Description: RoleArn for the JITP registration-config authored in Module 3.
+    Value:
+      Fn::GetAtt:
+        - JitpRegistrationRole
+        - Arn
+    Export:
+      Name:
+        Fn::Sub: "${AWS::StackName}-JitpRegistrationRoleArn"
+
+  FleetProvisioningRoleArn:
+    Description: provisioningRoleArn for the fleet provisioning templates in Modules 4 and 5.
+    Value:
+      Fn::GetAtt:
+        - FleetProvisioningRole
+        - Arn
+    Export:
+      Name:
+        Fn::Sub: "${AWS::StackName}-FleetProvisioningRoleArn"
+
+  TrustedUserRoleArn:
+    Description: >-
+      ARN of the role that models the trusted user (mobile app) in Module 5. The module
+      looks this up and assumes it to run with exactly the scoped CreateProvisioningClaim
+      permission.
+    Value:
+      Fn::GetAtt:
+        - TrustedUserRole
+        - Arn
+    Export:
+      Name:
+        Fn::Sub: "${AWS::StackName}-TrustedUserRoleArn"
+
+  JitrRegistrationHandlerFunctionName:
+    Description: Function name learners target with aws lambda update-function-code in Module 3.
+    Value:
+      Ref: JitrRegistrationHandlerFunction
+    Export:
+      Name:
+        Fn::Sub: "${AWS::StackName}-JitrRegistrationHandlerFunctionName"
+
+  JitrRegistrationHandlerFunctionArn:
+    Description: Function ARN used as the AWS IoT topic rule Lambda target in Module 3.
+    Value:
+      Fn::GetAtt:
+        - JitrRegistrationHandlerFunction
+        - Arn
+    Export:
+      Name:
+        Fn::Sub: "${AWS::StackName}-JitrRegistrationHandlerFunctionArn"
+
+  PreProvisioningHookFunctionName:
+    Description: Function name learners target with aws lambda update-function-code in Module 4.
+    Value:
+      Ref: PreProvisioningHookFunction
+    Export:
+      Name:
+        Fn::Sub: "${AWS::StackName}-PreProvisioningHookFunctionName"
+
+  PreProvisioningHookFunctionArn:
+    Description: >-
+      Function ARN referenced by create-provisioning-template --pre-provisioning-hook
+      in Module 4.
+    Value:
+      Fn::GetAtt:
+        - PreProvisioningHookFunction
+        - Arn
+    Export:
+      Name:
+        Fn::Sub: "${AWS::StackName}-PreProvisioningHookFunctionArn"
