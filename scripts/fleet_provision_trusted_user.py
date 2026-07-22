@@ -105,6 +105,33 @@ def _provision_topics(template_name):
     return base, f"{base}/accepted", f"{base}/rejected"
 
 
+# --- Verbose MQTT payload display (educational) --------------------------
+# The module teaches the reserved-topic request/response, so by default this
+# script prints the FULL payload it publishes and receives on each topic. Long
+# secret fields (PEMs, private key, ownership token) are truncated so the shape
+# stays readable and a full private key is not dumped to the terminal.
+_TRUNCATE_KEYS = ("certificatePem", "privateKey", "publicKey", "keyPair")
+
+
+def _fmt_payload(payload):
+    """Pretty-print an MQTT payload, truncating long/secret fields for readability."""
+    def _trunc(key, value):
+        if isinstance(value, str) and key in _TRUNCATE_KEYS:
+            first = value.strip().splitlines()[0] if value.strip() else ""
+            return f"{first} …(truncated, {len(value)} chars total)"
+        if isinstance(value, str) and key == "certificateOwnershipToken":
+            return f"{value[:16]}… (truncated, {len(value)} chars total)"
+        return value
+
+    shown = {k: _trunc(k, v) for k, v in payload.items()} if isinstance(payload, dict) else payload
+    return json.dumps(shown, indent=2)
+
+
+def _indent(text, prefix="   "):
+    """Indent every line of a block for a tidy 'topic → payload' display."""
+    return "\n".join(prefix + line for line in text.splitlines())
+
+
 def load_template_body(template_file):
     """Load a provisioning template JSON file and return it as a compact string."""
     with open(template_file, "r", encoding="utf-8") as handle:
@@ -260,17 +287,22 @@ def provision(template_name, claim_cert, claim_key, serial_number, device_type,
     )
 
     # 1) CreateKeysAndCertificate — AWS IoT Core mints the permanent key + cert.
+    print(f"📡 SUBSCRIBE {CREATE_KEYS_ACCEPTED}")
+    print(f"📡 SUBSCRIBE {CREATE_KEYS_REJECTED}")
     device.subscribe(CREATE_KEYS_ACCEPTED, qos=1)
     device.subscribe(CREATE_KEYS_REJECTED, qos=1)
-    print(f"📨 Publishing {CREATE_KEYS_TOPIC} (empty payload) ...")
+    print(f"\n📨 PUBLISH → {CREATE_KEYS_TOPIC}")
+    print("   payload: {}   (empty body — CreateKeysAndCertificate takes no input)")
     device.publish(CREATE_KEYS_TOPIC, {}, qos=1)
     created = _wait_for(device, CREATE_KEYS_ACCEPTED, CREATE_KEYS_REJECTED)
+    print(f"📥 RECEIVED ← {CREATE_KEYS_ACCEPTED}")
+    print(_indent(_fmt_payload(created)))
 
     ownership_token = created["certificateOwnershipToken"]
     permanent_cert = created["certificatePem"]
     permanent_key = created["privateKey"]
-    print(f"🔑 Received permanent certificate {created.get('certificateId', '')[:12]}... "
-          f"and a certificateOwnershipToken")
+    print(f"\n🔑 Extracted the permanent certificate "
+          f"({created.get('certificateId', '')[:12]}...) and the certificateOwnershipToken")
 
     cert_out = f"{out_prefix}.cert.pem"
     key_out = f"{out_prefix}.private.key"
@@ -282,6 +314,8 @@ def provision(template_name, claim_cert, claim_key, serial_number, device_type,
 
     # 2) RegisterThing — prove ownership with the token; pass template parameters.
     provision_topic, provision_accepted, provision_rejected = _provision_topics(template_name)
+    print(f"\n📡 SUBSCRIBE {provision_accepted}")
+    print(f"📡 SUBSCRIBE {provision_rejected}")
     device.subscribe(provision_accepted, qos=1)
     device.subscribe(provision_rejected, qos=1)
     register_payload = {
@@ -291,9 +325,12 @@ def provision(template_name, claim_cert, claim_key, serial_number, device_type,
             "DeviceType": device_type,
         },
     }
-    print(f"📨 Publishing {provision_topic} with the ownership token + parameters ...")
+    print(f"\n📨 PUBLISH → {provision_topic}")
+    print(_indent(_fmt_payload(register_payload)))
     device.publish(provision_topic, register_payload, qos=1)
     registered = _wait_for(device, provision_accepted, provision_rejected)
+    print(f"📥 RECEIVED ← {provision_accepted}")
+    print(_indent(_fmt_payload(registered)))
 
     print("\n🎉 Device provisioned by trusted user")
     print(f"   thingName: {registered.get('thingName')}")
