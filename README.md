@@ -1,12 +1,27 @@
 # AWS IoT Device Management - Learning Path - Advanced
 
-Sample code for the **ADVANCED** AWS IoT Device Management learning path. It accompanies the **Advanced Device Provisioning End-to-End** workshop topic and is the one-repo-per-learning-path sibling of [`sample-aws-iot-core-learning-path-basics`](../sample-aws-iot-core-learning-path-basics) and [`sample-aws-iot-device-management-learning-path-basics`](../sample-aws-iot-device-management-learning-path-basics).
+Sample code for the **ADVANCED** AWS IoT Device Management learning path. It accompanies the **AWS IoT Device Management: Advanced** workshop (all of its topics) and is the one-repo-per-learning-path sibling of [`sample-aws-iot-core-learning-path-basics`](../sample-aws-iot-core-learning-path-basics) and [`sample-aws-iot-device-management-learning-path-basics`](../sample-aws-iot-device-management-learning-path-basics).
 
-It demonstrates every AWS IoT Core device-provisioning method hands-on — Just-in-Time Provisioning (JITP) and Just-in-Time Registration (JITR), Fleet Provisioning by claim and by trusted user, and Multi-Account Registration (MAR) — using modern Python scripts that compose a **boto3 control plane** with an **AWS IoT Device SDK for Python v2 device plane** so you both create the cloud-side resources and connect a simulated device over MQTT.
+It is the sample-code companion for the **whole advanced learning path** — a set of self-contained AWS IoT Device Management topics (device provisioning, fleet task execution, fleet search & analytics, software delivery / OTA, secure remote access, and observability). The scripts compose a **boto3 control plane** with an **AWS IoT Device SDK for Python v2 device plane**, so you both create the cloud-side resources and connect a simulated device over MQTT. Scripts for each topic land in this repo as that topic's workshop content is published.
 
 ## 🌍 Available Languages
 
 This README is provided in English. The scripts themselves are localized: set `AWS_IOT_LANG` (`en`, `es`, `ja`, `ko`, `pt`, `zh`, `de`, `it`, `fr`) or pick a language interactively on first run; missing translations fall back to English.
+
+## 🎯 Topics in This Learning Path
+
+Each topic is self-contained — run them in order or pick the ones you need. Scripts are added here as each topic's hands-on content is published.
+
+| # | Topic | Status | Scripts in this repo |
+|---|-------|--------|----------------------|
+| 1 | **Device Provisioning End-to-End** — JITP/JITR, Fleet Provisioning by claim and by trusted user, Multi-Account Registration | ✅ Available | Yes — see [Available Scripts](#-available-scripts) |
+| 2 | **Fleet Task Execution** — AWS IoT Jobs and AWS IoT Commands across a fleet | 🚧 In progress | Planned |
+| 3 | **Fleet Search & Analytics** — Fleet Indexing, aggregations, thing groups | 🚧 In progress | Planned |
+| 4 | **Software Delivery / OTA** — Software Package Catalog, versioned deployments via AWS IoT Jobs, SBOM | 🚧 In progress | Planned |
+| 5 | **Secure Remote Access** — AWS IoT Secure Tunneling and SSH over a tunnel | 🚧 In progress | Planned |
+| 6 | **Observability & Troubleshooting** — AWS IoT logging, Amazon CloudWatch, AWS CloudTrail | 🚧 In progress | Planned |
+
+> The rest of this README documents **Topic 1 — Device Provisioning End-to-End**, the topic whose scripts ship today. As the other topics are published, their scripts (and their own base-infrastructure and cost notes) are added under the same structure.
 
 ## 👥 Target Audience
 
@@ -16,7 +31,9 @@ This README is provided in English. The scripts themselves are localized: set `A
 
 **Learning Level:** Advanced — a hands-on tour of every provisioning method and when to use each
 
-## 🎯 Learning Objectives
+## 🎯 Device Provisioning — Learning Objectives
+
+By the end of Topic 1 you can:
 
 - **Custom CA + JITP**: Register a certificate authority and auto-provision devices on first connect with an embedded provisioning template
 - **JITR**: Drive registration from the `$aws/events/certificates/registered` event with a Lambda handler and a country allow-list guardrail
@@ -44,9 +61,9 @@ Both planes install together from `requirements.txt`.
 - **OpenSSL** on the PATH (used for the custom CA and Certificate Signing Request exercises)
 - **Git** for cloning the repository and installing the device-plane SDK
 
-## 💰 Cost Analysis
+## 💰 Cost Analysis — Device Provisioning topic
 
-**This project creates real AWS resources that will incur charges. Here's what to expect for a complete run:**
+**This topic creates real AWS resources that will incur charges. Here's what to expect for a complete run:**
 
 | Service | Usage | Estimated Cost (USD) |
 |---------|-------|---------------------|
@@ -90,7 +107,7 @@ aws cloudformation deploy \
 # 5. Run a method (example: Fleet Provisioning by claim). See "Recommended workflow" below.
 ```
 
-## 🏗️ Base Infrastructure (deploy this first)
+## 🏗️ Base Infrastructure — Device Provisioning (deploy this first)
 
 Unlike the *basics* sample — where one script creates all of its own infrastructure — the advanced scripts **assume a small set of pre-created "base" resources exist** (the roles AWS IoT assumes during provisioning, plus two Lambda skeletons and their execution roles). At an AWS-led event this stack is deployed for you; **running standalone you deploy it once** with the template shipped in this repo:
 
@@ -112,6 +129,8 @@ HOOK_ARN=$(aws lambda get-function  --function-name ws-aws-iot-dm-adv-prov-pre-p
 The stack creates: the **JITP registration role**, the **fleet provisioning role**, the **trusted-user role** (models the mobile app; you assume it), the **JITR handler** Lambda + role, the **pre-provisioning hook** Lambda + role, and their CloudWatch log groups. The Lambda skeletons return "not implemented" until you deploy the handler code (the JITR and hook scripts/steps do this). Delete the stack when finished (see Cleanup).
 
 ## 📚 Available Scripts
+
+These are the **Device Provisioning End-to-End** scripts (Topic 1). Other topics' scripts will be listed here as they ship.
 
 | Script | Provisioning method | Purpose |
 |--------|--------------------|---------|
