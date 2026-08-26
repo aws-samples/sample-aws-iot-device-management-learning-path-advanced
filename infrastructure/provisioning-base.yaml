@@ -341,6 +341,56 @@ Resources:
         - Key: purpose
           Value: pre-provisioning-hook-execution
 
+  # Execution role for the OPTIONAL certificate-provider signing Lambda (Module 3
+  # optional lab). The signer only reads a CSR from the invocation event and
+  # returns a signed certificate it produces in memory — it does NOT call AWS IoT
+  # or any other service — so it needs Amazon CloudWatch Logs write access and
+  # nothing else. (The real-world AWS Private CA variant would additionally grant
+  # acm-pca:IssueCertificate/GetCertificate; the workshop deliberately does not,
+  # to keep the lab free of AWS Private CA charges — see the module content.)
+  CertProviderSignerExecutionRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: >-
+              Explicit RoleName is a fixed, module-prefixed stable identifier
+              (ws-aws-iot-dm-adv-prov-*, not ${AWS::StackName}-derived) that the optional
+              Module 3 lab looks up by exact name via iam get-role. The stack is disposable
+              workshop infrastructure, so replace-on-update is acceptable.
+    Properties:
+      RoleName: ws-aws-iot-dm-adv-prov-cert-signer-role
+      Description: >-
+        Execution role for the OPTIONAL AWS IoT Core certificate-provider signing
+        Lambda (Module 3 optional lab). Grants only Amazon CloudWatch Logs write
+        access; the signer produces the certificate in memory and calls no other
+        AWS service.
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: cloudwatch-logs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: WriteLogs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - Fn::Sub: "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/ws-aws-iot-dm-adv-prov-cert-provider-signer:*"
+      Tags:
+        - Key: workshop
+          Value: aws-iot-dm-advanced-provisioning
+        - Key: purpose
+          Value: cert-provider-signer-execution
+
   # =========================================================================
   # Amazon CloudWatch Logs groups (pre-created so log wiring is clean on day one)
   # =========================================================================
@@ -383,6 +433,26 @@ Resources:
               required for disposable teaching infrastructure.
     Properties:
       LogGroupName: /aws/lambda/ws-aws-iot-dm-adv-prov-pre-provisioning-hook
+      RetentionInDays: 14
+
+  CertProviderSignerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W84
+            reason: >-
+              Ephemeral workshop log group for a disposable stack; log data is
+              non-sensitive placeholder/handler output. A customer-managed KMS key
+              adds cost and operational complexity with no security benefit here.
+      checkov:
+        skip:
+          - id: CKV_AWS_158
+            comment: >-
+              Ephemeral workshop log group; non-sensitive logs, no CMK encryption
+              required for disposable teaching infrastructure.
+    Properties:
+      LogGroupName: /aws/lambda/ws-aws-iot-dm-adv-prov-cert-provider-signer
       RetentionInDays: 14
 
   # =========================================================================
@@ -543,6 +613,92 @@ Resources:
         - Key: purpose
           Value: pre-provisioning-hook
 
+  # OPTIONAL certificate-provider signing function (Module 3 optional lab).
+  # Pre-created as a fail-closed skeleton; learners deploy the real signer code
+  # (which needs the third-party 'cryptography' library, so it is deployed WITH
+  # bundled dependencies via update-function-code, not as an inline zip). Until
+  # then the skeleton raises so no unsigned/placeholder certificate is ever
+  # returned to AWS IoT Core. Timeout is 10s (the certificate-provider integration
+  # itself enforces a ~5s signing budget; the real signer stays well under it).
+  CertProviderSignerFunction:
+    Type: AWS::Lambda::Function
+    DependsOn:
+      - CertProviderSignerLogGroup
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W58
+            reason: >-
+              False positive: CertProviderSignerExecutionRole grants
+              logs:CreateLogStream and logs:PutLogEvents scoped to this function's log
+              group. cfn_nag does not trace the scoped inline policy.
+          - id: W89
+            reason: >-
+              Function calls no AWS services (it signs in memory) and reaches only
+              Amazon CloudWatch Logs; a VPC would add NAT plumbing with no benefit for
+              disposable workshop infrastructure.
+          - id: W92
+            reason: >-
+              Single-learner invocation in a disposable stack; reserved concurrency is
+              unnecessary.
+      checkov:
+        skip:
+          - id: CKV_AWS_115
+            comment: Single-learner workshop function; no concurrency limit needed.
+          - id: CKV_AWS_116
+            comment: >-
+              Synchronous fail-closed skeleton with no async payloads to preserve; a DLQ
+              is unnecessary for disposable teaching infrastructure.
+          - id: CKV_AWS_117
+            comment: Function uses only public AWS APIs; VPC deployment not required.
+          - id: CKV_AWS_173
+            comment: >-
+              Environment variables are non-sensitive (HOME_FOLDER path and a topic
+              string); CMK encryption not required.
+    Properties:
+      FunctionName: ws-aws-iot-dm-adv-prov-cert-provider-signer
+      Description: >-
+        OPTIONAL AWS IoT Core certificate-provider signing function skeleton.
+        Learners deploy the real signer code (lambdas/certificate_provider_signer.py,
+        bundled with the cryptography library) in the Module 3 optional lab via
+        aws lambda update-function-code. Until then this skeleton raises
+        (fail-closed) so no placeholder certificate is ever returned.
+      Runtime: python3.12
+      Handler: index.handler
+      Timeout: 10
+      MemorySize: 256
+      Role:
+        Fn::GetAtt:
+          - CertProviderSignerExecutionRole
+          - Arn
+      Environment:
+        Variables:
+          HOME_FOLDER:
+            Ref: HomeFolder
+          WORKSHOP_TOPIC: aws-iot-dm-advanced-provisioning
+      Code:
+        ZipFile: |
+          """Certificate-provider signing skeleton (placeholder).
+
+          Learners replace this in the Module 3 OPTIONAL certificate-provider lab
+          with the real signer (lambdas/certificate_provider_signer.py), deployed
+          WITH the 'cryptography' dependency bundled. Until then this skeleton
+          fails closed so a certificate provider wired to it cannot hand out a
+          placeholder certificate.
+          """
+
+          def handler(event, context):
+              raise NotImplementedError(
+                  "Certificate-provider signer not yet implemented. Deploy the "
+                  "Module 3 optional-lab code (with the cryptography dependency "
+                  "bundled) using 'aws lambda update-function-code'."
+              )
+      Tags:
+        - Key: workshop
+          Value: aws-iot-dm-advanced-provisioning
+        - Key: purpose
+          Value: cert-provider-signer
+
   # Allow AWS IoT Core to invoke the pre-provisioning hook when a fleet
   # provisioning template references it (Module 4 create-provisioning-template
   # --pre-provisioning-hook).
@@ -566,6 +722,21 @@ Resources:
       FunctionName:
         Fn::GetAtt:
           - JitrRegistrationHandlerFunction
+          - Arn
+      Action: lambda:InvokeFunction
+      Principal: iot.amazonaws.com
+      SourceAccount:
+        Ref: AWS::AccountId
+
+  # Allow AWS IoT Core to invoke the certificate-provider signer when a
+  # certificate provider references it (Module 3 optional lab
+  # create-certificate-provider --lambda-function-arn).
+  CertProviderSignerInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName:
+        Fn::GetAtt:
+          - CertProviderSignerFunction
           - Arn
       Action: lambda:InvokeFunction
       Principal: iot.amazonaws.com
@@ -651,3 +822,25 @@ Outputs:
     Export:
       Name:
         Fn::Sub: "${AWS::StackName}-PreProvisioningHookFunctionArn"
+
+  CertProviderSignerFunctionName:
+    Description: >-
+      Function name learners target with aws lambda update-function-code in the
+      Module 3 OPTIONAL certificate-provider lab.
+    Value:
+      Ref: CertProviderSignerFunction
+    Export:
+      Name:
+        Fn::Sub: "${AWS::StackName}-CertProviderSignerFunctionName"
+
+  CertProviderSignerFunctionArn:
+    Description: >-
+      Function ARN referenced by create-certificate-provider --lambda-function-arn
+      in the Module 3 OPTIONAL certificate-provider lab.
+    Value:
+      Fn::GetAtt:
+        - CertProviderSignerFunction
+        - Arn
+    Export:
+      Name:
+        Fn::Sub: "${AWS::StackName}-CertProviderSignerFunctionArn"

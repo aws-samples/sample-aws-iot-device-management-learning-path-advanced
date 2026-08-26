@@ -89,6 +89,15 @@ CREATE_KEYS_TOPIC = "$aws/certificates/create/json"
 CREATE_KEYS_ACCEPTED = "$aws/certificates/create/json/accepted"
 CREATE_KEYS_REJECTED = "$aws/certificates/create/json/rejected"
 
+# Reserved MQTT topics for the CSR variant (CreateCertificateFromCsr): the device
+# generates and keeps its own private key and sends only a CSR. This is also the
+# path the OPTIONAL certificate-provider lab exercises — once a certificate
+# provider is registered, AWS IoT Core routes each of these CSRs through your
+# signing Lambda instead of signing with the Amazon CA.
+CREATE_CSR_TOPIC = "$aws/certificates/create-from-csr/json"
+CREATE_CSR_ACCEPTED = "$aws/certificates/create-from-csr/json/accepted"
+CREATE_CSR_REJECTED = "$aws/certificates/create-from-csr/json/rejected"
+
 
 def _provision_topics(template_name):
     """Return the RegisterThing publish/accepted/rejected topics for a template."""
@@ -324,13 +333,76 @@ def _wait_for(device, accepted_topic, rejected_topic, timeout=20):
     raise TimeoutError(f"Timed out waiting for a reply on {accepted_topic}")
 
 
+def _create_keys_and_certificate(device, out_prefix):
+    """CreateKeysAndCertificate path: AWS IoT Core mints the key pair + certificate.
+
+    Returns ``(ownership_token, cert_out)``. Saves both the permanent certificate
+    and the private key AWS IoT Core generated and returned over MQTT.
+    """
+    print(f"📡 SUBSCRIBE {CREATE_KEYS_ACCEPTED}")
+    print(f"📡 SUBSCRIBE {CREATE_KEYS_REJECTED}")
+    device.subscribe(CREATE_KEYS_ACCEPTED, qos=1)
+    device.subscribe(CREATE_KEYS_REJECTED, qos=1)
+    print(f"\n📨 PUBLISH → {CREATE_KEYS_TOPIC}")
+    print("   payload: {}   (empty body — CreateKeysAndCertificate takes no input)")
+    device.publish(CREATE_KEYS_TOPIC, {}, qos=1)
+    created = _wait_for(device, CREATE_KEYS_ACCEPTED, CREATE_KEYS_REJECTED)
+    print(f"📥 RECEIVED ← {CREATE_KEYS_ACCEPTED}")
+    print(_indent(_fmt_payload(created)))
+
+    print(f"\n🔑 Extracted the permanent certificate "
+          f"({created.get('certificateId', '')[:12]}...) and the certificateOwnershipToken")
+    cert_out = f"{out_prefix}.cert.pem"
+    key_out = f"{out_prefix}.private.key"
+    with open(cert_out, "w", encoding="utf-8") as handle:
+        handle.write(created["certificatePem"])
+    with open(key_out, "w", encoding="utf-8") as handle:
+        handle.write(created["privateKey"])
+    print(f"   Saved {cert_out} / {key_out}")
+    return created["certificateOwnershipToken"], cert_out
+
+
+def _create_certificate_from_csr(device, out_prefix, csr_file):
+    """CreateCertificateFromCsr path: the device keeps its own key, sends a CSR.
+
+    Returns ``(ownership_token, cert_out)``. Only the certificate is returned by
+    AWS IoT Core (never a private key) — the device already holds the key that
+    matches the CSR. This is the path the certificate-provider lab exercises: if a
+    certificate provider is registered, the returned certificate is signed by your
+    own CA instead of the Amazon CA.
+    """
+    with open(csr_file, "r", encoding="utf-8") as handle:
+        csr_pem = handle.read()
+
+    print(f"📡 SUBSCRIBE {CREATE_CSR_ACCEPTED}")
+    print(f"📡 SUBSCRIBE {CREATE_CSR_REJECTED}")
+    device.subscribe(CREATE_CSR_ACCEPTED, qos=1)
+    device.subscribe(CREATE_CSR_REJECTED, qos=1)
+    print(f"\n📨 PUBLISH → {CREATE_CSR_TOPIC}")
+    print(f"   payload: {{ \"certificateSigningRequest\": <PEM from {csr_file}> }}")
+    device.publish(CREATE_CSR_TOPIC, {"certificateSigningRequest": csr_pem}, qos=1)
+    created = _wait_for(device, CREATE_CSR_ACCEPTED, CREATE_CSR_REJECTED)
+    print(f"📥 RECEIVED ← {CREATE_CSR_ACCEPTED}")
+    print(_indent(_fmt_payload(created)))
+
+    print(f"\n🔑 Extracted the permanent certificate "
+          f"({created.get('certificateId', '')[:12]}...) and the certificateOwnershipToken")
+    print("   (no private key is returned for the CSR path — the device kept its own)")
+    cert_out = f"{out_prefix}.cert.pem"
+    with open(cert_out, "w", encoding="utf-8") as handle:
+        handle.write(created["certificatePem"])
+    print(f"   Saved {cert_out} (reuse your own private key from the CSR step)")
+    return created["certificateOwnershipToken"], cert_out
+
+
 def provision(template_name, claim_cert, claim_key, serial_number, model_type,
-              endpoint=None, out_prefix=None, debug=False):
+              endpoint=None, out_prefix=None, csr_file=None, debug=False):
     """Run the fleet-provisioning MQTT exchange with the claim certificate.
 
-    CreateKeysAndCertificate -> capture certificateOwnershipToken -> RegisterThing.
-    Uses the shared ``DeviceConnection`` construct (same MQTT connection builder
-    reused across sections). Saves the permanent certificate + private key.
+    CreateKeysAndCertificate (default) or CreateCertificateFromCsr (when
+    ``csr_file`` is supplied) -> capture certificateOwnershipToken ->
+    RegisterThing. Uses the shared ``DeviceConnection`` construct (same MQTT
+    connection builder reused across sections).
     """
     endpoint = endpoint or get_iot_endpoint(debug=debug)
     out_prefix = out_prefix or serial_number
@@ -345,31 +417,13 @@ def provision(template_name, claim_cert, claim_key, serial_number, model_type,
         debug=debug,
     )
 
-    # 1) CreateKeysAndCertificate — AWS IoT Core mints the key pair + certificate.
-    print(f"📡 SUBSCRIBE {CREATE_KEYS_ACCEPTED}")
-    print(f"📡 SUBSCRIBE {CREATE_KEYS_REJECTED}")
-    device.subscribe(CREATE_KEYS_ACCEPTED, qos=1)
-    device.subscribe(CREATE_KEYS_REJECTED, qos=1)
-    print(f"\n📨 PUBLISH → {CREATE_KEYS_TOPIC}")
-    print("   payload: {}   (empty body — CreateKeysAndCertificate takes no input)")
-    device.publish(CREATE_KEYS_TOPIC, {}, qos=1)
-    created = _wait_for(device, CREATE_KEYS_ACCEPTED, CREATE_KEYS_REJECTED)
-    print(f"📥 RECEIVED ← {CREATE_KEYS_ACCEPTED}")
-    print(_indent(_fmt_payload(created)))
-
-    ownership_token = created["certificateOwnershipToken"]
-    permanent_cert = created["certificatePem"]
-    permanent_key = created["privateKey"]
-    print(f"\n🔑 Extracted the permanent certificate "
-          f"({created.get('certificateId', '')[:12]}...) and the certificateOwnershipToken")
-
-    cert_out = f"{out_prefix}.cert.pem"
-    key_out = f"{out_prefix}.private.key"
-    with open(cert_out, "w", encoding="utf-8") as handle:
-        handle.write(permanent_cert)
-    with open(key_out, "w", encoding="utf-8") as handle:
-        handle.write(permanent_key)
-    print(f"   Saved {cert_out} / {key_out}")
+    # 1) Obtain a permanent certificate + certificateOwnershipToken. The CSR path
+    #    keeps the private key on the device; the keys path has AWS IoT Core mint
+    #    both. Both return the same certificateOwnershipToken for step 2.
+    if csr_file:
+        ownership_token, cert_out = _create_certificate_from_csr(device, out_prefix, csr_file)
+    else:
+        ownership_token, cert_out = _create_keys_and_certificate(device, out_prefix)
 
     # 2) RegisterThing — prove ownership with the token; pass template parameters.
     provision_topic, provision_accepted, provision_rejected = _provision_topics(template_name)
@@ -431,6 +485,10 @@ def parse_arguments():
     prov.add_argument("--model-type", default="SedanVehicle", help="Device ModelType parameter.")
     prov.add_argument("--endpoint", default=None, help="iot:Data-ATS endpoint (auto-discovered if omitted).")
     prov.add_argument("--out-prefix", default=None, help="Output prefix for the permanent cert/key.")
+    prov.add_argument("--csr-file", default=None,
+                     help="CSR PEM to use CreateCertificateFromCsr (device keeps its own key). "
+                          "Omit to use CreateKeysAndCertificate. This is the path the "
+                          "optional certificate-provider lab exercises.")
     prov.add_argument("--debug", action="store_true", help="Verbose output.")
 
     versions = subparsers.add_parser("versions", help="Manage provisioning template versions.")
@@ -477,6 +535,7 @@ def main():
             model_type=args.model_type,
             endpoint=args.endpoint,
             out_prefix=args.out_prefix,
+            csr_file=args.csr_file,
             debug=args.debug,
         )
     elif args.command == "versions":
