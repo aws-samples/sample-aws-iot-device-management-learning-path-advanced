@@ -1,0 +1,15 @@
+{
+  "warnings": {
+    "topic_rule_not_created": "⚠️  Topic rule was not created (see error above)."
+  },
+  "errors": {
+    "handler_source_not_found": "❌ Handler source not found: {}"
+  },
+  "status": {
+    "topic_rule_created": "✅ Topic rule '{}' routes {} to the JITR handler",
+    "handler_code_deployed": "✅ Deployed JITR handler code to '{}'",
+    "certs_registered_header": "ℹ️  {} certificate(s) registered under CA {}:",
+    "cert_line": "   - {}  status={}",
+    "thing_attributes": "ℹ️  Thing '{}' attributes: {}"
+  }
+}

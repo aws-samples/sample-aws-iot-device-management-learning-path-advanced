@@ -83,6 +83,34 @@ from iot_helpers.utils.device_simulator import (  # noqa: E402
     DeviceConnection,
     get_iot_endpoint,
 )
+from language_selector import get_language  # noqa: E402
+from loader import load_messages  # noqa: E402
+
+# --- i18n message catalog + resolver -------------------------------------
+# Populated once at entry (see main()) via load_messages(). The wrapper below
+# is the shared nested-capable convention documented in i18n/README.md: dotted
+# keys walk the nested catalog, a missing key falls back to the key itself, and
+# positional {} placeholders are filled via str.format(*args). It is defined
+# per-script on purpose (NOT centralized in loader.py).
+messages = {}
+
+
+def get_message(key, *args):
+    """Resolve a localized message (nested dotted keys) with positional formatting."""
+    if "." in key:
+        msg = messages
+        for part in key.split("."):
+            if isinstance(msg, dict) and part in msg:
+                msg = msg[part]
+            else:
+                msg = key  # fall back to the raw key
+                break
+    else:
+        msg = messages.get(key, key)
+    if args and isinstance(msg, str):
+        return msg.format(*args)
+    return msg
+
 
 TEMPLATE_DIR = os.path.join(
     REPO_ROOT, "iot_helpers", "utils", "fleet_provisioning_templates"
@@ -168,9 +196,8 @@ def create_template(template_name, provisioning_role_arn, template_file, debug=F
         enabled=True,
     )
     if response:
-        print(f"✅ Provisioning template '{template_name}' created (enabled)")
-        print("   No pre-provisioning hook — the scoped trusted-user IAM identity "
-              "is the gate.")
+        print(get_message("status.template_created", template_name))
+        print(get_message("status.template_no_hook"))
     return response
 
 
@@ -194,8 +221,7 @@ def create_claim(template_name, claim_cert_out, claim_key_out, claim_pub_out=Non
         templateName=template_name,
     )
     if not claim:
-        print("❌ Could not create the provisioning claim — is your IAM identity "
-              "scoped to iot:CreateProvisioningClaim on this template?")
+        print(get_message("errors.claim_create_failed"))
         sys.exit(1)
 
     with open(claim_cert_out, "w", encoding="utf-8") as handle:
@@ -206,11 +232,10 @@ def create_claim(template_name, claim_cert_out, claim_key_out, claim_pub_out=Non
         with open(claim_pub_out, "w", encoding="utf-8") as handle:
             handle.write(claim["keyPair"]["PublicKey"])
 
-    print(f"🎟️  Temporary provisioning claim minted for template '{template_name}'")
-    print(f"   Saved {claim_cert_out} / {claim_key_out}")
-    print(f"   Expires: {claim.get('expiration')} (about five minutes — provision now)")
-    print("   Note: this temporary claim certificate does NOT appear in "
-          "list-certificates.")
+    print(get_message("status.claim_minted", template_name))
+    print(get_message("status.saved_claim_files", claim_cert_out, claim_key_out))
+    print(get_message("status.claim_expires", claim.get("expiration")))
+    print(get_message("status.claim_note"))
     return claim
 
 
@@ -226,8 +251,8 @@ def observe(thing_name, debug=False):
         thingName=thing_name,
     )
     if thing:
-        print(f"ℹ️  Thing '{thing_name}' type={thing.get('thingTypeName')} "
-              f"attributes={json.dumps(thing.get('attributes', {}))}")
+        print(get_message("status.thing_info", thing_name, thing.get("thingTypeName"),
+                          json.dumps(thing.get("attributes", {}))))
 
     principals = safe_api_call(
         iot.list_thing_principals,
@@ -238,7 +263,7 @@ def observe(thing_name, debug=False):
     )
     if principals:
         for principal in principals.get("principals", []):
-            print(f"   - principal: {principal}")
+            print(get_message("status.principal_line", principal))
 
 
 # =========================================================================
@@ -277,7 +302,7 @@ def provision(template_name, claim_cert, claim_key, serial_number, device_type,
     out_prefix = out_prefix or serial_number
 
     device = DeviceConnection()
-    print(f"🔌 Connecting with the TEMPORARY claim certificate to {endpoint} ...")
+    print(get_message("status.connecting_claim", endpoint))
     device.connect(
         endpoint=endpoint,
         cert_filepath=claim_cert,
@@ -287,22 +312,21 @@ def provision(template_name, claim_cert, claim_key, serial_number, device_type,
     )
 
     # 1) CreateKeysAndCertificate — AWS IoT Core mints the permanent key + cert.
-    print(f"📡 SUBSCRIBE {CREATE_KEYS_ACCEPTED}")
-    print(f"📡 SUBSCRIBE {CREATE_KEYS_REJECTED}")
+    print(get_message("mqtt.subscribe", CREATE_KEYS_ACCEPTED))
+    print(get_message("mqtt.subscribe", CREATE_KEYS_REJECTED))
     device.subscribe(CREATE_KEYS_ACCEPTED, qos=1)
     device.subscribe(CREATE_KEYS_REJECTED, qos=1)
-    print(f"\n📨 PUBLISH → {CREATE_KEYS_TOPIC}")
-    print("   payload: {}   (empty body — CreateKeysAndCertificate takes no input)")
+    print(f"\n{get_message('mqtt.publish', CREATE_KEYS_TOPIC)}")
+    print(get_message("mqtt.publish_empty_payload"))
     device.publish(CREATE_KEYS_TOPIC, {}, qos=1)
     created = _wait_for(device, CREATE_KEYS_ACCEPTED, CREATE_KEYS_REJECTED)
-    print(f"📥 RECEIVED ← {CREATE_KEYS_ACCEPTED}")
+    print(get_message("mqtt.received", CREATE_KEYS_ACCEPTED))
     print(_indent(_fmt_payload(created)))
 
     ownership_token = created["certificateOwnershipToken"]
     permanent_cert = created["certificatePem"]
     permanent_key = created["privateKey"]
-    print(f"\n🔑 Extracted the permanent certificate "
-          f"({created.get('certificateId', '')[:12]}...) and the certificateOwnershipToken")
+    print(f"\n{get_message('status.extracted_cert', created.get('certificateId', '')[:12])}")
 
     cert_out = f"{out_prefix}.cert.pem"
     key_out = f"{out_prefix}.private.key"
@@ -310,12 +334,12 @@ def provision(template_name, claim_cert, claim_key, serial_number, device_type,
         handle.write(permanent_cert)
     with open(key_out, "w", encoding="utf-8") as handle:
         handle.write(permanent_key)
-    print(f"   Saved {cert_out} / {key_out}")
+    print(get_message("status.saved_cert_key", cert_out, key_out))
 
     # 2) RegisterThing — prove ownership with the token; pass template parameters.
     provision_topic, provision_accepted, provision_rejected = _provision_topics(template_name)
-    print(f"\n📡 SUBSCRIBE {provision_accepted}")
-    print(f"📡 SUBSCRIBE {provision_rejected}")
+    print(f"\n{get_message('mqtt.subscribe', provision_accepted)}")
+    print(get_message("mqtt.subscribe", provision_rejected))
     device.subscribe(provision_accepted, qos=1)
     device.subscribe(provision_rejected, qos=1)
     register_payload = {
@@ -325,18 +349,18 @@ def provision(template_name, claim_cert, claim_key, serial_number, device_type,
             "DeviceType": device_type,
         },
     }
-    print(f"\n📨 PUBLISH → {provision_topic}")
+    print(f"\n{get_message('mqtt.publish', provision_topic)}")
     print(_indent(_fmt_payload(register_payload)))
     device.publish(provision_topic, register_payload, qos=1)
     registered = _wait_for(device, provision_accepted, provision_rejected)
-    print(f"📥 RECEIVED ← {provision_accepted}")
+    print(get_message("mqtt.received", provision_accepted))
     print(_indent(_fmt_payload(registered)))
 
-    print("\n🎉 Device provisioned by trusted user")
-    print(f"   thingName: {registered.get('thingName')}")
-    print(f"   deviceConfiguration: {json.dumps(registered.get('deviceConfiguration', {}))}")
-    print("   Now reconnect with the PERMANENT certificate "
-          f"({cert_out}) to publish telemetry — the temporary claim's job is done.")
+    print(f"\n{get_message('status.provisioned')}")
+    print(get_message("status.provisioned_thing_name", registered.get("thingName")))
+    print(get_message("status.provisioned_device_config",
+                      json.dumps(registered.get("deviceConfiguration", {}))))
+    print(get_message("status.provisioned_reconnect", cert_out))
 
     device.disconnect()
     return registered
@@ -381,6 +405,11 @@ def parse_arguments():
 
 def main():
     args = parse_arguments()
+
+    # Load the localized message catalog once, before any user-facing print.
+    # (Placed after argument parsing so --help stays free of the language menu.)
+    global messages
+    messages = load_messages("fleet_provision_trusted_user", get_language())
 
     if args.command == "create-template":
         create_template(

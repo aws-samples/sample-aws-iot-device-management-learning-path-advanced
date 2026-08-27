@@ -1,0 +1,36 @@
+{
+  "errors": {
+    "claim_create_failed": "❌ Could not create the claim certificate"
+  },
+  "status": {
+    "claim_cert_id": "ℹ️  Claim certificate id: {}",
+    "saved_claim_files": "   Saved {} / {} / {}",
+    "claim_ready": "🎉 Claim certificate ready and scoped to fleet provisioning only",
+    "claim_ready_detail": "   CA/Lambda/template are separate — this claim cert can ONLY bootstrap.",
+    "template_created": "✅ Provisioning template '{}' created (enabled)",
+    "hook_attached": "   Pre-provisioning hook attached: {}",
+    "version_line": "   - version {}{}",
+    "version_default_marker": " (default)",
+    "version_created": "✅ Created version {}{}",
+    "version_set_default_suffix": " and set as default",
+    "version_deleted": "✅ Deleted version {} (rollback)",
+    "thing_info": "ℹ️  Thing '{}' type={} attributes={}",
+    "principal_line": "   - principal: {}",
+    "extracted_cert": "🔑 Extracted the permanent certificate ({}...) and the certificateOwnershipToken",
+    "saved_cert_key": "   Saved {} / {}",
+    "extracted_cert_csr_note": "   (no private key is returned for the CSR path — the device kept its own)",
+    "saved_cert_csr": "   Saved {} (reuse your own private key from the CSR step)",
+    "connecting_claim": "🔌 Connecting with the CLAIM certificate to {} ...",
+    "provisioned": "🎉 Device provisioned by claim",
+    "provisioned_thing_name": "   thingName: {}",
+    "provisioned_device_config": "   deviceConfiguration: {}",
+    "provisioned_reconnect": "   Now reconnect with the PERMANENT certificate ({}) to publish telemetry — the claim cert's job is done."
+  },
+  "mqtt": {
+    "subscribe": "📡 SUBSCRIBE {}",
+    "publish": "📨 PUBLISH → {}",
+    "received": "📥 RECEIVED ← {}",
+    "publish_empty_payload": "   payload: {}   (empty body — CreateKeysAndCertificate takes no input)",
+    "publish_csr_payload": "   payload: {{ \"certificateSigningRequest\": <PEM from {}> }}"
+  }
+}

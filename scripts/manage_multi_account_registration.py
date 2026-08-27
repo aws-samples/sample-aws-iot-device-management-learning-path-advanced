@@ -96,6 +96,34 @@ import boto3  # noqa: E402
 
 from iot_helpers.utils.api_helpers import safe_api_call  # noqa: E402
 from iot_helpers.utils.device_simulator import DeviceConnection  # noqa: E402
+from language_selector import get_language  # noqa: E402
+from loader import load_messages  # noqa: E402
+
+# --- i18n message catalog + resolver -------------------------------------
+# Populated once at entry (see main()) via load_messages(). The wrapper below
+# is the shared nested-capable convention documented in i18n/README.md: dotted
+# keys walk the nested catalog, a missing key falls back to the key itself, and
+# positional {} placeholders are filled via str.format(*args). It is defined
+# per-script on purpose (NOT centralized in loader.py).
+messages = {}
+
+
+def get_message(key, *args):
+    """Resolve a localized message (nested dotted keys) with positional formatting."""
+    if "." in key:
+        msg = messages
+        for part in key.split("."):
+            if isinstance(msg, dict) and part in msg:
+                msg = msg[part]
+            else:
+                msg = key  # fall back to the raw key
+                break
+    else:
+        msg = messages.get(key, key)
+    if args and isinstance(msg, str):
+        return msg.format(*args)
+    return msg
+
 
 # Telemetry topic the moved device publishes on (matches the module content).
 TELEMETRY_TOPIC = "anycompany/telemetry"
@@ -157,17 +185,17 @@ def register_without_ca(certificate_pem, region, policy_name=None,
         status="ACTIVE",
     )
     if not response:
-        print("❌ register-certificate-without-ca failed — is the certificate PEM valid?")
+        print(get_message("errors.register_without_ca_failed"))
         sys.exit(1)
 
     # Capture the id straight from the registering call (not a broad list-certificates):
     # earlier sections leave certs ACTIVE and list order is not guaranteed.
     certificate_id = response.get("certificateId")
     certificate_arn = response.get("certificateArn")
-    print("\n🪪 Certificate registered in the destination Region (no new cert minted)")
-    print(f"   Region:         {region}")
-    print(f"   certificateId:  {certificate_id}")
-    print("   (This id is derived from the certificate — it matches the lobby id.)")
+    print(f"\n{get_message('status.cert_registered_header')}")
+    print(get_message("status.cert_registered_region", region))
+    print(get_message("status.cert_registered_id", certificate_id))
+    print(get_message("status.cert_id_derived_note"))
 
     # Rebuild the ARN if the API did not return it (older API shapes).
     if not certificate_arn and certificate_id:
@@ -209,9 +237,8 @@ def register_without_ca(certificate_pem, region, policy_name=None,
             principal=certificate_arn,
         )
 
-    print("\n✅ The same certificate is now recognized in the destination Region.")
-    print("   Next: get that Region's iot:Data-ATS endpoint and reconnect the SAME "
-          "certificate to it (the 'move' subcommand).")
+    print(f"\n{get_message('status.same_cert_recognized')}")
+    print(get_message("status.next_get_endpoint"))
     return certificate_id
 
 
@@ -239,16 +266,15 @@ def register_ca_sni(ca_certificate, region, debug=False):
         setAsActive=True,
     )
     if not response:
-        print("❌ register-ca-certificate (SNI_ONLY) failed — is the CA PEM valid?")
+        print(get_message("errors.register_ca_sni_failed"))
         sys.exit(1)
 
     ca_certificate_id = response.get("certificateId")
-    print("\n🏛️  CA registered in SNI_ONLY (multi-account) mode")
-    print(f"   Region:            {region}")
-    print(f"   CA certificate id: {ca_certificate_id}")
-    print("   Every device certificate this CA signed is now trusted in this Region,")
-    print("   validated by the SNI hostname the device presents. No per-cert "
-          "registration needed.")
+    print(f"\n{get_message('status.ca_registered_header')}")
+    print(get_message("status.ca_registered_region", region))
+    print(get_message("status.ca_registered_id", ca_certificate_id))
+    print(get_message("status.ca_trusted_note"))
+    print(get_message("status.ca_sni_validated_note"))
     return ca_certificate_id
 
 
@@ -269,10 +295,10 @@ def get_endpoint(region, debug=False):
         endpointType="iot:Data-ATS",
     )
     if not response:
-        print("❌ describe-endpoint failed")
+        print(get_message("errors.describe_endpoint_failed"))
         sys.exit(1)
     endpoint = response["endpointAddress"]
-    print(f"🌐 iot:Data-ATS endpoint for {region}: {endpoint}")
+    print(get_message("status.endpoint_for_region", region, endpoint))
     return endpoint
 
 
@@ -294,8 +320,7 @@ def move(region, cert, key, thing_name, endpoint=None, message_count=5, debug=Fa
         endpoint = get_endpoint(region, debug=debug)
 
     device = DeviceConnection()
-    print(f"🔌 Reconnecting '{thing_name}' with the SAME certificate to the "
-          f"destination endpoint {endpoint} ...")
+    print(get_message("status.reconnecting_move", thing_name, endpoint))
     device.connect(
         endpoint=endpoint,
         cert_filepath=cert,
@@ -311,13 +336,12 @@ def move(region, cert, key, thing_name, endpoint=None, message_count=5, debug=Fa
             {"msg": f"hello from {thing_name} (moved)", "seq": seq},
             qos=1,
         )
-        print(f"   published seq={seq} to {TELEMETRY_TOPIC}")
+        print(get_message("status.published_seq", seq, TELEMETRY_TOPIC))
         time.sleep(2)  # nosemgrep: arbitrary-sleep
 
     device.disconnect()
-    print("\n🎉 Move complete — the same certificate is now connected to the "
-          "destination Region.")
-    print("   No new certificate was minted; only the endpoint changed.")
+    print(f"\n{get_message('status.move_complete')}")
+    print(get_message("status.move_complete_note"))
 
 
 def parse_arguments():
@@ -367,6 +391,11 @@ def parse_arguments():
 
 def main():
     args = parse_arguments()
+
+    # Load the localized message catalog once, before any user-facing print.
+    # (Placed after argument parsing so --help stays free of the language menu.)
+    global messages
+    messages = load_messages("manage_multi_account_registration", get_language())
 
     if args.command == "register-without-ca":
         register_without_ca(

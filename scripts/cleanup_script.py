@@ -73,9 +73,36 @@ from iot_helpers.utils.naming_conventions import matches_workshop_pattern  # noq
 # i18n: reuse the shared language selector + localized yes/no confirmation so a
 # German 'j' or French 'o' works like the rest of the sample scripts.
 from language_selector import get_language  # noqa: E402
+from loader import load_messages  # noqa: E402
 from confirmation import is_affirmative  # noqa: E402
 
 init()
+
+# --- i18n message catalog + resolver -------------------------------------
+# Populated once at entry (see main()) via load_messages(). The wrapper below is
+# the shared nested-capable convention documented in i18n/README.md: dotted keys
+# walk the nested catalog, a missing key falls back to the key itself, and
+# positional {} placeholders are filled via str.format(*args). Defined per-script
+# on purpose (NOT centralized in loader.py). The localized yes/no PARSING stays in
+# confirmation.is_affirmative(); only the prompt TEXT lives in the catalog.
+messages = {}
+
+
+def get_message(key, *args):
+    """Resolve a localized message (nested dotted keys) with positional formatting."""
+    if "." in key:
+        msg = messages
+        for part in key.split("."):
+            if isinstance(msg, dict) and part in msg:
+                msg = msg[part]
+            else:
+                msg = key  # fall back to the raw key
+                break
+    else:
+        msg = messages.get(key, key)
+    if args and isinstance(msg, str):
+        return msg.format(*args)
+    return msg
 
 # ---------------------------------------------------------------------------
 # Known workshop resource names created by THIS topic (used alongside
@@ -143,7 +170,7 @@ class AdvancedProvisioningCleanup:
 
     def _plan(self, text):
         # A resource the cleanup would act on (shown in both dry-run and execute).
-        prefix = "DRY RUN — would remove" if self.dry_run else "Removing"
+        prefix = get_message("plan.prefix_dry_run") if self.dry_run else get_message("plan.prefix_execute")
         print(f"{Fore.YELLOW}  • {prefix}: {text}{Style.RESET_ALL}")
 
     def _confirm_destructive(self, category, count):
@@ -155,15 +182,14 @@ class AdvancedProvisioningCleanup:
         if self.dry_run or count == 0:
             return not self.dry_run and count > 0
         print(
-            f"\n{Fore.RED}⚠️  About to delete {count} {category}. "
-            f"This is destructive and not reversible.{Style.RESET_ALL}"
+            f"\n{Fore.RED}{get_message('prompts.confirm_warning', count, category)}{Style.RESET_ALL}"
         )
         answer = input(
-            f"{Fore.YELLOW}Delete these {category}? [y/N]: {Style.RESET_ALL}"
+            f"{Fore.YELLOW}{get_message('prompts.confirm_question', category)}{Style.RESET_ALL}"
         )
         if is_affirmative(answer, self.language):
             return True
-        print(f"{Fore.GREEN}Keeping {category} — retained at your request.{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}{get_message('prompts.retained', category)}{Style.RESET_ALL}")
         return False
 
     def _is_workshop_thing(self, thing_name):
@@ -320,7 +346,7 @@ class AdvancedProvisioningCleanup:
 
     def discover_workshop_cas(self):
         """Find workshop custom CAs by subject common-name markers (scoped)."""
-        self._info("\n🔎 Discovering custom Certificate Authorities created by this topic...")
+        self._info(f"\n{get_message('status.discovering_cas')}")
         found = []
         listed = safe_api_call(
             self.iot.list_ca_certificates,
@@ -346,14 +372,14 @@ class AdvancedProvisioningCleanup:
         self.workshop_ca_ids = [ca_id for ca_id, _ in found]
         if found:
             for ca_id, common_name in found:
-                self._plan(f"Certificate Authority '{common_name}' ({ca_id})")
+                self._plan(get_message("plan.ca", common_name, ca_id))
         else:
-            self._info("  (none found)")
+            self._info(get_message("status.none_found"))
         return found
 
     def delete_workshop_cas(self, cas):
         """Deregister (INACTIVE) then delete workshop CAs, with confirmation."""
-        if not self._confirm_destructive("Certificate Authorities", len(cas)):
+        if not self._confirm_destructive(get_message("categories.certificate_authorities"), len(cas)):
             return
         for ca_id, common_name in cas:
             safe_api_call(
@@ -376,20 +402,20 @@ class AdvancedProvisioningCleanup:
 
     def _cleanup_certificates(self, iot_client, thing_names, policy_names, region_label):
         """Discover + delete workshop certificates in a Region, with confirmation."""
-        self._info(f"\n🔎 Discovering certificates created by this topic ({region_label})...")
+        self._info(f"\n{get_message('status.discovering_certificates', region_label)}")
         cert_ids = self._discover_certificate_ids(iot_client, thing_names, policy_names)
         for cert_id in cert_ids:
-            self._plan(f"certificate {cert_id}")
-        if self._confirm_destructive(f"certificates ({region_label})", len(cert_ids)):
+            self._plan(get_message("plan.certificate", cert_id))
+        if self._confirm_destructive(get_message("categories.certificates_region", region_label), len(cert_ids)):
             for cert_id in cert_ids:
                 self._delete_certificate(iot_client, cert_id)
         return cert_ids
 
     def _cleanup_things(self, iot_client, thing_names, region_label):
         """Delete workshop things (their certificates are already detached)."""
-        self._info(f"\n🔎 Discovering things created by this topic ({region_label})...")
+        self._info(f"\n{get_message('status.discovering_things', region_label)}")
         for thing_name in thing_names:
-            self._plan(f"thing {thing_name}")
+            self._plan(get_message("plan.thing", thing_name))
             if not self.dry_run:
                 safe_api_call(
                     iot_client.delete_thing,
@@ -401,7 +427,7 @@ class AdvancedProvisioningCleanup:
 
     def _cleanup_templates(self):
         """Delete the topic's provisioning templates, with confirmation."""
-        self._info("\n🔎 Provisioning templates created by this topic...")
+        self._info(f"\n{get_message('status.discovering_templates')}")
         existing = []
         for name in WORKSHOP_PROVISIONING_TEMPLATES:
             described = safe_api_call(
@@ -413,8 +439,8 @@ class AdvancedProvisioningCleanup:
             )
             if described:
                 existing.append(name)
-                self._plan(f"provisioning template {name}")
-        if self._confirm_destructive("provisioning templates", len(existing)):
+                self._plan(get_message("plan.provisioning_template", name))
+        if self._confirm_destructive(get_message("categories.provisioning_templates"), len(existing)):
             for name in existing:
                 safe_api_call(
                     self.iot.delete_provisioning_template,
@@ -426,11 +452,11 @@ class AdvancedProvisioningCleanup:
 
     def _cleanup_topic_rules(self):
         """Delete the topic's Just-in-Time Registration topic rule(s)."""
-        self._info("\n🔎 Topic rules created by this topic...")
+        self._info(f"\n{get_message('status.discovering_topic_rules')}")
         for rule_name in WORKSHOP_TOPIC_RULES:
             if not matches_workshop_pattern(rule_name, "iot_rule"):
                 continue
-            self._plan(f"topic rule {rule_name}")
+            self._plan(get_message("plan.topic_rule", rule_name))
             if not self.dry_run:
                 safe_api_call(
                     self.iot.delete_topic_rule,
@@ -442,7 +468,7 @@ class AdvancedProvisioningCleanup:
 
     def _cleanup_thing_groups(self):
         """Delete the topic's workshop thing groups (pattern-scoped)."""
-        self._info("\n🔎 Thing groups created by this topic...")
+        self._info(f"\n{get_message('status.discovering_thing_groups')}")
         for group_name in WORKSHOP_THING_GROUPS:
             described = safe_api_call(
                 self.iot.describe_thing_group,
@@ -453,7 +479,7 @@ class AdvancedProvisioningCleanup:
             )
             if not described:
                 continue
-            self._plan(f"thing group {group_name}")
+            self._plan(get_message("plan.thing_group", group_name))
             if not self.dry_run:
                 safe_api_call(
                     self.iot.delete_thing_group,
@@ -465,7 +491,7 @@ class AdvancedProvisioningCleanup:
 
     def _cleanup_policies(self, iot_client, policy_names, region_label):
         """Delete the topic's device/claim policies (after certs are detached)."""
-        self._info(f"\n🔎 Device / claim policies created by this topic ({region_label})...")
+        self._info(f"\n{get_message('status.discovering_policies', region_label)}")
         for policy_name in policy_names:
             described = safe_api_call(
                 iot_client.get_policy,
@@ -476,7 +502,7 @@ class AdvancedProvisioningCleanup:
             )
             if not described:
                 continue
-            self._plan(f"policy {policy_name}")
+            self._plan(get_message("plan.policy", policy_name))
             if self.dry_run:
                 continue
             # Delete non-default policy versions before the policy itself.
@@ -516,7 +542,7 @@ class AdvancedProvisioningCleanup:
         out-of-band would leave the stack in drift, so we surface the stack name
         and let CloudFormation own them.
         """
-        self._info("\n🧱 Base infrastructure (AWS Lambda functions, IAM roles) — NOT deleted here")
+        self._info(f"\n{get_message('notice.header')}")
         try:
             cfn = boto3.client("cloudformation", region_name=self.region)
             stacks = cfn.describe_stacks()
@@ -530,18 +556,14 @@ class AdvancedProvisioningCleanup:
         if candidates:
             for name in candidates:
                 print(
-                    f"{Fore.CYAN}  • The pre-provisioning hook + JITR handler Lambdas belong to "
-                    f"CloudFormation stack '{name}'.{Style.RESET_ALL}"
+                    f"{Fore.CYAN}{get_message('notice.stack_named', name)}{Style.RESET_ALL}"
                 )
             print(
-                f"{Fore.CYAN}    AWS-led event: removed automatically at event end. "
-                f"Own account: delete that stack when finished with the topic.{Style.RESET_ALL}"
+                f"{Fore.CYAN}{get_message('notice.stack_named_detail')}{Style.RESET_ALL}"
             )
         else:
             print(
-                f"{Fore.CYAN}  • The JITR handler and pre-provisioning hook Lambdas are stack-managed. "
-                f"Delete the base CloudFormation stack to remove them (own account), or let the "
-                f"AWS-led event tear it down.{Style.RESET_ALL}"
+                f"{Fore.CYAN}{get_message('notice.stack_unknown')}{Style.RESET_ALL}"
             )
 
     # -- MAR (second Region) ----------------------------------------------
@@ -550,8 +572,8 @@ class AdvancedProvisioningCleanup:
         """Clean the moved certificate + thing in the second (MAR) Region."""
         if not self.iot_mar:
             return
-        label = f"MAR Region {self.mar_region}"
-        self._info(f"\n=== Cleaning up the second Region ({self.mar_region}) — Section 5 (MAR) ===")
+        label = get_message("labels.mar_region", self.mar_region)
+        self._info(f"\n{get_message('status.cleaning_mar_region', self.mar_region)}")
         thing_names = self._list_things(self.iot_mar, WORKSHOP_MAR_THING_PREFIXES)
         # In the destination Region there is no workshop CA, so cert discovery
         # relies on thing principals and the MAR device policy only.
@@ -569,24 +591,22 @@ class AdvancedProvisioningCleanup:
     # -- entry point -------------------------------------------------------
 
     def run(self):
-        mode = "DRY RUN (nothing will be deleted)" if self.dry_run else "EXECUTE"
+        mode = get_message("header.mode_dry_run") if self.dry_run else get_message("header.mode_execute")
         print(f"{Fore.CYAN}{'=' * 68}{Style.RESET_ALL}")
-        print(f"{Fore.CYAN}Advanced Device Provisioning — per-topic cleanup [{mode}]{Style.RESET_ALL}")
+        print(f"{Fore.CYAN}{get_message('header.title', mode)}{Style.RESET_ALL}")
         print(f"{Fore.CYAN}{'=' * 68}{Style.RESET_ALL}")
-        self._info(f"Region (workshop): {self.region}")
+        self._info(get_message("status.region_workshop", self.region))
         if self.mar_region:
-            self._info(f"Region (MAR / Section 5): {self.mar_region}")
+            self._info(get_message("status.region_mar", self.mar_region))
         print(
-            f"{Fore.GREEN}This cleanup is scoped to the provisioning topic only. The shared setup "
-            f"(repo, dependencies, language, OpenSSL) is never touched.{Style.RESET_ALL}"
+            f"{Fore.GREEN}{get_message('status.scope_note')}{Style.RESET_ALL}"
         )
         if self.dry_run:
             print(
-                f"{Fore.YELLOW}Dry run: reviewing what would be removed. Re-run with --execute "
-                f"to delete (you will be asked to confirm destructive deletes).{Style.RESET_ALL}"
+                f"{Fore.YELLOW}{get_message('status.dry_run_hint')}{Style.RESET_ALL}"
             )
 
-        label = f"Region {self.region}"
+        label = get_message("labels.region", self.region)
 
         # 1) Discover workshop CAs first — needed to find JITP/JITR device certs.
         cas = self.discover_workshop_cas()
@@ -619,9 +639,9 @@ class AdvancedProvisioningCleanup:
 
         print(f"\n{Fore.GREEN}{'=' * 68}{Style.RESET_ALL}")
         if self.dry_run:
-            print(f"{Fore.GREEN}Dry run complete. No resources were changed.{Style.RESET_ALL}")
+            print(f"{Fore.GREEN}{get_message('status.dry_run_complete')}{Style.RESET_ALL}")
         else:
-            print(f"{Fore.GREEN}Cleanup complete. Retained anything you declined to delete.{Style.RESET_ALL}")
+            print(f"{Fore.GREEN}{get_message('status.execute_complete')}{Style.RESET_ALL}")
         print(f"{Fore.GREEN}{'=' * 68}{Style.RESET_ALL}")
 
 
@@ -657,6 +677,12 @@ def parse_arguments():
 def main():
     args = parse_arguments()
     language = get_language()
+
+    # Load the localized message catalog once, before any user-facing print.
+    # (Placed after argument parsing so --help stays free of the language menu.)
+    global messages
+    messages = load_messages("cleanup_script", language)
+
     cleanup = AdvancedProvisioningCleanup(
         execute=args.execute,
         mar_region=args.mar_region,

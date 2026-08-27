@@ -1,0 +1,55 @@
+{
+  "header": {
+    "mode_dry_run": "DRY RUN (nothing will be deleted)",
+    "mode_execute": "EXECUTE",
+    "title": "Advanced Device Provisioning — per-topic cleanup [{}]"
+  },
+  "status": {
+    "region_workshop": "Region (workshop): {}",
+    "region_mar": "Region (MAR / Section 5): {}",
+    "scope_note": "This cleanup is scoped to the provisioning topic only. The shared setup (repo, dependencies, language, OpenSSL) is never touched.",
+    "dry_run_hint": "Dry run: reviewing what would be removed. Re-run with --execute to delete (you will be asked to confirm destructive deletes).",
+    "dry_run_complete": "Dry run complete. No resources were changed.",
+    "execute_complete": "Cleanup complete. Retained anything you declined to delete.",
+    "discovering_cas": "🔎 Discovering custom Certificate Authorities created by this topic...",
+    "none_found": "  (none found)",
+    "discovering_certificates": "🔎 Discovering certificates created by this topic ({})...",
+    "discovering_things": "🔎 Discovering things created by this topic ({})...",
+    "discovering_templates": "🔎 Provisioning templates created by this topic...",
+    "discovering_topic_rules": "🔎 Topic rules created by this topic...",
+    "discovering_thing_groups": "🔎 Thing groups created by this topic...",
+    "discovering_policies": "🔎 Device / claim policies created by this topic ({})...",
+    "cleaning_mar_region": "=== Cleaning up the second Region ({}) — Section 5 (MAR) ==="
+  },
+  "plan": {
+    "prefix_dry_run": "DRY RUN — would remove",
+    "prefix_execute": "Removing",
+    "ca": "Certificate Authority '{}' ({})",
+    "certificate": "certificate {}",
+    "thing": "thing {}",
+    "provisioning_template": "provisioning template {}",
+    "topic_rule": "topic rule {}",
+    "thing_group": "thing group {}",
+    "policy": "policy {}"
+  },
+  "prompts": {
+    "confirm_warning": "⚠️  About to delete {} {}. This is destructive and not reversible.",
+    "confirm_question": "Delete these {}? [y/N]: ",
+    "retained": "Keeping {} — retained at your request."
+  },
+  "categories": {
+    "certificate_authorities": "Certificate Authorities",
+    "provisioning_templates": "provisioning templates",
+    "certificates_region": "certificates ({})"
+  },
+  "labels": {
+    "region": "Region {}",
+    "mar_region": "MAR Region {}"
+  },
+  "notice": {
+    "header": "🧱 Base infrastructure (AWS Lambda functions, IAM roles) — NOT deleted here",
+    "stack_named": "  • The pre-provisioning hook + JITR handler Lambdas belong to CloudFormation stack '{}'.",
+    "stack_named_detail": "    AWS-led event: removed automatically at event end. Own account: delete that stack when finished with the topic.",
+    "stack_unknown": "  • The JITR handler and pre-provisioning hook Lambdas are stack-managed. Delete the base CloudFormation stack to remove them (own account), or let the AWS-led event tear it down."
+  }
+}

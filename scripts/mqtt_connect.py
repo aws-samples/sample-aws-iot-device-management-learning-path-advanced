@@ -26,30 +26,73 @@ Usage:
 """
 
 import json
+import os
 import sys
 import time
 
-from awscrt import mqtt
-from awsiot import mqtt_connection_builder
+# --- Repository path wiring (import i18n framework) ----------------------
+# mqtt_connect.py lives in scripts/, so REPO_ROOT is two dirnames up (the repo
+# root, which contains i18n/ as a sibling of scripts/).
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
+sys.path.append(os.path.join(REPO_ROOT, "i18n"))
 
-USAGE = (
-    "Usage: python3 ../scripts/mqtt_connect.py "
-    "<endpoint> <clientId> <certFile> <keyFile> <caFile> <topic>"
-)
+from awscrt import mqtt  # noqa: E402
+from awsiot import mqtt_connection_builder  # noqa: E402
+
+from language_selector import get_language  # noqa: E402
+from loader import load_messages  # noqa: E402
+
+# --- i18n message catalog + resolver -------------------------------------
+# Populated once at entry (see main()) via load_messages(). Loading is done
+# INSIDE main(), never at import time: this module is also run standalone as a
+# subprocess by every provisioning section, and get_language() may pop the
+# interactive language menu when AWS_IOT_LANG is unset. Deferring the load keeps
+# a bare ``import mqtt_connect`` side-effect-free (no menu, no catalog read). The
+# wrapper below is the shared nested-capable convention documented in
+# i18n/README.md: dotted keys walk the nested catalog, a missing key falls back
+# to the key itself, and positional {} placeholders are filled via
+# str.format(*args). It is defined per-script on purpose (NOT centralized in
+# loader.py).
+messages = {}
+
+
+def get_message(key, *args):
+    """Resolve a localized message (nested dotted keys) with positional formatting."""
+    if "." in key:
+        msg = messages
+        for part in key.split("."):
+            if isinstance(msg, dict) and part in msg:
+                msg = msg[part]
+            else:
+                msg = key  # fall back to the raw key
+                break
+    else:
+        msg = messages.get(key, key)
+    if args and isinstance(msg, str):
+        return msg.format(*args)
+    return msg
 
 
 def main():
+    # Load the localized message catalog once, before any user-facing print.
+    # (Done here, not at import time, so importing this module never triggers
+    # the language selector — see the module note above.)
+    global messages
+    messages = load_messages("mqtt_connect", get_language())
+
     if len(sys.argv) < 7:
-        print(USAGE)
+        print(get_message("usage"))
         sys.exit(2)
 
     endpoint, client_id, cert, key, ca, topic = sys.argv[1:7]
 
     def on_interrupted(connection, error, **kwargs):
-        print(f"WARNING  Connection interrupted: {error} (the SDK will retry automatically)")
+        print(get_message("callbacks.interrupted", error))
 
     def on_resumed(connection, return_code, session_present, **kwargs):
-        print(f"OK  Connection resumed (return_code={return_code}, session_present={session_present})")
+        print(get_message("callbacks.resumed", return_code, session_present))
 
     conn = mqtt_connection_builder.mtls_from_path(
         endpoint=endpoint,
@@ -66,18 +109,18 @@ def main():
     # Retry the initial connect until it succeeds (see module note above).
     for attempt in range(1, 21):
         try:
-            print(f"Connecting as {client_id} (attempt {attempt}) ...")
+            print(get_message("connect.attempt", client_id, attempt))
             conn.connect().result()
-            print("Connected.")
+            print(get_message("connect.connected"))
             break
         except Exception as exc:  # noqa: BLE001
-            print(f"  first connect dropped while provisioning finishes ({exc}); retrying in 3s ...")
+            print(get_message("connect.first_drop_retry", exc))
             time.sleep(3)
     else:
-        print("Could not connect after several attempts - check the certificate/policy and retry.")
+        print(get_message("connect.failed"))
         sys.exit(1)
 
-    print(f"Now publishing on a loop to {topic}; each message should land on the topic.")
+    print(get_message("publish.loop_start", topic))
     for i in range(10):
         payload = {"msg": f"hello from {client_id}", "seq": i}
         try:
@@ -86,13 +129,13 @@ def main():
                 payload=json.dumps(payload),
                 qos=mqtt.QoS.AT_LEAST_ONCE,
             )
-            print(f"  PUBLISH -> {topic}: {json.dumps(payload)}")
+            print(get_message("publish.sent", topic, json.dumps(payload)))
         except Exception as exc:  # noqa: BLE001
-            print(f"  publish seq={i} failed (likely mid-reconnect): {exc}")
+            print(get_message("publish.failed", i, exc))
         time.sleep(3)
 
     conn.disconnect().result()
-    print("Disconnected cleanly.")
+    print(get_message("disconnect.clean"))
 
 
 if __name__ == "__main__":

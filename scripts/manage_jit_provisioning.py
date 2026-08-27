@@ -60,6 +60,33 @@ sys.path.append(os.path.join(REPO_ROOT, "i18n"))
 import boto3  # noqa: E402
 
 from iot_helpers.utils.api_helpers import safe_api_call  # noqa: E402
+from language_selector import get_language  # noqa: E402
+from loader import load_messages  # noqa: E402
+
+# --- i18n message catalog + resolver -------------------------------------
+# Populated once at entry (see main()) via load_messages(). The wrapper below
+# is the shared nested-capable convention documented in i18n/README.md: dotted
+# keys walk the nested catalog, a missing key falls back to the key itself, and
+# positional {} placeholders are filled via str.format(*args). It is defined
+# per-script on purpose (NOT centralized in loader.py).
+messages = {}
+
+
+def get_message(key, *args):
+    """Resolve a localized message (nested dotted keys) with positional formatting."""
+    if "." in key:
+        msg = messages
+        for part in key.split("."):
+            if isinstance(msg, dict) and part in msg:
+                msg = msg[part]
+            else:
+                msg = key  # fall back to the raw key
+                break
+    else:
+        msg = messages.get(key, key)
+    if args and isinstance(msg, str):
+        return msg.format(*args)
+    return msg
 
 # The reserved topic AWS IoT Core publishes to when a device whose CA is
 # registered connects for the first time. The '+' wildcard matches any CA id.
@@ -91,15 +118,15 @@ def deploy_jitr_rule(rule_name, function_arn, debug=False):
     if response is None:
         # create_topic_rule returns no body on success; safe_api_call returns the
         # (empty) response dict. None means an error other than "already exists".
-        print("⚠️  Topic rule was not created (see error above).")
+        print(get_message("warnings.topic_rule_not_created"))
         return
-    print(f"✅ Topic rule '{rule_name}' routes {JITR_EVENT_TOPIC} to the JITR handler")
+    print(get_message("status.topic_rule_created", rule_name, JITR_EVENT_TOPIC))
 
 
 def deploy_jitr_code(function_name, debug=False):
     """Package the JITR handler as index.py and deploy it over the skeleton."""
     if not os.path.exists(LAMBDA_SOURCE):
-        print(f"❌ Handler source not found: {LAMBDA_SOURCE}")
+        print(get_message("errors.handler_source_not_found", LAMBDA_SOURCE))
         sys.exit(1)
 
     # The base stack created the function with handler 'index.handler', so the
@@ -122,7 +149,7 @@ def deploy_jitr_code(function_name, debug=False):
         ZipFile=zip_bytes,
     )
     if response:
-        print(f"✅ Deployed JITR handler code to '{function_name}'")
+        print(get_message("status.handler_code_deployed", function_name))
 
 
 def observe(ca_cert_id, thing_name=None, debug=False):
@@ -138,9 +165,9 @@ def observe(ca_cert_id, thing_name=None, debug=False):
     )
     if certs:
         certificates = certs.get("certificates", [])
-        print(f"ℹ️  {len(certificates)} certificate(s) registered under CA {ca_cert_id}:")
+        print(get_message("status.certs_registered_header", len(certificates), ca_cert_id))
         for cert in certificates:
-            print(f"   - {cert.get('certificateId')}  status={cert.get('status')}")
+            print(get_message("status.cert_line", cert.get("certificateId"), cert.get("status")))
 
     if thing_name:
         thing = safe_api_call(
@@ -151,8 +178,8 @@ def observe(ca_cert_id, thing_name=None, debug=False):
             thingName=thing_name,
         )
         if thing:
-            print(f"ℹ️  Thing '{thing_name}' attributes: "
-                  f"{json.dumps(thing.get('attributes', {}))}")
+            print(get_message("status.thing_attributes", thing_name,
+                              json.dumps(thing.get("attributes", {}))))
 
 
 def register_ca(args):
@@ -209,6 +236,11 @@ def parse_arguments():
 
 def main():
     args = parse_arguments()
+
+    # Load the localized message catalog once, before any user-facing print.
+    # (Placed after argument parsing so --help stays free of the language menu.)
+    global messages
+    messages = load_messages("manage_jit_provisioning", get_language())
 
     if args.command == "register-ca":
         register_ca(args)

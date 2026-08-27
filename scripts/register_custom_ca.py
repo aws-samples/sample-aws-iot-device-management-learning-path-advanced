@@ -55,6 +55,34 @@ import boto3  # noqa: E402
 
 from iot_helpers.utils.api_helpers import safe_api_call  # noqa: E402
 from iot_helpers.utils.dependency_handler import check_openssl_available  # noqa: E402
+from language_selector import get_language  # noqa: E402
+from loader import load_messages  # noqa: E402
+
+# --- i18n message catalog + resolver -------------------------------------
+# Populated once at entry (see main()) via load_messages(). The wrapper below
+# is the shared nested-capable convention documented in i18n/README.md: dotted
+# keys walk the nested catalog, a missing key falls back to the key itself, and
+# positional {} placeholders are filled via str.format(*args). It is defined
+# per-script on purpose (NOT centralized in loader.py).
+messages = {}
+
+
+def get_message(key, *args):
+    """Resolve a localized message (nested dotted keys) with positional formatting."""
+    if "." in key:
+        msg = messages
+        for part in key.split("."):
+            if isinstance(msg, dict) and part in msg:
+                msg = msg[part]
+            else:
+                msg = key  # fall back to the raw key
+                break
+    else:
+        msg = messages.get(key, key)
+    if args and isinstance(msg, str):
+        return msg.format(*args)
+    return msg
+
 
 TEMPLATE_DIR = os.path.join(
     REPO_ROOT, "iot_helpers", "utils", "fleet_provisioning_templates"
@@ -73,10 +101,10 @@ def run_openssl(args, debug=False):
     """Run an ``openssl`` command with list args (no shell) and surface errors."""
     cmd = ["openssl"] + args
     if debug:
-        print(f"🔧 {' '.join(cmd)}")
+        print(get_message("debug.openssl_cmd", " ".join(cmd)))
     result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if result.returncode != 0:
-        print(f"❌ OpenSSL failed: {' '.join(cmd)}")
+        print(get_message("errors.openssl_failed", " ".join(cmd)))
         print(result.stderr.strip())
         raise RuntimeError("OpenSSL command failed")
     return result
@@ -85,10 +113,10 @@ def run_openssl(args, debug=False):
 def create_root_ca(common_name, debug=False):
     """Create a self-signed root CA (workshop only) if it is not already present."""
     if os.path.exists(ROOT_CA_KEY) and os.path.exists(ROOT_CA_PEM):
-        print(f"ℹ️  Reusing existing root CA ({ROOT_CA_PEM})")
+        print(get_message("status.reusing_root_ca", ROOT_CA_PEM))
         return
 
-    print("🔐 Creating a self-signed root CA with OpenSSL (WORKSHOP ONLY)")
+    print(get_message("status.creating_root_ca"))
     run_openssl(["genrsa", "-out", ROOT_CA_KEY, "2048"], debug=debug)
     run_openssl(
         [
@@ -100,12 +128,12 @@ def create_root_ca(common_name, debug=False):
         ],
         debug=debug,
     )
-    print(f"✅ Root CA created: {ROOT_CA_PEM}")
+    print(get_message("status.root_ca_created", ROOT_CA_PEM))
 
 
 def create_verification_certificate(registration_code, debug=False):
     """Create a verification certificate whose CN is the registration code."""
-    print("🔏 Creating the CA verification certificate (CN == registration code)")
+    print(get_message("status.creating_verification"))
     run_openssl(["genrsa", "-out", VERIFICATION_KEY, "2048"], debug=debug)
     run_openssl(
         [
@@ -128,7 +156,7 @@ def create_verification_certificate(registration_code, debug=False):
         ],
         debug=debug,
     )
-    print(f"✅ Verification certificate created: {VERIFICATION_PEM}")
+    print(get_message("status.verification_created", VERIFICATION_PEM))
 
 
 def load_template_body(template_file):
@@ -148,7 +176,7 @@ def register_custom_ca(role_arn, template_file, ca_common_name, debug=False):
     if not available:
         print(detail)
         sys.exit(1)
-    print(f"✅ OpenSSL available: {detail}")
+    print(get_message("status.openssl_available", detail))
 
     # Step 2 — create the root CA (workshop only) if needed.
     create_root_ca(ca_common_name, debug=debug)
@@ -161,10 +189,10 @@ def register_custom_ca(role_arn, template_file, ca_common_name, debug=False):
         debug=debug,
     )
     if not reg:
-        print("❌ Could not obtain a registration code")
+        print(get_message("errors.no_registration_code"))
         sys.exit(1)
     registration_code = reg["registrationCode"]
-    print(f"ℹ️  Registration code: {registration_code}")
+    print(get_message("status.registration_code", registration_code))
 
     # Step 4 — create the verification certificate.
     create_verification_certificate(registration_code, debug=debug)
@@ -192,14 +220,13 @@ def register_custom_ca(role_arn, template_file, ca_common_name, debug=False):
         },
     )
     if not response:
-        print("❌ CA registration failed")
+        print(get_message("errors.registration_failed"))
         sys.exit(1)
 
     ca_certificate_id = response.get("certificateId")
-    print("\n🎉 Custom CA registered with Just-in-Time Provisioning enabled")
-    print(f"   CA certificate id: {ca_certificate_id}")
-    print("   Verify with: aws iot describe-ca-certificate --certificate-id "
-          f"{ca_certificate_id}")
+    print(f"\n{get_message('status.registered_title')}")
+    print(get_message("status.ca_certificate_id", ca_certificate_id))
+    print(get_message("status.verify_hint", ca_certificate_id))
     return ca_certificate_id
 
 
@@ -239,6 +266,12 @@ def parse_arguments():
 
 def main():
     args = parse_arguments()
+
+    # Load the localized message catalog once, before any user-facing print.
+    # (Placed after argument parsing so --help stays free of the language menu.)
+    global messages
+    messages = load_messages("register_custom_ca", get_language())
+
     register_custom_ca(
         role_arn=args.role_arn,
         template_file=args.template_file,

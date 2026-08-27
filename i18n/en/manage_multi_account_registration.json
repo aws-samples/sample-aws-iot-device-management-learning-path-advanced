@@ -1,0 +1,25 @@
+{
+  "errors": {
+    "register_without_ca_failed": "❌ register-certificate-without-ca failed — is the certificate PEM valid?",
+    "register_ca_sni_failed": "❌ register-ca-certificate (SNI_ONLY) failed — is the CA PEM valid?",
+    "describe_endpoint_failed": "❌ describe-endpoint failed"
+  },
+  "status": {
+    "cert_registered_header": "🪪 Certificate registered in the destination Region (no new cert minted)",
+    "cert_registered_region": "   Region:         {}",
+    "cert_registered_id": "   certificateId:  {}",
+    "cert_id_derived_note": "   (This id is derived from the certificate — it matches the lobby id.)",
+    "same_cert_recognized": "✅ The same certificate is now recognized in the destination Region.",
+    "next_get_endpoint": "   Next: get that Region's iot:Data-ATS endpoint and reconnect the SAME certificate to it (the 'move' subcommand).",
+    "ca_registered_header": "🏛️  CA registered in SNI_ONLY (multi-account) mode",
+    "ca_registered_region": "   Region:            {}",
+    "ca_registered_id": "   CA certificate id: {}",
+    "ca_trusted_note": "   Every device certificate this CA signed is now trusted in this Region,",
+    "ca_sni_validated_note": "   validated by the SNI hostname the device presents. No per-cert registration needed.",
+    "endpoint_for_region": "🌐 iot:Data-ATS endpoint for {}: {}",
+    "reconnecting_move": "🔌 Reconnecting '{}' with the SAME certificate to the destination endpoint {} ...",
+    "published_seq": "   published seq={} to {}",
+    "move_complete": "🎉 Move complete — the same certificate is now connected to the destination Region.",
+    "move_complete_note": "   No new certificate was minted; only the endpoint changed."
+  }
+}

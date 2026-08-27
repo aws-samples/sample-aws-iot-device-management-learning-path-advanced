@@ -1,0 +1,22 @@
+{
+  "debug": {
+    "openssl_cmd": "🔧 {}"
+  },
+  "errors": {
+    "openssl_failed": "❌ OpenSSL failed: {}",
+    "no_registration_code": "❌ Could not obtain a registration code",
+    "registration_failed": "❌ CA registration failed"
+  },
+  "status": {
+    "reusing_root_ca": "ℹ️  Reusing existing root CA ({})",
+    "creating_root_ca": "🔐 Creating a self-signed root CA with OpenSSL (WORKSHOP ONLY)",
+    "root_ca_created": "✅ Root CA created: {}",
+    "creating_verification": "🔏 Creating the CA verification certificate (CN == registration code)",
+    "verification_created": "✅ Verification certificate created: {}",
+    "openssl_available": "✅ OpenSSL available: {}",
+    "registration_code": "ℹ️  Registration code: {}",
+    "registered_title": "🎉 Custom CA registered with Just-in-Time Provisioning enabled",
+    "ca_certificate_id": "   CA certificate id: {}",
+    "verify_hint": "   Verify with: aws iot describe-ca-certificate --certificate-id {}"
+  }
+}

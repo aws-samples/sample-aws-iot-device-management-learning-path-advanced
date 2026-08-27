@@ -1,0 +1,21 @@
+{
+  "usage": "Usage: python3 ../scripts/mqtt_connect.py <endpoint> <clientId> <certFile> <keyFile> <caFile> <topic>",
+  "callbacks": {
+    "interrupted": "WARNING  Connection interrupted: {} (the SDK will retry automatically)",
+    "resumed": "OK  Connection resumed (return_code={}, session_present={})"
+  },
+  "connect": {
+    "attempt": "Connecting as {} (attempt {}) ...",
+    "connected": "Connected.",
+    "first_drop_retry": "  first connect dropped while provisioning finishes ({}); retrying in 3s ...",
+    "failed": "Could not connect after several attempts - check the certificate/policy and retry."
+  },
+  "publish": {
+    "loop_start": "Now publishing on a loop to {}; each message should land on the topic.",
+    "sent": "  PUBLISH -> {}: {}",
+    "failed": "  publish seq={} failed (likely mid-reconnect): {}"
+  },
+  "disconnect": {
+    "clean": "Disconnected cleanly."
+  }
+}
