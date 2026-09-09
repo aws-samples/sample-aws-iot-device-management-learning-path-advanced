@@ -140,8 +140,9 @@ These are the **Device Provisioning End-to-End** scripts (Topic 1). Other topics
 | **fleet_provision_trusted_user.py** | Fleet by trusted user (Section 4) | Create the template, mint a short-lived claim as the trusted user, run the MQTT exchange, observe |
 | **manage_multi_account_registration.py** | MAR (Section 5) | Register a certificate without a CA (or a CA in `SNI_ONLY`), get a Region's endpoint, and move (reconnect) the same certificate |
 | **mqtt_connect.py** | All sections | Minimal Device SDK v2 client — connects (retrying the expected first-connect drop) and publishes telemetry |
+| **rotate_certificate.py** | Certificate rotation (Section 6) | Device half of a backend-driven rotation — take the job execution, generate a new key pair + CSR locally, install the signed certificate, reconnect, and prove an authorized publish before reporting success (rolls back to the old certificate if the cutover fails) |
 | **certificate_manager.py** | Helper | Interactive certificate lifecycle: create/register certificates, attach/detach policies, activate/deactivate |
-| **cleanup_script.py** | Closing (Section 6) | Remove only this topic's resources by naming pattern, in dependency order, across both Regions |
+| **cleanup_script.py** | Closing (Section 7) | Remove only this topic's resources by naming pattern, in dependency order, across both Regions |
 
 Run any script with `-h` / `--help` to see its subcommands and arguments. Scripts that take a role or Lambda ARN accept it as an argument (for example `--provisioning-role-arn`, `--role-arn`, `--hook-arn`) — supply the values captured from the base stack above.
 
@@ -166,7 +167,17 @@ python3 scripts/manage_multi_account_registration.py register-without-ca \
   --region "$PROD_REGION" --certificate-pem device.pem \
   --policy-name MARProductionDevicePolicy --thing-name Vehicle-VIN-MAR-001
 
-# --- Cleanup (Section 6) ---
+# --- Certificate rotation (Section 6) ---
+# Device half of a backend-driven rotation. Add --pause to stop at each
+# observable step (job IN_PROGRESS, the certificate overlap, the retirement)
+# so you can inspect state in the console or with the AWS CLI before continuing.
+python3 scripts/rotate_certificate.py \
+  --endpoint "$IOT_ENDPOINT" --thing-name AnyCompany-Sensor-9001 \
+  --cert AnyCompany-Sensor-9001.old.cert.pem \
+  --key AnyCompany-Sensor-9001.old.private.key \
+  --ca AmazonRootCA1.pem --pause
+
+# --- Cleanup (Section 7) ---
 python3 scripts/cleanup_script.py                      # dry run (lists what it would remove)
 python3 scripts/cleanup_script.py --execute            # main Region
 python3 scripts/cleanup_script.py --execute --mar-region "$PROD_REGION"   # second Region
@@ -226,6 +237,7 @@ sample-aws-iot-device-management-learning-path-advanced/
 │   ├── fleet_provision_trusted_user.py
 │   ├── manage_multi_account_registration.py
 │   ├── mqtt_connect.py
+│   ├── rotate_certificate.py
 │   ├── certificate_manager.py
 │   └── cleanup_script.py
 ├── iot_helpers/                          # Internal helper package
@@ -235,7 +247,9 @@ sample-aws-iot-device-management-learning-path-advanced/
 │       └── fleet_provisioning_templates/ # Provisioning template + policy JSON
 ├── lambdas/                              # Lambda code deployed to the skeletons
 │   ├── jitr_registration_handler.py
-│   └── pre_provisioning_hook.py
+│   ├── pre_provisioning_hook.py
+│   ├── certificate_provider_signer.py
+│   └── rotation_handler.py                # Section 6 — signs the CSR, retires the old cert
 ├── i18n/                                 # Internationalization (message catalogs + loader)
 ├── requirements.txt                      # Python dependencies (both planes)
 └── README.md

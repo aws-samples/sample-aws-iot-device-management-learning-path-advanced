@@ -9,8 +9,11 @@ Description: >-
   Learners author and deploy the actual function code in Modules 3 and 4 via
   'aws lambda update-function-code' against these pre-created function names/ARNs
   (see design section 2.10, item 4 — RESOLVED: hybrid pre-deploy the plumbing,
-  learners deploy the code). No hardcoded secrets; IAM is scoped to this account and
-  region.
+  learners deploy the code). It also pre-deploys the certificate-rotation plumbing
+  for Module 6 (rotation static thing group, rotation-handler Lambda skeleton and its
+  execution role/log group/invoke permission, and the Amazon EventBridge Scheduler
+  role used for the deferred old-certificate deletion). No hardcoded secrets; IAM is
+  scoped to this account and region.
 
 # ---------------------------------------------------------------------------
 # Parameters
@@ -46,7 +49,7 @@ Resources:
           - id: W28
             reason: >-
               Explicit RoleName is a fixed, module-prefixed stable identifier
-              (ws-aws-iot-dm-adv-prov-*, not ${AWS::StackName}-derived) that module steps
+              (ws-aws-iot-dm-adv-prov-*, not stack-name-derived) that module steps
               look up by exact name via iam get-role. The stack is disposable workshop
               infrastructure, so replace-on-update is acceptable.
     Properties:
@@ -103,7 +106,7 @@ Resources:
           - id: W28
             reason: >-
               Explicit RoleName is a fixed, module-prefixed stable identifier
-              (ws-aws-iot-dm-adv-prov-*, not ${AWS::StackName}-derived) that module steps
+              (ws-aws-iot-dm-adv-prov-*, not stack-name-derived) that module steps
               look up by exact name via iam get-role. The stack is disposable workshop
               infrastructure, so replace-on-update is acceptable.
     Properties:
@@ -226,7 +229,7 @@ Resources:
           - id: W28
             reason: >-
               Explicit RoleName is a fixed, module-prefixed stable identifier
-              (ws-aws-iot-dm-adv-prov-*, not ${AWS::StackName}-derived) that module steps
+              (ws-aws-iot-dm-adv-prov-*, not stack-name-derived) that module steps
               look up by exact name via iam get-role. The stack is disposable workshop
               infrastructure, so replace-on-update is acceptable.
     Properties:
@@ -295,7 +298,7 @@ Resources:
           - id: W28
             reason: >-
               Explicit RoleName is a fixed, module-prefixed stable identifier
-              (ws-aws-iot-dm-adv-prov-*, not ${AWS::StackName}-derived) that module steps
+              (ws-aws-iot-dm-adv-prov-*, not stack-name-derived) that module steps
               look up by exact name via iam get-role. The stack is disposable workshop
               infrastructure, so replace-on-update is acceptable.
     Properties:
@@ -356,7 +359,7 @@ Resources:
           - id: W28
             reason: >-
               Explicit RoleName is a fixed, module-prefixed stable identifier
-              (ws-aws-iot-dm-adv-prov-*, not ${AWS::StackName}-derived) that the optional
+              (ws-aws-iot-dm-adv-prov-*, not stack-name-derived) that the optional
               Module 3 lab looks up by exact name via iam get-role. The stack is disposable
               workshop infrastructure, so replace-on-update is acceptable.
     Properties:
@@ -658,11 +661,9 @@ Resources:
     Properties:
       FunctionName: ws-aws-iot-dm-adv-prov-cert-provider-signer
       Description: >-
-        OPTIONAL AWS IoT Core certificate-provider signing function skeleton.
-        Learners deploy the real signer code (lambdas/certificate_provider_signer.py,
-        bundled with the cryptography library) in the Module 3 optional lab via
-        aws lambda update-function-code. Until then this skeleton raises
-        (fail-closed) so no placeholder certificate is ever returned.
+        OPTIONAL certificate-provider signing skeleton (Module 3 optional lab).
+        Learners deploy the real signer with update-function-code; until then it
+        fails closed so no placeholder certificate is returned.
       Runtime: python3.12
       Handler: index.handler
       Timeout: 10
@@ -737,6 +738,403 @@ Resources:
       FunctionName:
         Fn::GetAtt:
           - CertProviderSignerFunction
+          - Arn
+      Action: lambda:InvokeFunction
+      Principal: iot.amazonaws.com
+      SourceAccount:
+        Ref: AWS::AccountId
+
+  # =========================================================================
+  # Certificate rotation (Module 6) — backend-orchestrated rotation plumbing
+  #
+  # Module 6 rotates a device certificate with an AWS IoT Jobs-driven flow: a
+  # CONTINUOUS job targets a static thing group (group membership == "needs
+  # rotation"), the device generates a key pair and CSR locally and publishes the
+  # CSR, and this rotation-handler Lambda signs it, attaches the new certificate to
+  # the thing + policy, and hands the certificate back over MQTT. After the device
+  # proves the new certificate works, the handler detaches and DEACTIVATES the old
+  # certificate and schedules its deletion with a one-time Amazon EventBridge
+  # Scheduler timer (reversible first, irreversible later).
+  #
+  # Learners create the topic rule and the job themselves (the teaching artifacts),
+  # exactly as they create the JITR topic rule in Module 3. Everything below is the
+  # undifferentiated plumbing.
+  # =========================================================================
+
+  # Static thing group that acts as the rotation work queue. A CONTINUOUS job
+  # targeting this group starts a rotation for every thing added to it, and the
+  # handler removes the thing from the group when rotation succeeds.
+  RotationThingGroup:
+    Type: AWS::IoT::ThingGroup
+    Properties:
+      ThingGroupName: ws-aws-iot-dm-adv-prov-rotation
+      ThingGroupProperties:
+        ThingGroupDescription: >-
+          Rotation work queue for Module 6. Add a thing to this group to enqueue a
+          certificate rotation; the rotation handler removes it again on success.
+      Tags:
+        - Key: workshop
+          Value: aws-iot-dm-advanced-provisioning
+        - Key: purpose
+          Value: certificate-rotation-queue
+
+  # Execution role for the rotation handler (Module 6). This is the widest role in
+  # the stack because the handler performs the whole cloud-side identity swap: sign
+  # the CSR, attach/detach the certificate and policy, read and update the job
+  # execution, publish the certificate back to the device, remove the thing from the
+  # rotation group, and create the deferred-deletion schedule.
+  RotationHandlerExecutionRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: >-
+              Explicit RoleName is a fixed, module-prefixed stable identifier
+              (ws-aws-iot-dm-adv-prov-*, not stack-name-derived) that Module 6 looks up
+              by exact name with iam get-role. The stack is disposable workshop
+              infrastructure, so replace-on-update is acceptable.
+          - id: W11
+            reason: >-
+              Two actions are granted on "*" because neither supports resource-level
+              permissions in a way this flow can use: iot:CreateCertificateFromCsr has no
+              certificate ARN to scope to until the call returns, and iot:DescribeEndpoint
+              (used to resolve the data and jobs endpoints the handler calls) is not
+              resource-scoped. Every other action in this role is scoped to this account
+              and Region by resource type (cert/*, thing/*, policy/*, thinggroup/*,
+              job/*, and the rotation response topics only).
+    Properties:
+      RoleName: ws-aws-iot-dm-adv-prov-rotation-handler-role
+      Description: >-
+        Execution role for the Module 6 certificate-rotation handler AWS Lambda
+        function. Grants Amazon CloudWatch Logs write access plus the scoped AWS IoT
+        actions the rotation flow performs, and permission to create the one-time
+        Amazon EventBridge Scheduler schedule that deletes the old certificate later.
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: cloudwatch-logs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: WriteLogs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - Fn::Sub: "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/ws-aws-iot-dm-adv-prov-rotation-handler:*"
+        - PolicyName: rotation-sign-csr
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # The new certificate has no ARN until this call returns, so there is
+              # nothing narrower to scope to. See the W11 suppression above.
+              - Sid: SignCertificateSigningRequest
+                Effect: Allow
+                Action: iot:CreateCertificateFromCsr
+                Resource: "*"
+              # The handler resolves the data endpoint (to publish the certificate back
+              # to the device) and the jobs endpoint (to update the job execution).
+              # DescribeEndpoint is not resource-scoped.
+              - Sid: ResolveEndpoints
+                Effect: Allow
+                Action: iot:DescribeEndpoint
+                Resource: "*"
+        - PolicyName: rotation-identity-swap
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # Read the certificate (including re-fetching its PEM when a device asks
+              # for it again), activate the new one, and deactivate/delete the old one.
+              - Sid: ManageCertificates
+                Effect: Allow
+                Action:
+                  - iot:DescribeCertificate
+                  - iot:UpdateCertificate
+                  - iot:DeleteCertificate
+                Resource:
+                  - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:cert/*"
+              # Attach the new certificate to the thing and the policy to the new
+              # certificate; detach both from the old certificate after cutover.
+              - Sid: AttachAndDetachPrincipals
+                Effect: Allow
+                Action:
+                  - iot:AttachPolicy
+                  - iot:DetachPolicy
+                  - iot:AttachThingPrincipal
+                  - iot:DetachThingPrincipal
+                  - iot:ListThingPrincipals
+                  - iot:ListAttachedPolicies
+                  - iot:DescribeThing
+                Resource:
+                  - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:cert/*"
+                  - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:policy/*"
+                  - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:thing/*"
+              # Remove the thing from the rotation queue once rotation succeeds.
+              - Sid: LeaveRotationQueue
+                Effect: Allow
+                Action:
+                  - iot:RemoveThingFromThingGroup
+                  - iot:ListThingGroupsForThing
+                Resource:
+                  - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:thing/*"
+                  - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:thinggroup/ws-aws-iot-dm-adv-prov-rotation"
+        - PolicyName: rotation-jobs-and-delivery
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # The job execution is the rotation state machine: the handler reads the
+              # current phase and writes the next one (including the new certificate id,
+              # which is what makes the flow resumable).
+              #
+              # Jobs is split across two IAM prefixes and the handler needs both. Reads
+              # of the job and its execution are CONTROL-plane actions (iot: prefix, on
+              # thing and job resources); writing the execution status is a DATA-plane
+              # action (iotjobsdata: prefix, on the thing resource). Using iot: for the
+              # update would not authorize the call.
+              - Sid: ReadJobAndExecutionControlPlane
+                Effect: Allow
+                Action:
+                  - iot:DescribeJob
+                  - iot:DescribeJobExecution
+                Resource:
+                  - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:thing/*"
+                  - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:job/*"
+              - Sid: UpdateJobExecutionDataPlane
+                Effect: Allow
+                Action:
+                  - iotjobsdata:DescribeJobExecution
+                  - iotjobsdata:UpdateJobExecution
+                Resource:
+                  - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:thing/*"
+              # Publish the signed certificate back to the requesting device, scoped to
+              # the rotation response topics only.
+              - Sid: PublishRotationResponse
+                Effect: Allow
+                Action: iot:Publish
+                Resource:
+                  - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:topic/devices/*/certificate/rotation/response"
+        - PolicyName: rotation-deferred-deletion
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # Create the one-time schedule that deletes the old certificate after the
+              # grace period, and clean it up. Scoped to this module's schedule names.
+              - Sid: ManageDeferredDeletionSchedule
+                Effect: Allow
+                Action:
+                  - scheduler:CreateSchedule
+                  - scheduler:GetSchedule
+                  - scheduler:DeleteSchedule
+                Resource:
+                  - Fn::Sub: "arn:${AWS::Partition}:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/default/ws-aws-iot-dm-adv-prov-revoke-*"
+              # A schedule runs under its own role, so the handler must be allowed to
+              # hand that role to Amazon EventBridge Scheduler when creating it.
+              - Sid: PassSchedulerRole
+                Effect: Allow
+                Action: iam:PassRole
+                Resource:
+                  Fn::GetAtt:
+                    - RotationRevokeSchedulerRole
+                    - Arn
+                Condition:
+                  StringEquals:
+                    iam:PassedToService: scheduler.amazonaws.com
+      Tags:
+        - Key: workshop
+          Value: aws-iot-dm-advanced-provisioning
+        - Key: purpose
+          Value: rotation-handler-execution
+
+  # Role that Amazon EventBridge Scheduler assumes when the deferred-deletion timer
+  # fires. Module 6 shows two ways to wire the timer, so this role covers both: it
+  # can invoke the rotation handler, or call the AWS IoT certificate APIs directly as
+  # a universal target with no extra code.
+  RotationRevokeSchedulerRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: >-
+              Explicit RoleName is a fixed, module-prefixed stable identifier that
+              Module 6 looks up by exact name via iam get-role when creating the
+              one-time schedule. The stack is disposable workshop infrastructure, so
+              replace-on-update is acceptable.
+    Properties:
+      RoleName: ws-aws-iot-dm-adv-prov-rotation-revoke-scheduler-role
+      Description: >-
+        Assumed by Amazon EventBridge Scheduler when the Module 6 deferred-deletion
+        timer fires. Permits invoking the rotation handler, or deactivating and
+        deleting the superseded certificate directly as a universal target.
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount:
+                  Ref: AWS::AccountId
+      Policies:
+        - PolicyName: revoke-superseded-certificate
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: DeactivateAndDeleteOldCertificate
+                Effect: Allow
+                Action:
+                  - iot:UpdateCertificate
+                  - iot:DeleteCertificate
+                  - iot:DescribeCertificate
+                Resource:
+                  - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:cert/*"
+              - Sid: InvokeRotationHandler
+                Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource:
+                  - Fn::Sub: "arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:ws-aws-iot-dm-adv-prov-rotation-handler"
+      Tags:
+        - Key: workshop
+          Value: aws-iot-dm-advanced-provisioning
+        - Key: purpose
+          Value: rotation-deferred-deletion
+
+  RotationHandlerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W84
+            reason: >-
+              Ephemeral workshop log group for a disposable stack; log data is
+              non-sensitive placeholder/handler output. A customer-managed KMS key
+              adds cost and operational complexity with no security benefit here.
+      checkov:
+        skip:
+          - id: CKV_AWS_158
+            comment: >-
+              Ephemeral workshop log group; non-sensitive logs, no CMK encryption
+              required for disposable teaching infrastructure.
+    Properties:
+      LogGroupName: /aws/lambda/ws-aws-iot-dm-adv-prov-rotation-handler
+      RetentionInDays: 14
+
+  # Rotation handler skeleton. Fail-closed on purpose: until learners deploy the real
+  # code in Module 6, the function raises rather than signing a certificate signing
+  # request, so a misconfigured rule can never mint a certificate unattended.
+  RotationHandlerFunction:
+    Type: AWS::Lambda::Function
+    DependsOn:
+      - RotationHandlerLogGroup
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W58
+            reason: >-
+              False positive: RotationHandlerExecutionRole grants logs:CreateLogStream
+              and logs:PutLogEvents scoped to this function's log group. cfn_nag does
+              not trace the scoped inline policy.
+          - id: W89
+            reason: >-
+              Function calls public AWS IoT, Amazon EventBridge Scheduler, and Amazon
+              CloudWatch Logs APIs only; a VPC would add NAT plumbing with no benefit
+              for disposable workshop infrastructure.
+          - id: W92
+            reason: >-
+              Single-learner invocation in a disposable stack; reserved concurrency is
+              unnecessary.
+      checkov:
+        skip:
+          - id: CKV_AWS_115
+            comment: Single-learner workshop function; no concurrency limit needed.
+          - id: CKV_AWS_116
+            comment: >-
+              Fail-closed skeleton with no async payloads to preserve; a DLQ is
+              unnecessary for disposable teaching infrastructure.
+          - id: CKV_AWS_117
+            comment: Function uses only public AWS APIs; VPC deployment not required.
+          - id: CKV_AWS_173
+            comment: >-
+              Environment variables are non-sensitive (paths, a group name, a role ARN,
+              and a grace-period value); CMK encryption not required.
+    Properties:
+      FunctionName: ws-aws-iot-dm-adv-prov-rotation-handler
+      Description: >-
+        Certificate-rotation handler skeleton for Module 6. Learners deploy the real
+        handler code via aws lambda update-function-code. Until then the skeleton
+        fails closed so no certificate is signed or deleted unattended.
+      Runtime: python3.12
+      Handler: index.handler
+      # 30s is ample: the handler signs one CSR and makes a handful of control-plane
+      # calls. It is not on the pre-provisioning-hook 5-second path.
+      Timeout: 30
+      MemorySize: 256
+      Role:
+        Fn::GetAtt:
+          - RotationHandlerExecutionRole
+          - Arn
+      Environment:
+        Variables:
+          HOME_FOLDER:
+            Ref: HomeFolder
+          WORKSHOP_TOPIC: aws-iot-dm-advanced-provisioning
+          ROTATION_THING_GROUP:
+            Ref: RotationThingGroup
+          REVOKE_SCHEDULER_ROLE_ARN:
+            Fn::GetAtt:
+              - RotationRevokeSchedulerRole
+              - Arn
+          # Grace period between deactivating the old certificate and deleting it.
+          # Deliberately short so the timer fires within a workshop session.
+          REVOKE_GRACE_MINUTES: "10"
+      Code:
+        ZipFile: |
+          """Certificate-rotation handler skeleton (placeholder).
+
+          Learners replace this in Module 6 with the real handler, which:
+            1. verifies the requesting certificate is attached to the thing and ACTIVE,
+               and that an IN_PROGRESS rotation job execution exists for that thing,
+            2. validates the certificate signing request before signing it,
+            3. signs it, records the new certificate id in the job execution's
+               statusDetails FIRST, then attaches the certificate to the thing and the
+               policy to the certificate,
+            4. publishes the certificate back to the device, and
+            5. on the job-execution succeeded event, detaches and deactivates the old
+               certificate and schedules its deletion after a grace period.
+
+          Until then this skeleton fails closed so a misconfigured topic rule cannot
+          sign a certificate signing request or delete a certificate unattended.
+          """
+
+          def handler(event, context):
+              raise NotImplementedError(
+                  "Rotation handler not yet implemented. Deploy your Module 6 code "
+                  "with 'aws lambda update-function-code'."
+              )
+      Tags:
+        - Key: workshop
+          Value: aws-iot-dm-advanced-provisioning
+        - Key: purpose
+          Value: rotation-handler
+
+  # Allow AWS IoT Core (topic rule action) to invoke the rotation handler when the
+  # Module 6 rules on the certificate signing request topic and on the
+  # job-execution succeeded event fire.
+  RotationHandlerInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName:
+        Fn::GetAtt:
+          - RotationHandlerFunction
           - Arn
       Action: lambda:InvokeFunction
       Principal: iot.amazonaws.com
@@ -844,3 +1242,56 @@ Outputs:
     Export:
       Name:
         Fn::Sub: "${AWS::StackName}-CertProviderSignerFunctionArn"
+
+  RotationThingGroupName:
+    Description: >-
+      Static thing group that acts as the rotation work queue in Module 6. Adding a
+      thing to this group enqueues a certificate rotation for the continuous job.
+    Value:
+      Ref: RotationThingGroup
+    Export:
+      Name:
+        Fn::Sub: "${AWS::StackName}-RotationThingGroupName"
+
+  RotationThingGroupArn:
+    Description: ARN of the Module 6 rotation work-queue thing group (the job target).
+    Value:
+      Fn::GetAtt:
+        - RotationThingGroup
+        - Arn
+    Export:
+      Name:
+        Fn::Sub: "${AWS::StackName}-RotationThingGroupArn"
+
+  RotationHandlerFunctionName:
+    Description: >-
+      Function name learners target with aws lambda update-function-code in Module 6.
+    Value:
+      Ref: RotationHandlerFunction
+    Export:
+      Name:
+        Fn::Sub: "${AWS::StackName}-RotationHandlerFunctionName"
+
+  RotationHandlerFunctionArn:
+    Description: >-
+      Function ARN used as the AWS IoT topic rule Lambda target in Module 6 (both the
+      certificate signing request rule and the job-execution succeeded event rule).
+    Value:
+      Fn::GetAtt:
+        - RotationHandlerFunction
+        - Arn
+    Export:
+      Name:
+        Fn::Sub: "${AWS::StackName}-RotationHandlerFunctionArn"
+
+  RotationRevokeSchedulerRoleArn:
+    Description: >-
+      ARN of the role Amazon EventBridge Scheduler assumes when the Module 6
+      deferred-deletion timer fires.
+    Value:
+      Fn::GetAtt:
+        - RotationRevokeSchedulerRole
+        - Arn
+    Export:
+      Name:
+        Fn::Sub: "${AWS::StackName}-RotationRevokeSchedulerRoleArn"

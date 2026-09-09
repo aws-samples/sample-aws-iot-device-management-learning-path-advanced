@@ -1,0 +1,79 @@
+{
+  "usage": "Usage: python3 scripts/rotate_certificate.py --endpoint <endpoint> --thing-name <thing> --cert <certFile> --key <keyFile> --ca <caFile>",
+  "connect": {
+    "attempt": "Connecting as {} with the {} certificate ...",
+    "old_certificate": "current",
+    "new_certificate": "new",
+    "connected": "Connected [{}].",
+    "detail": "     endpoint={}  clientId={}  certificate={}",
+    "failed": "Could not connect with the {} certificate: {}"
+  },
+  "wire": {
+    "sub": "     SUB      {}",
+    "pub": "     PUB  --> {}",
+    "recv": "     RECV <-- {}",
+    "payload": "              payload: {}",
+    "truncated": "{}... ({} chars)",
+    "job_meta": "              jobId={}  executionNumber={}  status={}",
+    "job_document": "              job document: {}",
+    "cert_detail": "              certificateId={}  certificatePem: {}",
+    "csr_payload": "              payload: jobId={}  csr: {}",
+    "key_not_sent": "              (no private key in this message - it never leaves the device)"
+  },
+  "job": {
+    "subscribing": "Subscribing to the reply topics before claiming a job ...",
+    "waiting": "Waiting for a rotation job execution on {} ...",
+    "taken": "Job execution taken: {}",
+    "none": "No rotation job execution is pending for this thing. Add it to the rotation thing group first, then re-run.",
+    "phase": "  job execution -> status={} phase={}"
+  },
+  "keypair": {
+    "generating": "Generating a new key pair and certificate signing request locally ...",
+    "generated": "New key pair generated. The private key never leaves this device: {}",
+    "detail": "     RSA {}-bit key, certificate signing request subject CN={}, written to {}",
+    "openssl_missing": "OpenSSL was not found on PATH. The shared Setup section confirms OpenSSL availability; install it and re-run.",
+    "failed": "Could not generate the key pair or certificate signing request: {}"
+  },
+  "request": {
+    "sent": "Certificate signing request sent on {}; waiting for the handler to sign it.",
+    "received": "Received certificate {}.",
+    "timeout": "No certificate arrived within {} seconds. The handler may have denied the request — check the job execution statusDetails for the reason."
+  },
+  "cutover": {
+    "installing": "Installing the new certificate at {} ...",
+    "reconnecting": "Reconnecting with the NEW certificate ...",
+    "proving": "Proving the new certificate is authorized by publishing to {} ...",
+    "proved": "Authorized publish with the new certificate succeeded.",
+    "publish_failed": "The new certificate could not publish: {}",
+    "rolled_back": "Rolled back to the CURRENT certificate — it was never retired — and reported FAILED. The device stays online."
+  },
+  "result": {
+    "succeeded": "Job execution reported SUCCEEDED. The backend may now retire the old certificate.",
+    "failed": "Job execution reported FAILED. No certificate was retired, and the device keeps using its current certificate.",
+    "summary": "Rotation complete for {}: new certificate {} is in use."
+  },
+  "pause": {
+    "rule": "  ----------------------------------------------------------------------",
+    "prompt": "  Press Enter to let the device continue ...",
+    "budget": "  Time budget: about {} of {} minutes left before AWS IoT Core marks this execution TIMED_OUT.",
+    "disabled": "  No terminal input available - continuing without further pauses.",
+    "not_a_terminal": "Pausing was requested but this is not an interactive terminal; running straight through.",
+    "job_taken": {
+      "what": "  OBSERVE 1/3 - the job execution is now IN_PROGRESS. The device is holding here before it generates a key pair.",
+      "console": "  Console: AWS IoT console -> Manage -> Remote actions -> Jobs -> your job -> Job executions\n           {}",
+      "cli": "  CLI:     aws iot describe-job-execution --job-id {} --thing-name {} \\\n             --query \"execution.[status,statusDetails]\""
+    },
+    "overlap": {
+      "what": "  OBSERVE 2/3 - the overlap window. The new certificate is signed, ACTIVE and attached, and the current one is still attached and working. The thing has TWO certificates right now, which is exactly why a failed rotation cannot lock the device out.",
+      "console": "  Console: AWS IoT console -> Manage -> Things -> your thing -> Certificates\n           {}",
+      "cli": "  CLI:     aws iot list-thing-principals --thing-name {} --query \"principals\"",
+      "expect": "  Expect:  two principals listed. The new one ends in {}."
+    },
+    "retired": {
+      "what": "  OBSERVE 3/3 - the cutover succeeded, so the old certificate has been set INACTIVE. It is not deleted yet: retirement is deferred so a device that reappears late can still be recovered.",
+      "console": "  Console: AWS IoT console -> Security -> Certificates (the old one now shows Inactive)\n           {}",
+      "cli": "  CLI:     Use the OTHER certificate id you saw at OBSERVE 2 - the one that is not the new certificate:\n             aws iot describe-certificate --certificate-id <thatId> \\\n               --query \"certificateDescription.status\"   (expect: INACTIVE)",
+      "scheduler": "  CLI:     aws scheduler list-schedules --name-prefix ws-aws-iot-dm-adv-prov-revoke- \\\n               --query \"Schedules[].[Name,State]\"\n             The one-time deletion timer. Its name ends with the first 16 characters of the retired certificate id."
+    }
+  }
+}
