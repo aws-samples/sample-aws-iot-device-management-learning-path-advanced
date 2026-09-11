@@ -267,7 +267,7 @@ def observe(thing_name, debug=False):
 
 
 # =========================================================================
-# Device plane (over the reused DeviceConnection / mqtt_connection_builder)
+# Device plane (over the reused DeviceConnection / mqtt5_client_builder)
 # =========================================================================
 
 

@@ -1,18 +1,19 @@
 {
   "usage": "Usage: python3 ../scripts/mqtt_connect.py <endpoint> <clientId> <certFile> <keyFile> <caFile> <topic>",
   "callbacks": {
-    "interrupted": "WARNING  Connection interrupted: {} (the SDK will retry automatically)",
-    "resumed": "OK  Connection resumed (return_code={}, session_present={})"
+    "interrupted": "WARNING  Connection interrupted: reason_code={} exception={} (the MQTT 5 client will retry automatically)",
+    "resumed": "OK  Connection resumed (reason_code={}, rejoined_session={})"
   },
   "connect": {
-    "attempt": "Connecting as {} (attempt {}) ...",
+    "waiting": "Connecting as {} over MQTT 5; the client retries on its own until the broker accepts it ...",
     "connected": "Connected.",
-    "first_drop_retry": "  first connect dropped while provisioning finishes ({}); retrying in 3s ...",
-    "failed": "Could not connect after several attempts - check the certificate/policy and retry."
+    "refused_retry": "  connect refused: reason_code={} exception={} - retrying (expected while provisioning finishes) ...",
+    "failed": "Could not connect within the time budget - check the certificate/policy and retry."
   },
   "publish": {
     "loop_start": "Now publishing on a loop to {}; each message should land on the topic.",
     "sent": "  PUBLISH -> {}: {}",
+    "refused": "  PUBLISH -> {} REFUSED by the broker: reason_code={} (MQTT 3.1.1 could not report this)",
     "failed": "  publish seq={} failed (likely mid-reconnect): {}"
   },
   "disconnect": {

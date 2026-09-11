@@ -21,17 +21,48 @@ device often starts the flow.
 The rotation invariant this agent respects
 -----------------------------------------
 **Report success only after the new certificate has done real work.** The agent
-completes an *authorized publish* with the new certificate before reporting
-``SUCCEEDED``, because a successful connection alone is not evidence: a
-connection can succeed while the policy attachment is missing, and you would
-not discover it until the device tried to publish — after the old certificate
-had already been retired. If the publish fails, the agent falls back to the
-current certificate (never retired) and reports ``FAILED``, leaving the device
-online for a retry.
+connects with the new certificate and completes an *authorized publish* before
+reporting ``SUCCEEDED``. If either step fails, it falls back to the current
+certificate — which was never retired — and reports ``FAILED``, leaving the
+device online for a retry.
+
+Two different failures, and why both matter
+-------------------------------------------
+A replacement certificate can fail in two distinct places, and the agent
+handles both:
+
+1. **It cannot connect.** AWS IoT Core authorizes ``iot:Connect`` on every
+   CONNECT, and permissions come only from policies attached to the certificate
+   itself. So a certificate the handler forgot to attach a policy to is refused
+   at connect time — it never reaches a publish.
+2. **It connects but cannot publish.** This one is subtler, because the handler
+   copies the *same* policy documents onto the new certificate. A policy scoped
+   by **thing** variables (``iot:Connection.Thing.ThingName``) means the same
+   thing for both certificates. A policy scoped by **certificate** variables
+   (``iot:Certificate.SerialNumber``, ``iot:Certificate.Subject.*``) does not —
+   and rotation is the only operation that changes the certificate under a fixed
+   thing. Note that the certificate signing request built below sets only
+   ``CN``, so any subject attribute a policy relies on would be absent.
+
+The proof publish is what catches case 2, which is why the agent does real work
+rather than settling for a successful connection.
 
 The private key generated here never leaves the device. Only the certificate
 signing request is transmitted, which is why a message the device misses costs
 a recoverable certificate rather than an unrecoverable key.
+
+Why MQTT 5
+----------
+This agent speaks **MQTT 5**, which reports a **reason code** on every
+acknowledgement. That is what lets the fallback below be deliberate instead of
+blind: ``NOT_AUTHORIZED`` (0x87) on the CONNACK means the replacement
+certificate will *never* work, so the agent stops retrying immediately and rolls
+back; anything else (``QUOTA_EXCEEDED``, a dropped socket) is transient and is
+retried with backoff first. Under MQTT 3.1.1 that distinction is unavailable for
+a publish at all — its PUBACK packet has no reason-code field, so a refused
+publish is indistinguishable from a lost one and every failure has to be treated
+the same way. See `MQTT reason codes
+<https://docs.aws.amazon.com/iot/latest/developerguide/mqtt.html>`_.
 
 Phases written to the job execution
 -----------------------------------
@@ -42,6 +73,28 @@ phase markers live in ``statusDetails`` alongside it::
     IN_PROGRESS  phase=CERT_READY      (written by the handler) certificate signed
     SUCCEEDED    phase=INSTALLED       new certificate installed and proven
     FAILED       phase=CUTOVER_FAILED  new certificate unusable, rolled back
+
+A ``CUTOVER_FAILED`` execution also carries a ``reason`` in ``statusDetails``, so
+an operator reading ``describe-job-execution`` can tell the two failures apart —
+a refused connect points at the certificate's policy attachment, a refused
+publish points at the policy's *scope*.
+
+What is deliberately NOT in statusDetails
+-----------------------------------------
+``phase`` is the only thing this agent writes there, and the id of the new
+certificate is deliberately absent. Two reasons:
+
+* ``statusDetails`` is **replaced wholesale** on every ``UpdateJobExecution``,
+  not merged. Both the device and the handler write that map, so whatever one
+  puts there the other erases. Keeping it to a single key both actors own means
+  replacement can no longer lose anything.
+* Which certificate survives a rotation is a **backend** decision. A device that
+  reported it would be choosing which of its own credentials gets destroyed. The
+  handler records it in a dedicated named shadow instead — one this device has no
+  policy permitting it to read or write.
+
+If you adapt this agent and find yourself needing to write a second key here,
+read the current map back first and carry it forward. Do not assume a merge.
 
 Examples
 --------
@@ -80,6 +133,7 @@ import os
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from concurrent.futures import Future
 
@@ -89,11 +143,73 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 sys.path.append(os.path.join(REPO_ROOT, "i18n"))
 
-from awscrt import mqtt  # noqa: E402
-from awsiot import mqtt_connection_builder  # noqa: E402
+from awscrt import mqtt5  # noqa: E402
+from awsiot import mqtt5_client_builder  # noqa: E402
 
 from language_selector import get_language  # noqa: E402
 from loader import load_messages  # noqa: E402
+
+# --- MQTT 5 reason-code handling -----------------------------------------
+# CONNACK reason codes that mean "this will never succeed". Retrying an
+# authorization failure only wastes the job execution's in-progress budget, so
+# the agent stops and rolls back the moment it sees one. Everything else — a
+# quota, a rate limit, a dropped socket — is transient and worth a retry.
+# The one operation this agent implements. A device polling start-next receives
+# whatever job is next for it — in a real account that could be a firmware update
+# or a reboot — so the job document's operation is dispatched on rather than
+# assumed. See take_job().
+ROTATE_OPERATION = "rotateCertificate"
+
+TERMINAL_CONNECT_REASON_CODES = frozenset(
+    {
+        mqtt5.ConnectReasonCode.NOT_AUTHORIZED,
+        mqtt5.ConnectReasonCode.BAD_USERNAME_OR_PASSWORD,
+        mqtt5.ConnectReasonCode.CLIENT_IDENTIFIER_NOT_VALID,
+        mqtt5.ConnectReasonCode.BANNED,
+    }
+)
+
+
+class ConnectFailed(RuntimeError):
+    """The broker refused the connection, or it could not be opened at all.
+
+    ``reason_code`` is the CONNACK reason code when the broker answered and
+    ``None`` when the failure happened below MQTT (DNS, TLS, socket) — that
+    absence is itself informative, because it means the broker never replied.
+    """
+
+    def __init__(self, message, reason_code=None, cause=None):
+        super().__init__(message)
+        self.reason_code = reason_code
+        self.cause = cause
+
+    @property
+    def is_terminal(self):
+        """True when retrying cannot change the outcome."""
+        return self.reason_code in TERMINAL_CONNECT_REASON_CODES
+
+
+class PublishRefused(RuntimeError):
+    """A QoS 1 publish was acknowledged with a failure reason code."""
+
+    def __init__(self, message, reason_code=None):
+        super().__init__(message)
+        self.reason_code = reason_code
+
+
+class UnsupportedOperation(RuntimeError):
+    """The job execution asked for an operation this agent does not implement."""
+
+
+def reason_code_name(reason_code):
+    """Render an MQTT 5 reason code as ``NAME (0xHH)``, or ``-`` when absent."""
+    if reason_code is None:
+        return "-"
+    name = getattr(reason_code, "name", str(reason_code))
+    try:
+        return f"{name} (0x{int(reason_code):02X})"
+    except (TypeError, ValueError):
+        return name
 
 # --- i18n message catalog + resolver -------------------------------------
 # Populated once at entry (see main()) via load_messages(). The wrapper below
@@ -160,8 +276,11 @@ class RotationAgent:
         key,
         ca,
         telemetry_topic,
+        request_rule="ws_rotation_request",
         pause=False,
         in_progress_timeout=15,
+        connect_retries=3,
+        connect_backoff=2.0,
     ):
         self.endpoint = endpoint
         self.thing = thing
@@ -169,14 +288,40 @@ class RotationAgent:
         self.key = key
         self.ca = ca
         self.telemetry_topic = telemetry_topic
+        self.request_rule = request_rule
 
         self.jobs_prefix = f"$aws/things/{thing}/jobs"
-        self.request_topic = f"devices/{thing}/certificate/rotation/request"
+        # The certificate signing request goes out over BASIC INGEST — the
+        # `$aws/rules/<ruleName>/` prefix hands the message straight to the rules
+        # engine, skipping the publish/subscribe message broker and its messaging
+        # charge. Nothing but the rule needs to see this message, so paying to
+        # distribute it would buy nothing.
+        #
+        # Two consequences worth knowing. The rules engine strips that prefix
+        # before the rule sees the topic, so the rule's `FROM` clause and its
+        # `topic(2)` are unchanged — the thing name is still the second segment.
+        # And a Basic Ingest topic is PUBLISH-ONLY and never reaches the broker,
+        # so no other client (including the console MQTT test client) can observe
+        # it. That is why the RESPONSE below stays an ordinary topic: the device
+        # has to be able to subscribe to it.
+        self.request_topic = (
+            f"$aws/rules/{request_rule}/devices/{thing}/certificate/rotation/request"
+        )
         self.response_topic = f"devices/{thing}/certificate/rotation/response"
 
         self.job_started = Future()
         self.cert_arrived = Future()
         self.connection = None
+
+        # How hard to try before giving up on the replacement certificate. A
+        # terminal reason code short-circuits this entirely (see connect()).
+        self.connect_retries = max(1, connect_retries)
+        self.connect_backoff = max(0.0, connect_backoff)
+
+        # MQTT 5 lifecycle plumbing: connection outcome arrives on a callback
+        # rather than a future, so the callbacks below bridge onto these.
+        self._connect_result = None
+        self._stopped = threading.Event()
 
         # Guided walkthrough state. Pausing is only useful on a terminal, so a
         # piped or redirected run degrades to a straight-through execution
@@ -227,9 +372,19 @@ class RotationAgent:
             self.pause = False
 
     # --- MQTT plumbing ---------------------------------------------------
-    def _on_message(self, topic, payload, **kwargs):
+    def _on_message(self, data):
+        """Handle every inbound publish.
+
+        MQTT 5 delivers all inbound publishes to a single callback rather than
+        one per subscription, so this dispatches on the topic itself.
+        """
+        packet = data.publish_packet
+        topic = packet.topic
+        payload = packet.payload
         try:
-            body = json.loads(payload.decode())
+            if isinstance(payload, (bytes, bytearray)):
+                payload = bytes(payload).decode()
+            body = json.loads(payload)
         except (ValueError, UnicodeDecodeError):
             return
         if topic.endswith("/start-next/accepted"):
@@ -264,68 +419,247 @@ class RotationAgent:
             )
             self.cert_arrived.set_result(body)
 
-    def connect(self, cert_path, key_path, which):
-        label = get_message(f"connect.{which}_certificate")
-        print(get_message("connect.attempt", self.thing, label))
-        print(get_message("connect.detail", self.endpoint, self.thing, cert_path))
-        connection = mqtt_connection_builder.mtls_from_path(
+    def _stop_client(self):
+        """Stop the current MQTT 5 client and wait for it to finish stopping."""
+        if not self.connection:
+            return
+        try:
+            self.connection.stop()
+            self._stopped.wait(timeout=15)
+        except Exception:  # noqa: BLE001 - teardown is best effort
+            pass
+        self.connection = None
+
+    def _connect_once(self, cert_path, key_path):
+        """Open one MQTT 5 connection. Raise ConnectFailed with the reason code.
+
+        A fresh client per attempt on purpose: the MQTT 5 client reconnects on
+        its own schedule, and this agent needs to make the retry decision itself
+        based on the CONNACK reason code.
+        """
+        result = Future()
+        self._connect_result = result
+        self._stopped.clear()
+
+        def on_success(data):
+            if not result.done():
+                result.set_result(data)
+
+        def on_failure(data):
+            reason_code = getattr(data.connack_packet, "reason_code", None)
+            if not result.done():
+                result.set_exception(
+                    ConnectFailed(
+                        reason_code_name(reason_code),
+                        reason_code=reason_code,
+                        cause=data.exception,
+                    )
+                )
+
+        def on_stopped(data):  # noqa: ARG001 - dataclass is unused
+            self._stopped.set()
+
+        client = mqtt5_client_builder.mtls_from_path(
             endpoint=self.endpoint,
             cert_filepath=cert_path,
             pri_key_filepath=key_path,
             ca_filepath=self.ca,
             client_id=self.thing,
-            clean_session=False,
-            keep_alive_secs=30,
+            # clean_session=False under MQTT 3.1.1 becomes "rejoin the session
+            # once this client has connected successfully at least once", so a
+            # transient drop mid-rotation keeps the jobs subscriptions.
+            session_behavior=mqtt5.ClientSessionBehaviorType.REJOIN_POST_SUCCESS,
+            session_expiry_interval_sec=3600,
+            keep_alive_interval_sec=30,
+            # This agent owns the retry decision, so keep the client's own
+            # reconnect from racing it.
+            min_reconnect_delay_ms=30000,
+            max_reconnect_delay_ms=30000,
+            on_publish_received=self._on_message,
+            on_lifecycle_connection_success=on_success,
+            on_lifecycle_connection_failure=on_failure,
+            on_lifecycle_stopped=on_stopped,
         )
+        self.connection = client
+        client.start()
         try:
-            connection.connect().result()
-        except Exception as error:  # noqa: BLE001 - surface any handshake failure
-            raise RuntimeError(get_message("connect.failed", label, error)) from error
-        print(get_message("connect.connected", label))
-        self.connection = connection
-        return connection
+            data = result.result(timeout=30)
+        except ConnectFailed:
+            self._stop_client()
+            raise
+        except TimeoutError as error:
+            self._stop_client()
+            raise ConnectFailed("no CONNACK within 30s", cause=error) from error
+        finally:
+            self._connect_result = None
+        return data
+
+    def connect(self, cert_path, key_path, which):
+        """Connect, retrying transient failures but never an authorization one.
+
+        This is where the MQTT 5 reason code does real work. ``NOT_AUTHORIZED``
+        means the certificate cannot be used at all, so retrying would only burn
+        the job execution's in-progress budget before the inevitable rollback.
+        Any other failure gets ``--connect-retries`` attempts with backoff.
+        """
+        label = get_message(f"connect.{which}_certificate")
+        last_error = None
+
+        for attempt in range(1, self.connect_retries + 1):
+            print(get_message("connect.attempt", self.thing, label))
+            print(get_message("connect.detail", self.endpoint, self.thing, cert_path))
+            try:
+                data = self._connect_once(cert_path, key_path)
+            except ConnectFailed as error:
+                last_error = error
+                if error.is_terminal:
+                    # No retry: the broker has told us this will never work.
+                    print(
+                        get_message(
+                            "connect.refused_terminal",
+                            label,
+                            reason_code_name(error.reason_code),
+                        )
+                    )
+                    raise
+                if attempt < self.connect_retries:
+                    delay = round(self.connect_backoff * (2 ** (attempt - 1)), 1)
+                    print(
+                        get_message(
+                            "connect.refused_retry",
+                            label,
+                            reason_code_name(error.reason_code),
+                            attempt,
+                            self.connect_retries,
+                            delay,
+                        )
+                    )
+                    time.sleep(delay)
+                    continue
+                print(
+                    get_message(
+                        "connect.refused_exhausted", label, self.connect_retries
+                    )
+                )
+                raise
+            else:
+                connack = getattr(data, "connack_packet", None)
+                print(get_message("connect.connected", label))
+                print(
+                    get_message(
+                        "connect.connack",
+                        reason_code_name(getattr(connack, "reason_code", None)),
+                    )
+                )
+                return self.connection
+
+        raise last_error  # pragma: no cover - the loop always returns or raises
 
     def update_job(self, job_id, status, details):
-        """Report status and phase back over the reserved job topic."""
+        """Report status and phase back over the reserved job topic.
+
+        The publish is awaited and its PUBACK checked, so a status write that the
+        broker refuses is reported rather than silently lost. A failure here is
+        logged and not raised: by the time this runs the outcome is already
+        decided, and losing the report must not mask it.
+        """
         topic = f"{self.jobs_prefix}/{job_id}/update"
         payload = json.dumps({"status": status, "statusDetails": details})
-        self.connection.publish(
-            topic=topic, payload=payload, qos=mqtt.QoS.AT_LEAST_ONCE
-        )
         print(get_message("job.phase", status, details.get("phase", "-")))
         self._wire("pub", topic)
         print(get_message("wire.payload", payload))
-        if status in ("SUCCEEDED", "FAILED"):
+        try:
+            self._publish(topic, payload, timeout=15)
+        except (PublishRefused, Exception) as error:  # noqa: BLE001
+            print(get_message("job.update_failed", status, error))
+        if status in ("SUCCEEDED", "FAILED", "REJECTED"):
             self._terminal = True
         time.sleep(1)
 
+    def _publish(self, topic, payload, timeout=15):
+        """Publish at QoS 1 and check the PUBACK reason code.
+
+        Under MQTT 3.1.1 this check was impossible: its PUBACK carries only a
+        packet identifier, so a refused publish was indistinguishable from a
+        lost one and showed up only as a timeout.
+        """
+        completion = self.connection.publish(
+            publish_packet=mqtt5.PublishPacket(
+                topic=topic, payload=payload, qos=mqtt5.QoS.AT_LEAST_ONCE
+            )
+        ).result(timeout=timeout)
+        puback = getattr(completion, "puback", None)
+        if puback is not None and puback.reason_code != mqtt5.PubackReasonCode.SUCCESS:
+            raise PublishRefused(
+                reason_code_name(puback.reason_code), reason_code=puback.reason_code
+            )
+        return puback
+
     # --- Flow ------------------------------------------------------------
     def take_job(self, timeout):
-        """Subscribe to the reply topics, then claim the next job execution.
+        """Subscribe to the reply topics, claim the next execution, check its operation.
 
         Subscribing before publishing matters: the reply is delivered on the
         same connection that made the request, so a late subscriber misses it.
+
+        ``start-next`` hands back whatever job is next for this thing, not
+        necessarily a rotation, so the job document's ``operation`` is checked
+        before anything else happens. A device that skipped this check would
+        generate a key pair in response to a firmware-update job. AWS IoT Jobs
+        defines ``REJECTED`` as the status for "an invalid or incompatible
+        request", so that is what an unrecognised operation reports — and unlike
+        ``FAILED`` it is not retryable, which is correct: retrying will not make
+        this agent understand the operation.
         """
         print(get_message("job.subscribing"))
+        granted = {
+            mqtt5.SubackReasonCode.GRANTED_QOS_0,
+            mqtt5.SubackReasonCode.GRANTED_QOS_1,
+            mqtt5.SubackReasonCode.GRANTED_QOS_2,
+        }
         for topic in (f"{self.jobs_prefix}/start-next/accepted", self.response_topic):
-            self.connection.subscribe(
-                topic=topic, qos=mqtt.QoS.AT_LEAST_ONCE, callback=self._on_message
-            )[0].result()
+            suback = self.connection.subscribe(
+                subscribe_packet=mqtt5.SubscribePacket(
+                    subscriptions=[
+                        mqtt5.Subscription(
+                            topic_filter=topic, qos=mqtt5.QoS.AT_LEAST_ONCE
+                        )
+                    ]
+                )
+            ).result(timeout=30)
+            # MQTT 5 reports a per-subscription reason code, so a refused
+            # subscription fails here instead of looking like silence later.
+            for code in suback.reason_codes:
+                if code not in granted:
+                    raise RuntimeError(
+                        get_message(
+                            "job.subscribe_refused", topic, reason_code_name(code)
+                        )
+                    )
             self._wire("sub", topic)
 
         print(get_message("job.waiting", self.thing))
         claim_topic = f"{self.jobs_prefix}/start-next"
-        self.connection.publish(
-            topic=claim_topic,
-            payload=json.dumps({}),
-            qos=mqtt.QoS.AT_LEAST_ONCE,
-        )
+        self._publish(claim_topic, json.dumps({}), timeout=30)
         self._wire("pub", claim_topic)
         print(get_message("wire.payload", "{}"))
         execution = self.job_started.result(timeout=timeout)
-        print(get_message("job.taken", execution["jobId"]))
-        self.job_id = execution["jobId"]
-        return execution["jobId"]
+        job_id = execution["jobId"]
+        print(get_message("job.taken", job_id))
+
+        operation = (execution.get("jobDocument") or {}).get("operation")
+        if operation != ROTATE_OPERATION:
+            shown = operation or "(none)"
+            print(get_message("job.wrong_operation", shown, ROTATE_OPERATION))
+            self.update_job(
+                job_id,
+                "REJECTED",
+                {"phase": "REJECTED", "reason": f"unsupported operation: {shown}"},
+            )
+            raise UnsupportedOperation(shown)
+
+        self.job_id = job_id
+        return job_id
 
     def generate_keypair(self):
         """Create a new private key and certificate signing request locally."""
@@ -363,10 +697,8 @@ class RotationAgent:
         with open(csr_path, "r", encoding="utf-8") as handle:
             csr = handle.read()
 
-        self.connection.publish(
-            topic=self.request_topic,
-            payload=json.dumps({"jobId": job_id, "csr": csr}),
-            qos=mqtt.QoS.AT_LEAST_ONCE,
+        self._publish(
+            self.request_topic, json.dumps({"jobId": job_id, "csr": csr}), timeout=30
         )
         print(get_message("request.sent", self.request_topic))
         self._wire("pub", self.request_topic)
@@ -387,12 +719,60 @@ class RotationAgent:
             handle.write(answer["certificatePem"])
         return new_cert, answer["certificateId"]
 
-    def cutover(self, job_id, new_cert, new_key, certificate_id, rollback):
-        """Reconnect with the new certificate and prove it is authorized."""
-        self.connection.disconnect().result()
-        print(get_message("cutover.reconnecting"))
-        self.connect(new_cert, new_key, "new")
+    def _abandon_cutover(self, job_id, reason, rollback):
+        """Give up on the new certificate and leave the device online.
 
+        The old certificate was never retired — that is the whole point of the
+        ordering — so falling back to it is always available. ``reason`` is
+        recorded on the job execution so an operator can tell a refused connect
+        from a refused publish without reading the device's logs.
+        """
+        if rollback:
+            # Reconnect on the credential that still works BEFORE reporting, so
+            # the status write travels over a connection that can carry it.
+            self._stop_client()
+            self.connect(self.cert, self.key, "old")
+            self.update_job(
+                job_id, "FAILED", {"phase": "CUTOVER_FAILED", "reason": reason}
+            )
+            print(get_message("cutover.rolled_back"))
+        else:
+            self.update_job(
+                job_id, "FAILED", {"phase": "CUTOVER_FAILED", "reason": reason}
+            )
+        print(get_message("result.failed"))
+        return False
+
+    def cutover(self, job_id, new_cert, new_key, certificate_id, rollback):
+        """Reconnect with the new certificate and prove it is authorized.
+
+        Two failures are handled, and they mean different things:
+
+        * the new certificate cannot **connect** — no policy is attached to it,
+          so ``iot:Connect`` is denied;
+        * the new certificate connects but cannot **publish** — a policy is
+          attached, but it does not authorize the work this device does.
+
+        Either way the device returns to the certificate it started with and
+        reports ``FAILED``. Nothing is retired, so a failed rotation is a retry
+        rather than a field visit.
+        """
+        self._stop_client()
+        print(get_message("cutover.reconnecting"))
+
+        # Failure 1: the replacement certificate cannot even connect.
+        try:
+            self.connect(new_cert, new_key, "new")
+        except ConnectFailed as error:
+            print(get_message("cutover.connect_failed", reason_code_name(error.reason_code)))
+            return self._abandon_cutover(
+                job_id,
+                f"new certificate could not connect: {reason_code_name(error.reason_code)}",
+                rollback,
+            )
+
+        # Failure 2: it connects, but it is not authorized to do real work. This
+        # is why the proof is a publish and not merely a connection.
         print(get_message("cutover.proving", self.telemetry_topic))
         telemetry = json.dumps(
             {
@@ -404,32 +784,25 @@ class RotationAgent:
         self._wire("pub", self.telemetry_topic)
         print(get_message("wire.payload", telemetry))
         try:
-            self.connection.publish(
-                topic=self.telemetry_topic,
-                payload=telemetry,
-                qos=mqtt.QoS.AT_LEAST_ONCE,
-            ).result(timeout=15)
+            self._publish(self.telemetry_topic, telemetry, timeout=15)
+        except PublishRefused as error:
+            print(get_message("cutover.publish_refused", reason_code_name(error.reason_code)))
+            return self._abandon_cutover(
+                job_id,
+                f"new certificate could not publish: {reason_code_name(error.reason_code)}",
+                rollback,
+            )
         except Exception as error:  # noqa: BLE001 - report any publish failure
             print(get_message("cutover.publish_failed", error))
-            if not rollback:
-                self.update_job(job_id, "FAILED", {"phase": "CUTOVER_FAILED"})
-                print(get_message("result.failed"))
-                return False
-            # Fall back to the certificate that still works. It was never
-            # retired, which is the whole point of the ordering.
-            self.connection.disconnect().result()
-            self.connect(self.cert, self.key, "old")
-            self.update_job(job_id, "FAILED", {"phase": "CUTOVER_FAILED"})
-            print(get_message("cutover.rolled_back"))
-            print(get_message("result.failed"))
-            return False
+            return self._abandon_cutover(
+                job_id, f"new certificate could not publish: {error}", rollback
+            )
 
         print(get_message("cutover.proved"))
-        self.update_job(
-            job_id,
-            "SUCCEEDED",
-            {"phase": "INSTALLED", "newCertificateId": certificate_id},
-        )
+        # Report the phase and nothing else. The device does NOT tell the backend
+        # which certificate to keep — that is a backend decision, recorded in the
+        # rotation shadow the device cannot write. See the module docstring.
+        self.update_job(job_id, "SUCCEEDED", {"phase": "INSTALLED"})
         print(get_message("result.succeeded"))
         print(get_message("result.summary", self.thing, certificate_id))
         return True
@@ -441,7 +814,12 @@ class RotationAgent:
             job_id = self.take_job(job_timeout)
         except TimeoutError:
             print(get_message("job.none"))
-            self.connection.disconnect().result()
+            self._stop_client()
+            return False
+        except UnsupportedOperation:
+            # Already reported REJECTED on the execution. Nothing was generated and
+            # nothing was changed, so there is nothing to roll back.
+            self._stop_client()
             return False
 
         self._in_progress_at = time.time()
@@ -486,7 +864,7 @@ class RotationAgent:
                 get_message("pause.retired.cli"),
                 get_message("pause.retired.scheduler"),
             )
-        self.connection.disconnect().result()
+        self._stop_client()
         return ok
 
 
@@ -505,6 +883,17 @@ def parse_arguments():
         help="Topic used to prove the new certificate is authorized",
     )
     parser.add_argument(
+        "--request-rule",
+        default="ws_rotation_request",
+        help=(
+            "Name of the topic rule that receives the certificate signing request. "
+            "The request is published over Basic Ingest "
+            "($aws/rules/<rule>/devices/<thing>/certificate/rotation/request) so it "
+            "reaches the rules engine without a messaging charge. Must match the "
+            "rule you created, or the publish is dropped and RuleNotFound is emitted"
+        ),
+    )
+    parser.add_argument(
         "--job-timeout",
         type=int,
         default=30,
@@ -520,6 +909,22 @@ def parse_arguments():
         "--no-rollback",
         action="store_true",
         help="Do not fall back to the current certificate when the cutover fails",
+    )
+    parser.add_argument(
+        "--connect-retries",
+        type=int,
+        default=3,
+        help=(
+            "Attempts to connect with the new certificate before giving up. An "
+            "authorization failure (CONNACK NOT_AUTHORIZED) is never retried, "
+            "because retrying cannot change it"
+        ),
+    )
+    parser.add_argument(
+        "--connect-backoff",
+        type=float,
+        default=2.0,
+        help="Base seconds between connect attempts; doubles after each attempt",
     )
     parser.add_argument(
         "--pause",
@@ -556,14 +961,24 @@ def main():
         key=args.key,
         ca=args.ca,
         telemetry_topic=args.telemetry_topic,
+        request_rule=args.request_rule,
         pause=args.pause,
         in_progress_timeout=args.in_progress_timeout,
+        connect_retries=args.connect_retries,
+        connect_backoff=args.connect_backoff,
     )
-    ok = agent.run(
-        job_timeout=args.job_timeout,
-        cert_timeout=args.cert_timeout,
-        rollback=not args.no_rollback,
-    )
+    try:
+        ok = agent.run(
+            job_timeout=args.job_timeout,
+            cert_timeout=args.cert_timeout,
+            rollback=not args.no_rollback,
+        )
+    except ConnectFailed as error:
+        # The device could not connect with the certificate it already holds, so
+        # there is no rotation to attempt and nothing to roll back to.
+        print(get_message("connect.failed", get_message("connect.old_certificate"), error))
+        agent._stop_client()
+        sys.exit(1)
     sys.exit(0 if ok else 1)
 
 

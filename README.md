@@ -49,7 +49,7 @@ By the end of Topic 1 you can:
 The advanced provisioning topic composes **two planes**:
 
 - **Control plane — `boto3`** — device management via the `aws iot ...` APIs (registering certificate authorities, provisioning templates, pre-provisioning hooks, Multi-Account Registration, and so on), through the shared `safe_api_call` construct.
-- **Device plane — `aws-iot-device-sdk-python-v2`** — a simulated device that actually connects over MQTT. It provides the `awscrt` / `awsiot` packages and reuses the MQTT connection construct (`awsiot.mqtt_connection_builder.mtls_from_path` over `awscrt.mqtt`) for the connect steps in the JITP, fleet-provisioning, trusted-user, and Multi-Account Registration flows.
+- **Device plane — `aws-iot-device-sdk-python-v2`** — a simulated device that actually connects over MQTT. It provides the `awscrt` / `awsiot` packages and uses the **MQTT 5** connection construct (`awsiot.mqtt5_client_builder.mtls_from_path` over `awscrt.mqtt5`) for the connect steps in the JITP, fleet-provisioning, trusted-user, Multi-Account Registration, and certificate-rotation flows. MQTT 5 is deliberate: it returns a **reason code** on every acknowledgement, so a device can tell an authorization failure (`NOT_AUTHORIZED`, 0x87 — retrying will not help) from a transient one (`QUOTA_EXCEEDED`, 0x97 — retrying will). MQTT 3.1.1 cannot express this for a publish at all, because its PUBACK packet has no reason-code field.
 
 Both planes install together from `requirements.txt`.
 
@@ -249,7 +249,9 @@ sample-aws-iot-device-management-learning-path-advanced/
 │   ├── jitr_registration_handler.py
 │   ├── pre_provisioning_hook.py
 │   ├── certificate_provider_signer.py
-│   └── rotation_handler.py                # Section 6 — signs the CSR, retires the old cert
+│   ├── rotation_handler.py                # Section 6 — gates + signs the CSR, retires the old cert
+│   └── rotation_enroller.py               # Section 6 — reference only, not deployed: turns a
+│                                          #   Device Defender age finding into a rotation enrolment
 ├── i18n/                                 # Internationalization (message catalogs + loader)
 ├── requirements.txt                      # Python dependencies (both planes)
 └── README.md

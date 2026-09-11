@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT-0
 
 """
-Minimal AWS IoT Device SDK for Python v2 MQTT client (shared across sections).
+Minimal AWS IoT Device SDK for Python v2 MQTT 5 client (shared across sections).
 
 This is the tiny device-plane client the provisioning sections use whenever a
 device connects with a certificate and publishes telemetry — the first connect
@@ -14,11 +14,24 @@ It intentionally stays small and self-contained (direct ``awscrt`` / ``awsiot``,
 no shared helper) so a learner can read the whole "how do I open a mutual-TLS
 MQTT connection?" story in one file.
 
-The very first connect right after provisioning is EXPECTED to be dropped: AWS
-IoT Core registers the certificate and runs the provisioning template, then
-closes that first connection. The SDK's automatic reconnect only starts AFTER a
-first successful connect, so this client retries the initial connect itself —
-you run it once and just watch it recover (no manual re-run, no traceback).
+Why MQTT 5
+----------
+This workshop standardises on **MQTT 5**. Every acknowledgement carries a
+**reason code**, so the client can print *why* the broker refused an operation
+instead of leaving you to infer it from a timeout. That is exactly what makes
+the first-connect behaviour below legible rather than mysterious.
+
+The very first connect right after provisioning is EXPECTED to fail: AWS IoT
+Core registers the certificate and runs the provisioning template, then closes
+that first connection. With MQTT 5 you can watch the CONNACK reason code change
+from ``NOT_AUTHORIZED`` to accepted as registration completes.
+
+**The same reason code can call for opposite responses.** Here,
+``NOT_AUTHORIZED`` on the first attempt is expected and the right answer is to
+keep retrying, because the certificate is still being activated. In the Module 6
+rotation agent the same code means the replacement certificate is unusable and
+the right answer is to stop immediately and fall back. A reason code tells you
+what happened; only the surrounding flow tells you what to do about it.
 
 Usage:
     python3 ../scripts/mqtt_connect.py <endpoint> <clientId> \\
@@ -28,7 +41,9 @@ Usage:
 import json
 import os
 import sys
+import threading
 import time
+from concurrent.futures import Future
 
 # --- Repository path wiring (import i18n framework) ----------------------
 # mqtt_connect.py lives in scripts/, so REPO_ROOT is two dirnames up (the repo
@@ -38,8 +53,8 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 sys.path.append(os.path.join(REPO_ROOT, "i18n"))
 
-from awscrt import mqtt  # noqa: E402
-from awsiot import mqtt_connection_builder  # noqa: E402
+from awscrt import mqtt5  # noqa: E402
+from awsiot import mqtt5_client_builder  # noqa: E402
 
 from language_selector import get_language  # noqa: E402
 from loader import load_messages  # noqa: E402
@@ -75,6 +90,26 @@ def get_message(key, *args):
     return msg
 
 
+def reason_code_name(reason_code):
+    """Render an MQTT 5 reason code as ``NAME (0xHH)``, or ``-`` when absent.
+
+    A failure below MQTT — DNS, TLS, a dropped socket — has no reason code at
+    all, and that absence is itself the signal: the broker never answered.
+    """
+    if reason_code is None:
+        return "-"
+    name = getattr(reason_code, "name", str(reason_code))
+    try:
+        return f"{name} (0x{int(reason_code):02X})"
+    except (TypeError, ValueError):
+        return name
+
+
+# How long to keep waiting for that first successful connect. The MQTT 5 client
+# retries on its own, so this is a total budget rather than an attempt count.
+FIRST_CONNECT_BUDGET_SEC = 90
+
+
 def main():
     # Load the localized message catalog once, before any user-facing print.
     # (Done here, not at import time, so importing this module never triggers
@@ -88,53 +123,120 @@ def main():
 
     endpoint, client_id, cert, key, ca, topic = sys.argv[1:7]
 
-    def on_interrupted(connection, error, **kwargs):
-        print(get_message("callbacks.interrupted", error))
+    connected = Future()
+    stopped = threading.Event()
 
-    def on_resumed(connection, return_code, session_present, **kwargs):
-        print(get_message("callbacks.resumed", return_code, session_present))
+    def on_connection_success(data):
+        """Lifecycle: CONNACK accepted."""
+        connack = data.connack_packet
+        rejoined = bool(getattr(data.negotiated_settings, "rejoined_session", False))
+        if not connected.done():
+            connected.set_result(data)
+            print(get_message("connect.connected"))
+            return
+        # Any later success is a reconnect — the MQTT 3.1.1 "resumed" moment.
+        print(
+            get_message(
+                "callbacks.resumed",
+                reason_code_name(getattr(connack, "reason_code", None)),
+                rejoined,
+            )
+        )
 
-    conn = mqtt_connection_builder.mtls_from_path(
+    def on_connection_failure(data):
+        """Lifecycle: the attempt was refused. Print WHY and let the client retry.
+
+        This is where MQTT 5 earns its place in a provisioning workshop: the
+        first attempt after Just-in-Time Provisioning is normally refused with
+        NOT_AUTHORIZED while AWS IoT Core activates the certificate, and here you
+        can read that reason code instead of guessing at a timeout. Deliberately
+        NOT fail-fast: retrying is the correct response in this flow.
+        """
+        reason_code = getattr(data.connack_packet, "reason_code", None)
+        print(
+            get_message(
+                "connect.refused_retry",
+                reason_code_name(reason_code),
+                data.exception,
+            )
+        )
+
+    def on_disconnection(data):
+        """Lifecycle: an established connection dropped."""
+        reason_code = getattr(data.disconnect_packet, "reason_code", None)
+        print(
+            get_message(
+                "callbacks.interrupted", reason_code_name(reason_code), data.exception
+            )
+        )
+
+    def on_stopped(data):  # noqa: ARG001 - dataclass is unused
+        stopped.set()
+
+    client = mqtt5_client_builder.mtls_from_path(
         endpoint=endpoint,
         cert_filepath=cert,
         pri_key_filepath=key,
         ca_filepath=ca,
         client_id=client_id,
-        clean_session=False,
-        keep_alive_secs=30,
-        on_connection_interrupted=on_interrupted,
-        on_connection_resumed=on_resumed,
+        # clean_session=False under MQTT 3.1.1 becomes "rejoin the session once
+        # this client has connected successfully at least once", plus a window
+        # for the broker to keep that session.
+        session_behavior=mqtt5.ClientSessionBehaviorType.REJOIN_POST_SUCCESS,
+        session_expiry_interval_sec=3600,
+        keep_alive_interval_sec=30,
+        # Keep the reconnect cadence visible in a workshop. The default upper
+        # bound is minutes, which would look like a hang.
+        min_reconnect_delay_ms=1000,
+        max_reconnect_delay_ms=5000,
+        on_lifecycle_connection_success=on_connection_success,
+        on_lifecycle_connection_failure=on_connection_failure,
+        on_lifecycle_disconnection=on_disconnection,
+        on_lifecycle_stopped=on_stopped,
     )
 
-    # Retry the initial connect until it succeeds (see module note above).
-    for attempt in range(1, 21):
-        try:
-            print(get_message("connect.attempt", client_id, attempt))
-            conn.connect().result()
-            print(get_message("connect.connected"))
-            break
-        except Exception as exc:  # noqa: BLE001
-            print(get_message("connect.first_drop_retry", exc))
-            time.sleep(3)
-    else:
+    # start() returns immediately and the MQTT 5 client retries on its own, so
+    # there is no manual retry loop here: just wait for the first CONNACK.
+    print(get_message("connect.waiting", client_id))
+    client.start()
+    try:
+        connected.result(timeout=FIRST_CONNECT_BUDGET_SEC)
+    except TimeoutError:
         print(get_message("connect.failed"))
+        client.stop()
+        stopped.wait(timeout=10)
         sys.exit(1)
 
     print(get_message("publish.loop_start", topic))
     for i in range(10):
         payload = {"msg": f"hello from {client_id}", "seq": i}
         try:
-            conn.publish(
-                topic=topic,
-                payload=json.dumps(payload),
-                qos=mqtt.QoS.AT_LEAST_ONCE,
-            )
-            print(get_message("publish.sent", topic, json.dumps(payload)))
+            completion = client.publish(
+                publish_packet=mqtt5.PublishPacket(
+                    topic=topic,
+                    payload=json.dumps(payload),
+                    qos=mqtt5.QoS.AT_LEAST_ONCE,
+                )
+            ).result(timeout=15)
+            puback = getattr(completion, "puback", None)
+            if puback is not None and puback.reason_code != mqtt5.PubackReasonCode.SUCCESS:
+                # Under MQTT 3.1.1 this was invisible: its PUBACK carries only a
+                # packet identifier, so a refused publish looked like a lost one.
+                print(
+                    get_message(
+                        "publish.refused",
+                        topic,
+                        reason_code_name(puback.reason_code),
+                    )
+                )
+            else:
+                print(get_message("publish.sent", topic, json.dumps(payload)))
         except Exception as exc:  # noqa: BLE001
             print(get_message("publish.failed", i, exc))
         time.sleep(3)
 
-    conn.disconnect().result()
+    client.stop()
+    stopped.wait(timeout=10)
     print(get_message("disconnect.clean"))
 
 

@@ -8,10 +8,18 @@ colorama>=0.4.4
 requests>=2.32.4
 
 # --- Device plane (simulated device MQTT connectivity) ---
-# aws-iot-device-sdk-python-v2 provides the awscrt / awsiot packages used by
-# the reused AWS IoT Core Learning SDK MQTT connection construct
-# (awsiot.mqtt_connection_builder.mtls_from_path over awscrt.mqtt).
-git+https://github.com/aws/aws-iot-device-sdk-python-v2.git
+# aws-iot-device-sdk-python-v2 provides the awscrt / awsiot packages. Every
+# device-plane connection in this sample is MQTT 5
+# (awsiot.mqtt5_client_builder.mtls_from_path over awscrt.mqtt5), because MQTT 5
+# returns a reason code on every acknowledgement — which is what lets the Module 6
+# rotation agent tell an authorization failure from a transient one.
+#
+# Pinned to a released version on purpose. An unpinned git checkout of the SDK's
+# default branch means every learner installs whatever landed that morning, so an
+# upstream change breaks a whole room at once with no way to tell which revision
+# anyone has. The MQTT 5 client API is only available from 1.11 onward; 1.31 is
+# what this sample was validated against.
+awsiotsdk>=1.31,<2
 
 # --- Certificate parsing (Module 2 JITR handler) ---
 # The Just-in-Time Registration (JITR) handler parses the device certificate

@@ -756,6 +756,12 @@ Resources:
   # certificate and schedules its deletion with a one-time Amazon EventBridge
   # Scheduler timer (reversible first, irreversible later).
   #
+  # That timer invokes THIS SAME handler on a third entry point rather than calling
+  # iot:DeleteCertificate directly, so the one irreversible step in the flow re-reads
+  # the certificate's state before acting and abandons the deletion if somebody rolled
+  # the rotation back. See RotationRevokeSchedulerRole below for why that makes this
+  # the narrowest role in the stack.
+  #
   # Learners create the topic rule and the job themselves (the teaching artifacts),
   # exactly as they create the JITR topic rule in Module 3. Everything below is the
   # undifferentiated plumbing.
@@ -800,9 +806,9 @@ Resources:
               permissions in a way this flow can use: iot:CreateCertificateFromCsr has no
               certificate ARN to scope to until the call returns, and iot:DescribeEndpoint
               (used to resolve the data and jobs endpoints the handler calls) is not
-              resource-scoped. Every other action in this role is scoped to this account
-              and Region by resource type (cert/*, thing/*, policy/*, thinggroup/*,
-              job/*, and the rotation response topics only).
+              resource-scoped. This template scopes every other action in this role to
+              this account and Region by resource type (cert/*, thing/*, policy/*,
+              thinggroup/*, job/*, and the rotation response topics only).
     Properties:
       RoleName: ws-aws-iot-dm-adv-prov-rotation-handler-role
       Description: >-
@@ -862,6 +868,11 @@ Resources:
                   - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:cert/*"
               # Attach the new certificate to the thing and the policy to the new
               # certificate; detach both from the old certificate after cutover.
+              #
+              # The two list actions are what make the deferred deletion safe: before
+              # deleting a superseded certificate the handler lists the thing's
+              # principals and the certificate's attached policies, and abandons the
+              # deletion if either shows the certificate back in service.
               - Sid: AttachAndDetachPrincipals
                 Effect: Allow
                 Action:
@@ -871,7 +882,6 @@ Resources:
                   - iot:DetachThingPrincipal
                   - iot:ListThingPrincipals
                   - iot:ListAttachedPolicies
-                  - iot:DescribeThing
                 Resource:
                   - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:cert/*"
                   - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:policy/*"
@@ -879,9 +889,7 @@ Resources:
               # Remove the thing from the rotation queue once rotation succeeds.
               - Sid: LeaveRotationQueue
                 Effect: Allow
-                Action:
-                  - iot:RemoveThingFromThingGroup
-                  - iot:ListThingGroupsForThing
+                Action: iot:RemoveThingFromThingGroup
                 Resource:
                   - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:thing/*"
                   - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:thinggroup/ws-aws-iot-dm-adv-prov-rotation"
@@ -893,24 +901,23 @@ Resources:
               # current phase and writes the next one (including the new certificate id,
               # which is what makes the flow resumable).
               #
-              # Jobs is split across two IAM prefixes and the handler needs both. Reads
-              # of the job and its execution are CONTROL-plane actions (iot: prefix, on
-              # thing and job resources); writing the execution status is a DATA-plane
-              # action (iotjobsdata: prefix, on the thing resource). Using iot: for the
-              # update would not authorize the call.
-              - Sid: ReadJobAndExecutionControlPlane
+              # Jobs is split across two IAM prefixes and the handler needs both.
+              # READING the job execution is a CONTROL-plane action (iot: prefix, on the
+              # thing and job resources); WRITING the execution status is a DATA-plane
+              # action (iotjobsdata: prefix, on the thing resource). The two prefixes are
+              # not interchangeable: granting iot:UpdateJobExecution would not authorize
+              # the write, and each prefix has its own DescribeJobExecution. Only the
+              # control-plane read is granted here, because that is the one the handler
+              # calls.
+              - Sid: ReadJobExecutionControlPlane
                 Effect: Allow
-                Action:
-                  - iot:DescribeJob
-                  - iot:DescribeJobExecution
+                Action: iot:DescribeJobExecution
                 Resource:
                   - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:thing/*"
                   - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:job/*"
               - Sid: UpdateJobExecutionDataPlane
                 Effect: Allow
-                Action:
-                  - iotjobsdata:DescribeJobExecution
-                  - iotjobsdata:UpdateJobExecution
+                Action: iotjobsdata:UpdateJobExecution
                 Resource:
                   - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:thing/*"
               # Publish the signed certificate back to the requesting device, scoped to
@@ -920,18 +927,51 @@ Resources:
                 Action: iot:Publish
                 Resource:
                   - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:topic/devices/*/certificate/rotation/response"
+        - PolicyName: rotation-state-record
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # The backend-authored half of the rotation state — which certificate
+              # was issued, which one it supersedes, and when it was retired — lives
+              # in a dedicated NAMED SHADOW (ws-rotation), not in the job
+              # execution's statusDetails.
+              #
+              # Why not statusDetails: that map is REPLACED wholesale on every
+              # UpdateJobExecution, and the device writes it too, so the device's
+              # status report erases anything the backend put there. Worse, reading
+              # the certificate to keep from a device-written map would let a device
+              # choose which of its own credentials gets destroyed.
+              #
+              # Note the resource form: shadow actions accept BOTH thing/<thing> and
+              # thing/<thing>/<shadowName>, so pinning the shadow name is what makes
+              # this grant narrow. It authorizes this ONE shadow on any thing and
+              # nothing else — not the classic shadow, not any other named shadow.
+              #
+              # DeleteThingShadow is deliberately NOT granted. The handler only ever
+              # writes and reads the record; the learner removes it in the reset
+              # block under their own credentials.
+              - Sid: MaintainRotationRecordShadow
+                Effect: Allow
+                Action:
+                  - iot:UpdateThingShadow
+                  - iot:GetThingShadow
+                Resource:
+                  - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:thing/*/ws-rotation"
         - PolicyName: rotation-deferred-deletion
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
-              # Create the one-time schedule that deletes the old certificate after the
-              # grace period, and clean it up. Scoped to this module's schedule names.
+              # Create the one-time schedule that revokes the old certificate after
+              # the grace period. Scoped to this module's schedule names.
+              #
+              # CreateSchedule is the only action needed: the schedule carries
+              # ActionAfterCompletion=DELETE, so it removes itself once it has fired,
+              # and the handler never reads or deletes a schedule itself. Learners do
+              # run scheduler get-schedule and delete-schedule in Module 6, but under
+              # their own credentials, not this role.
               - Sid: ManageDeferredDeletionSchedule
                 Effect: Allow
-                Action:
-                  - scheduler:CreateSchedule
-                  - scheduler:GetSchedule
-                  - scheduler:DeleteSchedule
+                Action: scheduler:CreateSchedule
                 Resource:
                   - Fn::Sub: "arn:${AWS::Partition}:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/default/ws-aws-iot-dm-adv-prov-revoke-*"
               # A schedule runs under its own role, so the handler must be allowed to
@@ -953,9 +993,19 @@ Resources:
           Value: rotation-handler-execution
 
   # Role that Amazon EventBridge Scheduler assumes when the deferred-deletion timer
-  # fires. Module 6 shows two ways to wire the timer, so this role covers both: it
-  # can invoke the rotation handler, or call the AWS IoT certificate APIs directly as
-  # a universal target with no extra code.
+  # fires. The timer's target is the rotation handler, NOT the AWS IoT API, so
+  # lambda:InvokeFunction is the only permission this role needs.
+  #
+  # That indirection is deliberate and it is the reason this role is so narrow.
+  # Amazon EventBridge Scheduler can call an AWS API directly as a universal target,
+  # and pointing one at iot:DeleteCertificate would work — but it would fire a delete
+  # decided minutes earlier with no opportunity to reconsider it. Deletion is the only
+  # irreversible step in the whole rotation, so Module 6 routes it through the handler,
+  # which re-reads the certificate's current state and abandons the deletion if
+  # somebody rolled the rotation back. A function also has a log group, so a deletion
+  # that did not happen is visible; a universal target's failure would be silent,
+  # because this schedule has no dead-letter queue and ActionAfterCompletion=DELETE
+  # removes it either way.
   RotationRevokeSchedulerRole:
     Type: AWS::IAM::Role
     Metadata:
@@ -963,16 +1013,17 @@ Resources:
         rules_to_suppress:
           - id: W28
             reason: >-
-              Explicit RoleName is a fixed, module-prefixed stable identifier that
-              Module 6 looks up by exact name via iam get-role when creating the
-              one-time schedule. The stack is disposable workshop infrastructure, so
-              replace-on-update is acceptable.
+              Explicit RoleName is a fixed, module-prefixed stable identifier
+              (ws-aws-iot-dm-adv-prov-*, not stack-name-derived) so the rotation
+              handler can pass this role to Amazon EventBridge Scheduler by a name
+              that does not change between deployments. The stack is disposable
+              workshop infrastructure, so replace-on-update is acceptable.
     Properties:
       RoleName: ws-aws-iot-dm-adv-prov-rotation-revoke-scheduler-role
       Description: >-
         Assumed by Amazon EventBridge Scheduler when the Module 6 deferred-deletion
-        timer fires. Permits invoking the rotation handler, or deactivating and
-        deleting the superseded certificate directly as a universal target.
+        timer fires. Its only permission is to invoke the rotation handler, which
+        re-checks the certificate's state before deleting it.
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -989,14 +1040,8 @@ Resources:
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
-              - Sid: DeactivateAndDeleteOldCertificate
-                Effect: Allow
-                Action:
-                  - iot:UpdateCertificate
-                  - iot:DeleteCertificate
-                  - iot:DescribeCertificate
-                Resource:
-                  - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:cert/*"
+              # Deliberately the ONLY statement. This role cannot touch a
+              # certificate directly; it can only ask the handler to decide.
               - Sid: InvokeRotationHandler
                 Effect: Allow
                 Action: lambda:InvokeFunction
@@ -1093,6 +1138,12 @@ Resources:
             Fn::GetAtt:
               - RotationRevokeSchedulerRole
               - Arn
+          # Named shadow holding the BACKEND's half of the rotation state. The
+          # device has no policy permitting it to read or write this shadow, which
+          # is the point: the certificate to keep is a backend decision. Must match
+          # the shadow name pinned in the execution role's rotation-state-record
+          # policy above.
+          ROTATION_SHADOW_NAME: ws-rotation
           # Grace period between deactivating the old certificate and deleting it.
           # Deliberately short so the timer fires within a workshop session.
           REVOKE_GRACE_MINUTES: "10"
@@ -1104,9 +1155,11 @@ Resources:
             1. verifies the requesting certificate is attached to the thing and ACTIVE,
                and that an IN_PROGRESS rotation job execution exists for that thing,
             2. validates the certificate signing request before signing it,
-            3. signs it, records the new certificate id in the job execution's
-               statusDetails FIRST, then attaches the certificate to the thing and the
-               policy to the certificate,
+            3. signs it, records the new certificate id in the thing's ws-rotation
+               NAMED SHADOW FIRST (a backend-only store the device cannot write —
+               the job execution's statusDetails is replaced wholesale by whoever
+               writes last, and the device writes it too), then attaches the
+               certificate to the thing and the policy to the certificate,
             4. publishes the certificate back to the device, and
             5. on the job-execution succeeded event, detaches and deactivates the old
                certificate and schedules its deletion after a grace period.

@@ -5,8 +5,12 @@
     "old_certificate": "current",
     "new_certificate": "new",
     "connected": "Connected [{}].",
+    "connack": "     CONNACK: {}",
     "detail": "     endpoint={}  clientId={}  certificate={}",
-    "failed": "Could not connect with the {} certificate: {}"
+    "failed": "Could not connect with the {} certificate: {}",
+    "refused_terminal": "The {} certificate was REFUSED by the broker: reason_code={}. This is an authorization failure, so retrying cannot help - giving up immediately.",
+    "refused_retry": "  the {} certificate could not connect (reason_code={}), attempt {}/{} - retrying in {}s ...",
+    "refused_exhausted": "The {} certificate could not connect after {} attempts."
   },
   "wire": {
     "sub": "     SUB      {}",
@@ -25,7 +29,10 @@
     "waiting": "Waiting for a rotation job execution on {} ...",
     "taken": "Job execution taken: {}",
     "none": "No rotation job execution is pending for this thing. Add it to the rotation thing group first, then re-run.",
-    "phase": "  job execution -> status={} phase={}"
+    "wrong_operation": "This job execution asks for operation '{}', not '{}'. Reporting REJECTED and stopping: a device must not act on a job it does not implement.",
+    "phase": "  job execution -> status={} phase={}",
+    "subscribe_refused": "The broker refused the subscription to {}: reason_code={}",
+    "update_failed": "  WARNING could not report status={} to the job execution: {}"
   },
   "keypair": {
     "generating": "Generating a new key pair and certificate signing request locally ...",
@@ -44,6 +51,8 @@
     "reconnecting": "Reconnecting with the NEW certificate ...",
     "proving": "Proving the new certificate is authorized by publishing to {} ...",
     "proved": "Authorized publish with the new certificate succeeded.",
+    "connect_failed": "The new certificate could not connect (reason_code={}). It was issued, but it is not usable - so the rotation stops here.",
+    "publish_refused": "The new certificate connected but the broker REFUSED the publish: reason_code={}. The certificate works; its policy does not authorize this topic.",
     "publish_failed": "The new certificate could not publish: {}",
     "rolled_back": "Rolled back to the CURRENT certificate — it was never retired — and reported FAILED. The device stays online."
   },
@@ -70,7 +79,7 @@
       "expect": "  Expect:  two principals listed. The new one ends in {}."
     },
     "retired": {
-      "what": "  OBSERVE 3/3 - the cutover succeeded, so the old certificate has been set INACTIVE. It is not deleted yet: retirement is deferred so a device that reappears late can still be recovered.",
+      "what": "  OBSERVE 3/3 - the cutover succeeded, so the old certificate is being set INACTIVE. The retirement is event-driven, so give it a moment and re-run the command if it still shows ACTIVE. It is not deleted yet: retirement is deferred so a device that reappears late can still be recovered.",
       "console": "  Console: AWS IoT console -> Security -> Certificates (the old one now shows Inactive)\n           {}",
       "cli": "  CLI:     Use the OTHER certificate id you saw at OBSERVE 2 - the one that is not the new certificate:\n             aws iot describe-certificate --certificate-id <thatId> \\\n               --query \"certificateDescription.status\"   (expect: INACTIVE)",
       "scheduler": "  CLI:     aws scheduler list-schedules --name-prefix ws-aws-iot-dm-adv-prov-revoke- \\\n               --query \"Schedules[].[Name,State]\"\n             The one-time deletion timer. Its name ends with the first 16 characters of the retired certificate id."
