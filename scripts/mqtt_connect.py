@@ -189,6 +189,12 @@ def main():
         # bound is minutes, which would look like a hang.
         min_reconnect_delay_ms=1000,
         max_reconnect_delay_ms=5000,
+        # Without this, the client defaults to FULL jitter: the delay is drawn
+        # randomly between 0 and the current backoff value, so the very first
+        # retry can land near 0ms and look like it isn't backing off at all.
+        # NONE gives a deterministic doubling sequence (1s, 2s, 4s, 5s capped,
+        # ...) that is actually visible instead of racing straight through.
+        retry_jitter_mode=mqtt5.ExponentialBackoffJitterMode.NONE,
         on_lifecycle_connection_success=on_connection_success,
         on_lifecycle_connection_failure=on_connection_failure,
         on_lifecycle_disconnection=on_disconnection,
