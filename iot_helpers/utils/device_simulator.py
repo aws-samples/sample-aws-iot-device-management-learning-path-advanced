@@ -331,6 +331,16 @@ class DeviceConnection:
             "keep_alive_interval_sec": keep_alive_secs,
             "session_behavior": session_behavior,
             "ack_timeout_sec": timeout,
+            # Keep the reconnect cadence visible in a workshop. The default
+            # upper bound is minutes, which would look like a hang.
+            "min_reconnect_delay_ms": 1000,
+            "max_reconnect_delay_ms": 5000,
+            # Without this the client defaults to FULL jitter - a delay drawn
+            # randomly between 0 and the current backoff, so the first retry
+            # can land near 0ms and look like it isn't backing off at all.
+            # NONE makes it a deterministic doubling sequence (1s, 2s, 4s,
+            # 5s capped, ...) that is actually visible.
+            "retry_jitter_mode": mqtt5.ExponentialBackoffJitterMode.NONE,
             "on_publish_received": self.on_message_received,
             "on_lifecycle_connection_success": self._on_lifecycle_connection_success,
             "on_lifecycle_connection_failure": self._on_lifecycle_connection_failure,

@@ -475,6 +475,12 @@ class RotationAgent:
             # reconnect from racing it.
             min_reconnect_delay_ms=30000,
             max_reconnect_delay_ms=30000,
+            # Without this the client defaults to FULL jitter - even with
+            # min == max, that still draws uniformly in [0, 30000ms] on every
+            # retry, undermining the fixed 30s cadence above. NONE makes the
+            # client's own retry (which this agent does not rely on; see the
+            # comment above) actually wait the full interval.
+            retry_jitter_mode=mqtt5.ExponentialBackoffJitterMode.NONE,
             on_publish_received=self._on_message,
             on_lifecycle_connection_success=on_success,
             on_lifecycle_connection_failure=on_failure,
