@@ -136,11 +136,15 @@ def jobs_client():
     """Client for the Jobs DATA plane.
 
     ``UpdateJobExecution`` exists only on the data plane, which is a separate
-    endpoint from the control plane ``iot`` client above.
+    endpoint from the control plane ``iot`` client above. AWS IoT Jobs and
+    Commands APIs are now served through the ``iot:Data-ATS`` endpoint type
+    rather than the older ``iot:Jobs`` type - requesting ``iot:Jobs`` now fails
+    with ``InvalidRequestException`` ("...now available through iot:Data-ATS
+    endpoints instead of iot:Jobs endpoints").
     """
     global _jobs
     if _jobs is None:
-        endpoint = iot.describe_endpoint(endpointType="iot:Jobs")["endpointAddress"]
+        endpoint = iot.describe_endpoint(endpointType="iot:Data-ATS")["endpointAddress"]
         _jobs = boto3.client("iot-jobs-data", endpoint_url=f"https://{endpoint}")
     return _jobs
 
