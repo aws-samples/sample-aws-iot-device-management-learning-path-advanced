@@ -22,9 +22,14 @@ Event flow (design section 2.4.3):
    ``$aws/events/certificates/registered/+`` invokes this AWS Lambda function
    with the event payload.
 3. This handler:
-   a. Activates the certificate (``update_certificate`` -> ``ACTIVE``).
-   b. Attaches a device policy to the certificate.
-   c. Creates the thing and attaches the certificate as its principal.
+   a. Ensures the device policy exists, creates the thing, and attaches the
+      certificate as its principal.
+   b. Attaches the device policy to the certificate.
+   c. Activates the certificate (``update_certificate`` -> ``ACTIVE``) LAST,
+      once the thing and policy are fully wired up - so a failure partway
+      through step (a) or (b) never leaves an ACTIVE certificate with no
+      policy or thing attached; the certificate simply stays
+      ``PENDING_ACTIVATION`` and the device cannot connect (fail-closed).
 
 The reserved-topic event payload delivered by AWS IoT Core looks like:
 
@@ -36,6 +41,21 @@ The reserved-topic event payload delivered by AWS IoT Core looks like:
       "awsAccountId": "<account-id>",
       "certificateRegistrationTimestamp": "1600000000000"
     }
+
+This handler names the created thing from the device CERTIFICATE's subject
+common name (CN) - the same source JITP's provisioning template uses via its
+built-in ``AWS::IoT::Certificate::CommonName`` template variable - rather than
+from the connecting MQTT client id. The client id is not a good naming source
+for this: it is presented by whoever holds the private key at connect time,
+with no independent verification, so naming (and therefore policy-scoping) a
+thing from it would let any client claim any name that a policy has not
+already locked down - which is exactly the restriction you are trying to
+build. The certificate's CN, by contrast, is baked into a certificate the CA
+signed, so it cannot be changed by the connecting client after the fact.
+
+Parsing the CN requires the ``cryptography`` library (see the deploy step
+below); this handler imports it lazily and falls back to a deterministic
+``jitr-device-<cert-id-prefix>`` name only if the PEM cannot be parsed.
 
 This function is pre-created as a skeleton by ``provisioning-base.yaml`` under
 the name ``<stack-name>-jitr-registration-handler`` with the handler set to
@@ -82,17 +102,26 @@ JITR_DEVICE_POLICY_NAME = "JITRDevicePolicy"
 
 # Minimal least-privilege device policy. Scoped exactly like the JITP path's
 # ``JITPDevicePolicy`` so the two flows behave the same in the allowed-vs-denied
-# publish test: connect only as this client id, and publish only under the
-# ``anycompany/telemetry/*`` topic namespace. If the learner already created
-# ``JITRDevicePolicy`` by hand, ``_ensure_device_policy`` finds it and does not
-# overwrite it.
+# publish test: connect only as the thing the connecting certificate is
+# attached to, and publish only under the ``anycompany/telemetry/*`` topic
+# namespace. If the learner already created ``JITRDevicePolicy`` by hand,
+# ``_ensure_device_policy`` finds it and does not overwrite it.
+#
+# ``${iot:Connection.Thing.ThingName}`` resolves at connection time to the
+# thing the connecting certificate is attached to - a real registry lookup -
+# unlike ``${iot:ClientId}``, which just echoes back whatever client id the
+# caller presented (attacker-controlled, unverified) and so grants nothing
+# beyond "any client can connect as itself." This handler names the thing
+# from the certificate's CN (see ``_common_name_from_certificate``), which the
+# connecting device cannot forge after the fact, so this variable enforces
+# "connect only as the thing your certificate is actually registered to."
 JITR_DEVICE_POLICY_DOCUMENT = {
     "Version": "2012-10-17",
     "Statement": [
         {
             "Effect": "Allow",
             "Action": "iot:Connect",
-            "Resource": "arn:aws:iot:*:*:client/${iot:ClientId}",
+            "Resource": "arn:aws:iot:*:*:client/${iot:Connection.Thing.ThingName}",
         },
         {
             "Effect": "Allow",
@@ -216,16 +245,19 @@ def handler(event, context):
 
         certificate_arn = certificate_arn or cert_description["certificateArn"]
 
-        # 1) Activate the certificate so the device can complete its connection.
-        _iot().update_certificate(certificateId=certificate_id, newStatus="ACTIVE")
-        logger.info("Activated certificate %s", certificate_id)
+        # Do everything the device NEEDS before it can use the certificate first,
+        # and activate the certificate LAST. If any step below raises, the
+        # certificate is still PENDING_ACTIVATION - the device cannot connect
+        # with it - rather than ACTIVE with a missing policy or thing. That
+        # ordering is what makes this handler fail-closed: a partial failure
+        # denies the device instead of silently under-provisioning it.
 
-        # 2) Ensure the device policy exists and attach it to the certificate.
+        # 1) Ensure the device policy exists (does not attach it yet).
         _ensure_device_policy()
-        _iot().attach_policy(policyName=JITR_DEVICE_POLICY_NAME, target=certificate_arn)
-        logger.info("Attached policy %s to %s", JITR_DEVICE_POLICY_NAME, certificate_arn)
 
-        # 3) Create the thing and attach the certificate as its principal.
+        # 2) Create the thing, named from the certificate's CN so the name is
+        #    tied to what the CA signed (see _common_name_from_certificate),
+        #    and attach the certificate as its principal.
         thing_name = _common_name_from_certificate(cert_description)
         try:
             _iot().create_thing(thingName=thing_name)
@@ -237,6 +269,15 @@ def handler(event, context):
 
         _iot().attach_thing_principal(thingName=thing_name, principal=certificate_arn)
         logger.info("Attached certificate %s to thing %s", certificate_id, thing_name)
+
+        # 3) Attach the device policy to the certificate.
+        _iot().attach_policy(policyName=JITR_DEVICE_POLICY_NAME, target=certificate_arn)
+        logger.info("Attached policy %s to %s", JITR_DEVICE_POLICY_NAME, certificate_arn)
+
+        # 4) Only now activate the certificate, so the device can complete its
+        #    connection - the policy and thing are already fully wired up.
+        _iot().update_certificate(certificateId=certificate_id, newStatus="ACTIVE")
+        logger.info("Activated certificate %s", certificate_id)
 
         return {
             "status": "registered",
