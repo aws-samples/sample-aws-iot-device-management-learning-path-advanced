@@ -14,6 +14,8 @@
     "connecting_claim": "🔌 Connecting with the TEMPORARY claim certificate to {} ...",
     "extracted_cert": "🔑 Extracted the permanent certificate ({}...) and the certificateOwnershipToken",
     "saved_cert_key": "   Saved {} / {}",
+    "extracted_cert_csr_note": "   (no private key is returned for the CSR path — the device kept its own)",
+    "saved_cert_csr": "   Saved {} (reuse your own private key from the CSR step)",
     "provisioned": "🎉 Device provisioned by trusted user",
     "provisioned_thing_name": "   thingName: {}",
     "provisioned_device_config": "   deviceConfiguration: {}",
@@ -23,6 +25,7 @@
     "subscribe": "📡 SUBSCRIBE {}",
     "publish": "📨 PUBLISH → {}",
     "received": "📥 RECEIVED ← {}",
-    "publish_empty_payload": "   payload: {}   (empty body — CreateKeysAndCertificate takes no input)"
+    "publish_empty_payload": "   payload: {}   (empty body — CreateKeysAndCertificate takes no input)",
+    "publish_csr_payload": "   payload: {{ \"certificateSigningRequest\": <PEM from {}> }}"
   }
 }
