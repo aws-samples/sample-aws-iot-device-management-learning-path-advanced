@@ -237,8 +237,8 @@ Resources:
       Description: >-
         Execution role for the Just-in-Time Registration (JITR) AWS Lambda handler.
         Grants Amazon CloudWatch Logs write access and the scoped AWS IoT actions
-        the handler uses (UpdateCertificate, AttachPolicy, CreateThing,
-        AttachThingPrincipal).
+        the handler uses (DescribeCertificate, UpdateCertificate, GetPolicy,
+        CreatePolicy, AttachPolicy, CreateThing, AttachThingPrincipal).
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -269,6 +269,13 @@ Resources:
                   - iot:DescribeCertificate
                 Resource:
                   - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:cert/*"
+              - Sid: EnsureDevicePolicy
+                Effect: Allow
+                Action:
+                  - iot:GetPolicy
+                  - iot:CreatePolicy
+                Resource:
+                  - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:policy/*"
               - Sid: AttachPolicyAndThing
                 Effect: Allow
                 Action:

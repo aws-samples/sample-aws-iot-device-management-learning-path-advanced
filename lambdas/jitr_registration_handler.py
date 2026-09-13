@@ -47,7 +47,8 @@ the name ``<stack-name>-jitr-registration-handler`` with the handler set to
       --zip-file fileb://function.zip
 
 The execution role pre-created by the base stack already grants the scoped
-``iot:UpdateCertificate``, ``iot:AttachPolicy``, ``iot:CreateThing``, and
+``iot:DescribeCertificate``, ``iot:UpdateCertificate``, ``iot:GetPolicy``,
+``iot:CreatePolicy``, ``iot:AttachPolicy``, ``iot:CreateThing``, and
 ``iot:AttachThingPrincipal`` permissions this handler needs.
 """
 
