@@ -117,7 +117,6 @@ iot = boto3.client("iot")
 scheduler = boto3.client("scheduler")
 
 _data = None
-_jobs = None
 # This function's own ARN, captured from the Lambda context on first invocation
 # so a schedule can be pointed back at it.
 _self_arn = None
@@ -130,23 +129,6 @@ def data_client():
         endpoint = iot.describe_endpoint(endpointType="iot:Data-ATS")["endpointAddress"]
         _data = boto3.client("iot-data", endpoint_url=f"https://{endpoint}")
     return _data
-
-
-def jobs_client():
-    """Client for the Jobs DATA plane.
-
-    ``UpdateJobExecution`` exists only on the data plane, which is a separate
-    endpoint from the control plane ``iot`` client above. AWS IoT Jobs and
-    Commands APIs are now served through the ``iot:Data-ATS`` endpoint type
-    rather than the older ``iot:Jobs`` type - requesting ``iot:Jobs`` now fails
-    with ``InvalidRequestException`` ("...now available through iot:Data-ATS
-    endpoints instead of iot:Jobs endpoints").
-    """
-    global _jobs
-    if _jobs is None:
-        endpoint = iot.describe_endpoint(endpointType="iot:Data-ATS")["endpointAddress"]
-        _jobs = boto3.client("iot-jobs-data", endpoint_url=f"https://{endpoint}")
-    return _jobs
 
 
 # --- Paginated list helpers ----------------------------------------------
@@ -776,36 +758,72 @@ def _create_schedule(certificate_id, thing, when):
 # Shared helpers
 # ---------------------------------------------------------------------------
 def update_execution(thing, job_id, status, details):
-    """Write the rotation phase into the job execution (data plane)."""
-    jobs_client().update_job_execution(
-        thingName=thing,
-        jobId=job_id,
-        status=status,
-        statusDetails={k: str(v) for k, v in details.items()},
+    """Write the rotation phase into the job execution.
+
+    This publishes to the reserved Jobs MQTT topic
+    (``$aws/things/<thing>/jobs/<jobId>/update``) rather than calling the Jobs
+    data-plane ``UpdateJobExecution`` HTTPS API directly. Functionally the two
+    are the same operation - the message broker turns this publish into an
+    UpdateJobExecution call server-side - but the IAM story is different, and
+    that difference is the reason to prefer this form for a backend Lambda:
+
+    - The HTTPS API is authorized by ``iotjobsdata:UpdateJobExecution``, a
+      third IAM prefix on top of the ``iot:`` control plane and the AWS IoT
+      Core policy world devices normally live in. Some accounts restrict or
+      omit this prefix entirely (for example, a locked-down sandbox account's
+      service control policy), which surfaces as a bare
+      ``ForbiddenException`` with no further detail - nothing to fix in the
+      IAM policy itself, because the policy can be perfectly correct and
+      still be overridden by something the policy cannot see.
+    - The MQTT publish is authorized by plain ``iot:Publish`` on the topic,
+      the same action and mechanism ``deliver()`` below already uses to hand
+      the signed certificate back to the device. One IAM action to reason
+      about instead of two.
+
+    The trade-off: this call is fire-and-forget. The synchronous HTTPS API
+    raises ``InvalidStateTransitionException`` immediately if the execution
+    cannot accept the update; a publish never raises for that - the broker
+    instead publishes to the topic's ``.../rejected`` sibling, which nothing
+    here subscribes to. ``deny()``'s best-effort recording of a denial is
+    written the same way either way: log first, then attempt this update, and
+    do not let a rejected transition (silently dropped here, previously an
+    exception) block the log line that already ran.
+    """
+    data_client().publish(
+        topic=f"$aws/things/{thing}/jobs/{job_id}/update",
+        qos=1,
+        payload=json.dumps(
+            {
+                "status": status,
+                "statusDetails": {k: str(v) for k, v in details.items()},
+            }
+        ),
     )
 
 
 def deny(thing, job_id, reason):
     """Refuse to sign, and record why on the job execution.
 
-    Recording the reason is best-effort, because not every execution can accept a
-    ``FAILED`` update. AWS IoT Jobs does not document a full state-transition
-    matrix, so treat this as "the write may be rejected" rather than a fixed rule
-    about which starting states allow it. What IS documented: an execution that
-    already reached a terminal state — ``TIMED_OUT``, say, if the in-progress
-    timer expired while this handler was working — cannot be updated at all.
-    Either way the denial still holds: nothing is signed. It is simply visible in
-    Amazon CloudWatch Logs rather than on the execution when the write is refused.
+    Recording the reason is best-effort. ``update_execution`` publishes over
+    MQTT rather than calling the Jobs data-plane API directly (see its
+    docstring), which is fire-and-forget: a rejected state transition - for
+    example an execution that already reached a terminal state such as
+    ``TIMED_OUT`` because the in-progress timer expired while this handler was
+    working - is not reported back as an exception. The publish itself can
+    still fail (an endpoint lookup error, a network error, or an IAM denial on
+    the topic), and that is what the catch below is for. Either way the denial
+    still holds: nothing is signed. It is simply visible in Amazon CloudWatch
+    Logs rather than on the execution when the write does not land.
     """
     # Log the denial FIRST and unconditionally. Everything after this point can
     # fail, and the one thing that must survive is the record that we refused.
     print(json.dumps({"denied": reason, "thing": thing}))
 
     # Recording it on the execution is best effort, and the catch is deliberately
-    # broad. update_execution() resolves the Jobs data endpoint on first use with a
-    # control-plane DescribeEndpoint call, so the failure surface here is wider than
-    # the two Jobs state-transition exceptions: a narrow catch would let an endpoint
-    # lookup failure raise straight out of deny() and lose even this log line.
+    # broad. update_execution() resolves the device data endpoint on first use
+    # with a control-plane DescribeEndpoint call, and the publish itself can be
+    # denied or fail transiently - a narrow catch would let any of that raise
+    # straight out of deny() and lose even the log line above.
     try:
         update_execution(
             thing, job_id, "FAILED", {"phase": "DENIED", "reason": reason[:1024]}
@@ -815,13 +833,8 @@ def deny(thing, job_id, reason):
             "denial_not_recorded_on_execution": job_id,
             "thing": thing,
             "reason": reason,
+            "record_error": f"{type(error).__name__}: {error}",
         }
-        # This one is expected and benign: a rejected state transition. The Jobs
-        # data plane reports it as InvalidStateTransitionException — that is the
-        # only state-transition error UpdateJobExecution documents, so do not add
-        # plausible-sounding siblings here. Anything else is worth naming in the log.
-        if type(error).__name__ != "InvalidStateTransitionException":
-            record["record_error"] = f"{type(error).__name__}: {error}"
         print(json.dumps(record))
     return {"denied": reason}
 

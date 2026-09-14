@@ -908,32 +908,30 @@ Resources:
               # current phase and writes the next one (including the new certificate id,
               # which is what makes the flow resumable).
               #
-              # Jobs is split across two IAM prefixes and the handler needs both.
               # READING the job execution is a CONTROL-plane action (iot: prefix, on the
-              # thing and job resources); WRITING the execution status is a DATA-plane
-              # action (iotjobsdata: prefix, on the thing resource). The two prefixes are
-              # not interchangeable: granting iot:UpdateJobExecution would not authorize
-              # the write, and each prefix has its own DescribeJobExecution. Only the
-              # control-plane read is granted here, because that is the one the handler
-              # calls.
+              # thing and job resources).
               - Sid: ReadJobExecutionControlPlane
                 Effect: Allow
                 Action: iot:DescribeJobExecution
                 Resource:
                   - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:thing/*"
                   - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:job/*"
-              - Sid: UpdateJobExecutionDataPlane
-                Effect: Allow
-                Action: iotjobsdata:UpdateJobExecution
-                Resource:
-                  - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:thing/*"
-              # Publish the signed certificate back to the requesting device, scoped to
-              # the rotation response topics only.
+              # WRITING the execution status is done over MQTT (publish to the reserved
+              # $aws/things/<thing>/jobs/<jobId>/update topic) rather than by calling the
+              # Jobs DATA-plane UpdateJobExecution API directly. The two are functionally
+              # the same operation - the broker turns this publish into the same call -
+              # but the IAM story differs: the HTTPS API needs the iotjobsdata: prefix, a
+              # third permission namespace some accounts restrict independently of the
+              # iot: control plane and AWS IoT Core policy world (surfacing as a bare
+              # ForbiddenException with no further detail even when this policy is
+              # correct). Publishing needs only plain iot:Publish on the topic, the same
+              # mechanism and grant shape as delivering the certificate below.
               - Sid: PublishRotationResponse
                 Effect: Allow
                 Action: iot:Publish
                 Resource:
                   - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:topic/devices/*/certificate/rotation/response"
+                  - Fn::Sub: "arn:${AWS::Partition}:iot:${AWS::Region}:${AWS::AccountId}:topic/$aws/things/*/jobs/*/update"
         - PolicyName: rotation-state-record
           PolicyDocument:
             Version: "2012-10-17"
