@@ -1201,6 +1201,91 @@ Resources:
       SourceAccount:
         Ref: AWS::AccountId
 
+  # =========================================================================
+  # AWS IoT Core account-level logging
+  # Every module in this workshop benefits from being able to see what AWS IoT
+  # Core itself observed — a denied CONNECT, a rule that never fired, a job
+  # execution the device never claimed — without adding print statements
+  # anywhere. Pre-enabling this once, workshop-wide, means every module's
+  # troubleshooting steps can point straight at CloudWatch Logs.
+  # =========================================================================
+
+  # Role AWS IoT Core assumes to write its own operational logs to Amazon
+  # CloudWatch Logs. Scoped to exactly the log group AWS IoT Core V2 logging
+  # writes to (AWSIotLogsV2) — see the "Logging role policy" in
+  # https://docs.aws.amazon.com/iot/latest/developerguide/configure-logging.html.
+  IotLoggingRole:
+    Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: >-
+              Explicit RoleName is a fixed, module-prefixed stable identifier
+              (ws-aws-iot-dm-adv-prov-*, not stack-name-derived), consistent with
+              every other named role in this stack. The stack is disposable
+              workshop infrastructure, so replace-on-update is acceptable.
+    Properties:
+      RoleName: ws-aws-iot-dm-adv-prov-iot-logging-role
+      Description: >-
+        Assumed by AWS IoT Core to write account-level operational logs to the
+        AWSIotLogsV2 Amazon CloudWatch Logs group at the default INFO level.
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: iot.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: iot-logging-to-cloudwatch
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: WriteAndManageIotLogging
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:PutMetricFilter
+                  - logs:PutRetentionPolicy
+                  - iot:GetLoggingOptions
+                  - iot:SetLoggingOptions
+                  - iot:SetV2LoggingOptions
+                  - iot:GetV2LoggingOptions
+                  - iot:SetV2LoggingLevel
+                  - iot:ListV2LoggingLevels
+                  - iot:DeleteV2LoggingLevel
+                Resource:
+                  - Fn::Sub: "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:AWSIotLogsV2:*"
+      Tags:
+        - Key: workshop
+          Value: aws-iot-dm-advanced-provisioning
+        - Key: purpose
+          Value: iot-account-logging
+
+  # Turns AWS IoT Core account-level logging on at the default INFO level, workshop
+  # wide, so every module's troubleshooting steps can point at CloudWatch Logs
+  # without a separate per-module setup step. INFO surfaces the high-level flow
+  # (a client connected, a rule matched) without DEBUG's rule-by-rule volume.
+  #
+  # NOTE for anyone reusing this template outside a fresh workshop account: AWS IoT
+  # Core logging is account-and-Region-wide. If logging was already configured by
+  # hand before this stack deployed, deploying this resource will replace that
+  # configuration (see the "If you already set the log function of AWS IoT Core"
+  # note on the AWS::IoT::Logging CloudFormation reference page).
+  IotAccountLogging:
+    Type: AWS::IoT::Logging
+    Properties:
+      AccountId:
+        Ref: AWS::AccountId
+      DefaultLogLevel: INFO
+      RoleArn:
+        Fn::GetAtt:
+          - IotLoggingRole
+          - Arn
+
 # ---------------------------------------------------------------------------
 # Outputs — stable identifiers the module steps reference (CLI-first)
 # ---------------------------------------------------------------------------
@@ -1355,3 +1440,15 @@ Outputs:
     Export:
       Name:
         Fn::Sub: "${AWS::StackName}-RotationRevokeSchedulerRoleArn"
+
+  IotLoggingRoleArn:
+    Description: >-
+      ARN of the role AWS IoT Core assumes to write account-level logs at the
+      default INFO level, enabled workshop-wide by this stack.
+    Value:
+      Fn::GetAtt:
+        - IotLoggingRole
+        - Arn
+    Export:
+      Name:
+        Fn::Sub: "${AWS::StackName}-IotLoggingRoleArn"
