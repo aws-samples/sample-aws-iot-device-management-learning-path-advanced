@@ -280,7 +280,11 @@ def handler(event, context):
         # one it superseded; a failed or timed-out attempt does the opposite —
         # it abandons the certificate THIS attempt issued and leaves the
         # device's working certificate alone.
-        if event.get("operation") in ("failed", "timed_out"):
+        # Lowercased defensively: AWS IoT's documented example payload shows
+        # "operation" in lowercase, but it has been observed in uppercase on
+        # live accounts, and a bare comparison against the lowercase literals
+        # below would silently miss it.
+        if str(event.get("operation", "")).lower() in ("failed", "timed_out"):
             return abandon_failed_rotation(event)
         return retire_old_certificate(event)
     return issue_new_certificate(event)
