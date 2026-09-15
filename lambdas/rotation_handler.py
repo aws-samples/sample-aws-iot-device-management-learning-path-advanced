@@ -301,32 +301,66 @@ def issue_new_certificate(event):
     if not job_id:
         return refuse(thing, "no jobId in the rotation request")
 
+    # The device supplies this straight out of its own start-next response. On a
+    # CONTINUOUS job the same (jobId, thing) pair accumulates a new execution
+    # every time this thing re-enrolls, so a request arriving after this thing's
+    # first rotation cannot be resolved by jobId and thing alone — DescribeJobExecution
+    # without executionNumber returns "the latest job execution", and nothing
+    # guarantees that "latest" means the current IN_PROGRESS one once an older
+    # SUCCEEDED execution for the same jobId exists. Older device builds that
+    # predate this field fall back to that ambiguous lookup; anything currently
+    # in the field always sends it.
+    execution_number = event.get("executionNumber")
+
     # Check 1 — the caller must be a certificate attached to THIS thing, and ACTIVE.
     # Keep the whole description: check 3 needs its PEM to compare public keys, and
     # re-reading it would be a second API call for data already in hand.
     principals = all_thing_principals(thing)
     caller_arn = next((p for p in principals if p.endswith(f"/{caller_cert_id}")), None)
     if caller_arn is None:
-        return deny(thing, job_id, "requesting certificate is not attached to this thing")
+        return deny(
+            thing,
+            job_id,
+            "requesting certificate is not attached to this thing",
+            execution_number=execution_number,
+        )
 
     caller_cert = iot.describe_certificate(certificateId=caller_cert_id)[
         "certificateDescription"
     ]
     if caller_cert["status"] != "ACTIVE":
         return deny(
-            thing, job_id, f"requesting certificate is {caller_cert['status']}, not ACTIVE"
+            thing,
+            job_id,
+            f"requesting certificate is {caller_cert['status']}, not ACTIVE",
+            execution_number=execution_number,
         )
 
     # Check 2 — a rotation must actually be in progress for this thing. An unknown
     # jobId is refused rather than denied, for the same reason as a missing one:
     # there is no execution to write the denial to.
+    #
+    # Pass executionNumber through when the device sent one, so this resolves to
+    # the EXACT execution the request is about rather than whatever
+    # DescribeJobExecution's undocumented "latest" happens to pick. Without this,
+    # a thing that already has one SUCCEEDED execution under this jobId (any
+    # earlier rotation — this is a CONTINUOUS job, so the jobId never changes)
+    # risks resolving to that terminal execution instead of the new IN_PROGRESS
+    # one, denying every retry with "no rotation in progress" even though one
+    # genuinely is.
+    describe_kwargs = {"jobId": job_id, "thingName": thing}
+    if execution_number is not None:
+        describe_kwargs["executionNumber"] = execution_number
     try:
-        execution = iot.describe_job_execution(jobId=job_id, thingName=thing)["execution"]
+        execution = iot.describe_job_execution(**describe_kwargs)["execution"]
     except iot.exceptions.ResourceNotFoundException:
         return refuse(thing, f"no job execution {job_id} for this thing")
     if execution["status"] != "IN_PROGRESS":
         return deny(
-            thing, job_id, f"no rotation in progress (status {execution['status']})"
+            thing,
+            job_id,
+            f"no rotation in progress (status {execution['status']})",
+            execution_number=execution_number,
         )
 
     # Check 3 — the certificate signing request must ask for this thing's identity.
@@ -338,19 +372,28 @@ def issue_new_certificate(event):
     except ImportError:
         # Fail closed: a handler that cannot read the request cannot confirm it is
         # for the identity it is entitled to, so it must not sign.
-        return deny(thing, job_id, "handler cannot parse the certificate signing request")
+        return deny(
+            thing,
+            job_id,
+            "handler cannot parse the certificate signing request",
+            execution_number=execution_number,
+        )
     except (ValueError, TypeError) as error:
         # A malformed or non-PEM certificate signing request. Catch it explicitly:
         # letting it escape would leave the execution IN_PROGRESS until it timed
         # out, with the denial recorded nowhere. Fail closed, and say why.
         return deny(
-            thing, job_id, f"malformed certificate signing request: {type(error).__name__}"
+            thing,
+            job_id,
+            f"malformed certificate signing request: {type(error).__name__}",
+            execution_number=execution_number,
         )
     if f"CN={thing}" not in subject:
         return deny(
             thing,
             job_id,
             "certificate signing request subject does not match the thing name",
+            execution_number=execution_number,
         )
 
     # Idempotency — if a certificate was already signed for THIS rotation AND FOR
@@ -409,6 +452,7 @@ def issue_new_certificate(event):
             thing,
             job_id,
             "certificate signing request reuses the current public key",
+            execution_number=execution_number,
         )
 
     # Sign it. The new certificate is ACTIVE but not yet attached to anything.
@@ -872,17 +916,26 @@ def _create_schedule(certificate_id, thing, when):
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
-def update_execution(thing, job_id, status, details):
-    """Write the rotation phase into the job execution (data plane)."""
+def update_execution(thing, job_id, status, details, execution_number=None):
+    """Write the rotation phase into the job execution (data plane).
+
+    ``executionNumber`` is optional and, like the control-plane read it mirrors,
+    pins the write to one exact execution rather than whichever one
+    ``UpdateJobExecution`` would otherwise resolve to on its own.
+    """
+    kwargs = {}
+    if execution_number is not None:
+        kwargs["executionNumber"] = execution_number
     jobs_client().update_job_execution(
         thingName=thing,
         jobId=job_id,
         status=status,
         statusDetails={k: str(v) for k, v in details.items()},
+        **kwargs,
     )
 
 
-def deny(thing, job_id, reason):
+def deny(thing, job_id, reason, execution_number=None):
     """Refuse to sign, and record why on the job execution.
 
     Recording the reason is best-effort, because not every execution can accept a
@@ -905,7 +958,11 @@ def deny(thing, job_id, reason):
     # lookup failure raise straight out of deny() and lose even this log line.
     try:
         update_execution(
-            thing, job_id, "FAILED", {"phase": "DENIED", "reason": reason[:1024]}
+            thing,
+            job_id,
+            "FAILED",
+            {"phase": "DENIED", "reason": reason[:1024]},
+            execution_number=execution_number,
         )
     except Exception as error:  # noqa: BLE001 - never let reporting mask the denial
         record = {

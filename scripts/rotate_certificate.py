@@ -356,6 +356,7 @@ class RotationAgent:
         self._in_progress_at = None
         self._terminal = False
         self.job_id = None
+        self.execution_number = None
 
     # --- Verbose output --------------------------------------------------
     def _wire(self, kind, topic):
@@ -693,6 +694,12 @@ class RotationAgent:
         print(get_message("wire.payload", "{}"))
         execution = self.job_started.result(timeout=timeout)
         job_id = execution["jobId"]
+        # Pin the exact execution the request is about. On a CONTINUOUS job the
+        # same (jobId, thing) pair accumulates a new execution every time this
+        # thing re-enrolls, so the handler cannot safely ask for "the" execution
+        # by jobId and thing alone once a prior SUCCEEDED execution exists for
+        # the same pair — it needs to know exactly which one this request means.
+        self.execution_number = execution.get("executionNumber")
         print(get_message("job.taken", job_id))
 
         operation = (execution.get("jobDocument") or {}).get("operation")
@@ -741,9 +748,20 @@ class RotationAgent:
         return new_key, new_csr
 
     def _send_signing_request(self, job_id, csr):
-        """Publish the certificate signing request on the rotation-request topic."""
+        """Publish the certificate signing request on the rotation-request topic.
+
+        Includes ``executionNumber`` alongside ``jobId``. On a CONTINUOUS job the
+        two together are what the handler needs to look up the exact execution
+        this request is about — jobId alone is not enough once this thing has
+        rotated more than once, because every rotation of every device shares
+        the same jobId.
+        """
         self._publish(
-            self.request_topic, json.dumps({"jobId": job_id, "csr": csr}), timeout=30
+            self.request_topic,
+            json.dumps(
+                {"jobId": job_id, "executionNumber": self.execution_number, "csr": csr}
+            ),
+            timeout=30,
         )
         print(get_message("request.sent", self.request_topic))
         self._wire("pub", self.request_topic)
@@ -813,6 +831,11 @@ class RotationAgent:
         self._wire("pub", claim_topic)
         print(get_message("wire.payload", "{}"))
         execution = self.job_started.result(timeout=30)
+        # Refresh the pinned execution number from what start-next actually
+        # returned, rather than assuming it is unchanged - re-claiming the same
+        # IN_PROGRESS execution is the expected outcome, but the request below
+        # should reflect what the device was just told, not what it assumed.
+        self.execution_number = execution.get("executionNumber")
         print(
             get_message(
                 "disconnect_choice.rediscovered",
