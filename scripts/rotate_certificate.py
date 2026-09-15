@@ -366,10 +366,20 @@ class RotationAgent:
         print(get_message("pause.rule"))
         try:
             input(get_message("pause.prompt"))
-        except (EOFError, KeyboardInterrupt):
+        except EOFError:
+            # Stdin closed out from under an interactive run (e.g. the terminal
+            # was redirected mid-flow). Degrade like a piped run: keep going,
+            # just without further pauses.
             print()
             print(get_message("pause.disabled"))
             self.pause = False
+        except KeyboardInterrupt:
+            # A human pressed Ctrl-C on purpose. Unlike EOF, this means "stop",
+            # so let it propagate instead of treating it as "continue without
+            # pausing" - main() turns it into a clean exit.
+            print()
+            print(get_message("pause.aborted"))
+            raise
 
     # --- MQTT plumbing ---------------------------------------------------
     def _on_message(self, data):
@@ -985,6 +995,14 @@ def main():
         print(get_message("connect.failed", get_message("connect.old_certificate"), error))
         agent._stop_client()
         sys.exit(1)
+    except KeyboardInterrupt:
+        # Ctrl-C during a --pause stop. The job execution stays wherever it was
+        # left (IN_PROGRESS, most likely) - re-running the script claims the
+        # same execution again rather than starting a new one.
+        print()
+        print(get_message("pause.exit"))
+        agent._stop_client()
+        sys.exit(130)
     sys.exit(0 if ok else 1)
 
 

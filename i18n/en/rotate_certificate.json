@@ -67,6 +67,8 @@
     "budget": "  Time budget: about {} of {} minutes left before AWS IoT Core marks this execution TIMED_OUT.",
     "disabled": "  No terminal input available - continuing without further pauses.",
     "not_a_terminal": "Pausing was requested but this is not an interactive terminal; running straight through.",
+    "aborted": "  Ctrl-C received - stopping.",
+    "exit": "Stopped. The job execution was left exactly where it was paused; re-run this command to pick it back up.",
     "job_taken": {
       "what": "  OBSERVE 1/3 - the job execution is now IN_PROGRESS. The device is holding here before it generates a key pair.",
       "console": "  Console: AWS IoT console -> Manage -> Remote actions -> Jobs -> your job -> Job executions\n           {}",
