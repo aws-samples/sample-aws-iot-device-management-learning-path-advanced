@@ -46,6 +46,14 @@
     "received": "Received certificate {}.",
     "timeout": "No certificate arrived within {} seconds. The handler may have denied the request — check the job execution statusDetails for the reason."
   },
+  "disconnect_choice": {
+    "menu": "  The certificate arrived. What should this device do next?\n    1) Continue - install it and proceed with the rotation\n    2) Simulate a disconnect - the certificate arrived but was never written to disk (a crash or a dropped connection right here)",
+    "prompt": "  Choice [1]: ",
+    "disconnecting": "Simulating a disconnect: the certificate that just arrived is being discarded, not installed.",
+    "reconnected": "Reconnected on the CURRENT certificate - the new one was never installed, so this is the only one this device still holds.",
+    "reasking": "Asking again with the SAME certificate signing request - same key, same job. Watch the handler's logs for `redelivering` rather than a second signature.",
+    "rediscovered": "  job execution -> status={} statusDetails={}"
+  },
   "cutover": {
     "installing": "Installing the new certificate at {} ...",
     "reconnecting": "Reconnecting with the NEW certificate ...",

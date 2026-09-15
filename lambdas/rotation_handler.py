@@ -23,9 +23,13 @@ Two entry points, both invoked by AWS IoT topic rules
 1. A certificate signing request arriving on
    ``devices/<thing>/certificate/rotation/request`` — verify, sign, record the
    new certificate id, attach, deliver.
-2. A job-execution terminal event on
-   ``$aws/events/jobExecution/<jobId>/succeeded`` — retire the superseded
-   certificate (deactivate now, delete later).
+2. A job-execution terminal event on one of
+   ``$aws/events/jobExecution/<jobId>/succeeded``, ``.../failed``, or
+   ``.../timed_out`` — on success, retire the superseded certificate
+   (deactivate now, delete later); on a failure or a timeout, abandon the
+   certificate this attempt issued through that same deactivate-now,
+   delete-later path, and leave the certificate the device is still using
+   untouched.
 
 Three checks before signing anything
 ------------------------------------
@@ -269,6 +273,15 @@ def handler(event, context):
     if event.get("operation") == REVOKE_OPERATION:
         return delete_superseded_certificate(event)
     if event.get("eventType") == "JOB_EXECUTION":
+        # The reserved jobExecution topics carry the outcome in `operation`
+        # ("succeeded" | "failed" | "timed_out" | ...), and the topic rule this
+        # module creates matches all three terminal outcomes on one rule. A
+        # successful rotation keeps the certificate it issued and retires the
+        # one it superseded; a failed or timed-out attempt does the opposite —
+        # it abandons the certificate THIS attempt issued and leaves the
+        # device's working certificate alone.
+        if event.get("operation") in ("failed", "timed_out"):
+            return abandon_failed_rotation(event)
         return retire_old_certificate(event)
     return issue_new_certificate(event)
 
@@ -432,20 +445,16 @@ def issue_new_certificate(event):
     for policy in all_attached_policies(caller_arn):
         iot.attach_policy(policyName=policy["policyName"], target=new_arn)
 
-    # Only NOW mark the phase. A status marker should describe work that has
-    # finished, not work that is about to start: writing CERT_READY before the
-    # attachments would make the execution claim readiness while the certificate
-    # was still unattached and unauthorized. The ordering inside this function is
-    # therefore deliberate and not interchangeable —
+    # The ordering below is deliberate and not interchangeable —
     #
-    #   record the id  →  attach thing + policies  →  mark CERT_READY  →  deliver
+    #   record the id  →  attach thing + policies  →  deliver
     #
     # The record goes first because it is what makes the flow resumable: a crash
     # after signing but before the record leaves an orphan nobody can identify.
-    # CERT_READY goes last of the cloud-side steps because it is the only one that
-    # is a *claim about the others*.
-    update_execution(thing, job_id, "IN_PROGRESS", {"phase": "CERT_READY"})
-
+    # This handler writes nothing to the job execution's own status at all —
+    # that map belongs to the device (see the module docstring's note on the two
+    # stores), so the only durable trace of "the certificate is ready" is this
+    # shadow record, not a phase marker on statusDetails.
     deliver(thing, new_id)
     return {"issued": new_id}
 
@@ -614,6 +623,94 @@ def retire_old_certificate(event):
     # again on its next pass.
     iot.remove_thing_from_thing_group(thingGroupName=ROTATION_GROUP, thingName=thing)
     return {"retired_for": thing, "kept": new_id, "retired": retired}
+
+
+def abandon_failed_rotation(event):
+    """Clean up the certificate a FAILED or TIMED_OUT rotation attempt issued.
+
+    This is the mirror image of :func:`retire_old_certificate`, and it keeps the
+    OPPOSITE certificate. A device that reports FAILED has already rolled back
+    to (or, on a timeout, simply never left) the certificate it was using before
+    this attempt — so that certificate needs no change at all. What is now
+    orphaned is the certificate issued and attached **for this attempt**: the
+    rotation shadow still names it, but no device is going to finish installing
+    it. Left alone, it stays attached and active forever, and the next attempt
+    for this thing would find that recorded id, treat it as "already have a
+    certificate for this rotation", and try to redeliver a certificate no
+    device asked to keep.
+
+    Uses the same deactivate-now, delete-later path as a successful retirement
+    (:func:`schedule_deletion`), for the same reason: this abandoned certificate
+    was created moments ago and never used, but deleting it immediately still
+    forecloses a rescue, so it gets the same reversible grace period.
+
+    Left in the rotation thing group on purpose. Removing a thing from the
+    group automatically here would silently start a fresh rotation attempt
+    on its own schedule; the operator-facing recovery for a stuck execution —
+    leave the group, then rejoin it — stays in *Error-Handling Scenarios*, and
+    this cleanup simply means that recovery no longer collides with an
+    abandoned certificate when it runs.
+    """
+    thing = event["thingArn"].split("/")[-1]
+
+    record = read_rotation(thing)
+    new_id = record.get("certificateId")
+    if not new_id:
+        print(json.dumps({"abandon_skipped": thing, "reason": "no rotation record"}))
+        return {"skipped": "no rotation record"}
+
+    # Same staleness fence as retire_old_certificate, and for the same reason:
+    # job events are delivered at least once and are not necessarily in order.
+    # A delayed duplicate of THIS failure could arrive after a LATER rotation
+    # attempt for the same thing already recorded its own certificate. Acting
+    # on the stale duplicate would abandon a certificate a fresh, in-flight
+    # rotation now depends on.
+    event_at = event.get("timestamp")
+    recorded_at = record.get("recordedAt")
+    if event_at and recorded_at and int(event_at) < int(recorded_at):
+        print(
+            json.dumps(
+                {
+                    "abandon_skipped": thing,
+                    "reason": "event predates the rotation record",
+                    "event_at": int(event_at),
+                    "recorded_at": int(recorded_at),
+                }
+            )
+        )
+        return {"skipped": "event predates the rotation record"}
+
+    principals = all_thing_principals(thing)
+    new_arn = next((arn for arn in principals if arn.endswith(f"/{new_id}")), None)
+    if new_arn is None:
+        # Nothing attached under this id — an earlier delivery of the same
+        # event already cleaned it up, or an operator did. Idempotent by
+        # construction, same as retire_old_certificate.
+        print(json.dumps({"abandon_already_clean": thing, "certificateId": new_id}))
+    else:
+        for policy in all_attached_policies(new_arn):
+            iot.detach_policy(policyName=policy["policyName"], target=new_arn)
+        iot.detach_thing_principal(thingName=thing, principal=new_arn)
+        iot.update_certificate(certificateId=new_id, newStatus="INACTIVE")
+        schedule_deletion(new_id, thing)
+        print(
+            json.dumps(
+                {
+                    "abandoned": thing,
+                    "certificateId": new_id,
+                    "operation": event.get("operation"),
+                }
+            )
+        )
+
+    # Clear the record's pointers so the thing's NEXT rotation attempt starts
+    # clean rather than matching this abandoned certificate's id. A named
+    # shadow update removes a property from the reported state when that
+    # property is set to null, so this is a merge that deletes two keys rather
+    # than a replacement.
+    record_rotation(thing, {"certificateId": None, "supersedes": None})
+
+    return {"abandoned_for": thing, "certificateId": new_id}
 
 
 # ---------------------------------------------------------------------------

@@ -47,6 +47,22 @@ handles both:
 The proof publish is what catches case 2, which is why the agent does real work
 rather than settling for a successful connection.
 
+Simulating a device that never installs the certificate
+---------------------------------------------------------
+With ``--pause``, the moment the signed certificate arrives this agent offers a
+choice instead of installing it right away: continue as normal, or simulate a
+device that received the certificate but lost it before writing it to disk — a
+crash, a reboot, a dropped connection between the two. Choosing the second
+option is not narration over an unchanged flow. This agent discards the
+certificate it just received, disconnects, reconnects on the certificate it
+still holds, and asks the backend again with the **same** certificate signing
+request it already generated. Because the request carries the same public key
+the handler already signed for this rotation, the backend re-delivers the
+certificate it already issued rather than signing a second one — the same
+recovery this repository's certificate-rotation content calls out as
+`redelivering` on the backend side. The offer appears once per rotation; after
+either choice, the agent moves on to installing the certificate it holds.
+
 The private key generated here never leaves the device. Only the certificate
 signing request is transmitted, which is why a message the device misses costs
 a recoverable certificate rather than an unrecoverable key.
@@ -66,18 +82,24 @@ the same way. See `MQTT reason codes
 
 Phases written to the job execution
 -----------------------------------
-The job execution ``status`` field is a fixed enumeration, so the section's own
-phase markers live in ``statusDetails`` alongside it::
+The job execution ``status`` field is a fixed enumeration, so this agent's own
+phase markers live in ``statusDetails`` alongside it. This agent is the ONLY
+writer of that map — the handler never touches job status at all, on this or
+any other path::
 
     IN_PROGRESS  phase=INITIATED       job taken, about to generate a key pair
-    IN_PROGRESS  phase=CERT_READY      (written by the handler) certificate signed
     SUCCEEDED    phase=INSTALLED       new certificate installed and proven
     FAILED       phase=CUTOVER_FAILED  new certificate unusable, rolled back
 
 A ``CUTOVER_FAILED`` execution also carries a ``reason`` in ``statusDetails``, so
 an operator reading ``describe-job-execution`` can tell the two failures apart —
 a refused connect points at the certificate's policy attachment, a refused
-publish points at the policy's *scope*.
+publish points at the policy's *scope*. Between ``INITIATED`` and either
+terminal phase, the execution's ``statusDetails`` says nothing new — that gap is
+not a blind spot in this agent, it is the two-store split working as intended.
+The handler's own progress (a certificate signed and attached, ready to be
+picked up again) lives in its rotation shadow instead, which this agent has no
+permission to read. See "What is deliberately NOT in statusDetails" below.
 
 What is deliberately NOT in statusDetails
 -----------------------------------------
@@ -612,22 +634,14 @@ class RotationAgent:
         return puback
 
     # --- Flow ------------------------------------------------------------
-    def take_job(self, timeout):
-        """Subscribe to the reply topics, claim the next execution, check its operation.
+    def _subscribe_reply_topics(self):
+        """Subscribe to the two topics this agent expects a reply on.
 
-        Subscribing before publishing matters: the reply is delivered on the
-        same connection that made the request, so a late subscriber misses it.
-
-        ``start-next`` hands back whatever job is next for this thing, not
-        necessarily a rotation, so the job document's ``operation`` is checked
-        before anything else happens. A device that skipped this check would
-        generate a key pair in response to a firmware-update job. AWS IoT Jobs
-        defines ``REJECTED`` as the status for "an invalid or incompatible
-        request", so that is what an unrecognised operation reports — and unlike
-        ``FAILED`` it is not retryable, which is correct: retrying will not make
-        this agent understand the operation.
+        Shared by the first claim in :meth:`take_job` and by the simulated
+        reconnect in :meth:`request_certificate` — a fresh MQTT 5 connection
+        carries no subscriptions of its own, so anything that reconnects mid
+        rotation must redo this before it can see either reply.
         """
-        print(get_message("job.subscribing"))
         granted = {
             mqtt5.SubackReasonCode.GRANTED_QOS_0,
             mqtt5.SubackReasonCode.GRANTED_QOS_1,
@@ -653,6 +667,24 @@ class RotationAgent:
                         )
                     )
             self._wire("sub", topic)
+
+    def take_job(self, timeout):
+        """Subscribe to the reply topics, claim the next execution, check its operation.
+
+        Subscribing before publishing matters: the reply is delivered on the
+        same connection that made the request, so a late subscriber misses it.
+
+        ``start-next`` hands back whatever job is next for this thing, not
+        necessarily a rotation, so the job document's ``operation`` is checked
+        before anything else happens. A device that skipped this check would
+        generate a key pair in response to a firmware-update job. AWS IoT Jobs
+        defines ``REJECTED`` as the status for "an invalid or incompatible
+        request", so that is what an unrecognised operation reports — and unlike
+        ``FAILED`` it is not retryable, which is correct: retrying will not make
+        this agent understand the operation.
+        """
+        print(get_message("job.subscribing"))
+        self._subscribe_reply_topics()
 
         print(get_message("job.waiting", self.thing))
         claim_topic = f"{self.jobs_prefix}/start-next"
@@ -708,11 +740,8 @@ class RotationAgent:
         print(get_message("keypair.detail", 2048, self.thing, new_csr))
         return new_key, new_csr
 
-    def request_certificate(self, job_id, csr_path, timeout):
-        """Publish the certificate signing request and wait for the signed reply."""
-        with open(csr_path, "r", encoding="utf-8") as handle:
-            csr = handle.read()
-
+    def _send_signing_request(self, job_id, csr):
+        """Publish the certificate signing request on the rotation-request topic."""
         self._publish(
             self.request_topic, json.dumps({"jobId": job_id, "csr": csr}), timeout=30
         )
@@ -723,12 +752,98 @@ class RotationAgent:
         # signing request, never the private key.
         print(get_message("wire.key_not_sent"))
 
+    def _await_certificate(self, timeout):
+        """Block on the response topic for the signed certificate."""
         try:
-            answer = self.cert_arrived.result(timeout=timeout)
+            return self.cert_arrived.result(timeout=timeout)
         except TimeoutError:
             raise RuntimeError(get_message("request.timeout", timeout)) from None
 
+    def _offer_disconnect_simulation(self, job_id, csr):
+        """Offer to simulate a device that lost the certificate before installing it.
+
+        Only reachable with ``--pause``. Returns ``True`` when the learner chose
+        to simulate the disconnect — a fresh certificate is now on its way and
+        the caller must wait for it again — or ``False`` to install the one
+        already in hand.
+
+        Choosing the simulation is not narration layered over an unchanged flow.
+        This disconnects for real, reconnects on the certificate the device
+        still holds (the new one was never installed), re-discovers the SAME
+        job execution, and re-asks with the SAME certificate signing request —
+        no new key pair, so the request carries the same public key the handler
+        already signed for this rotation. That is what leads the handler to
+        re-deliver the certificate it already issued instead of signing a
+        second one.
+        """
+        print()
+        print(get_message("pause.rule"))
+        print(get_message("disconnect_choice.menu"))
+        print(get_message("pause.rule"))
+        try:
+            choice = input(get_message("disconnect_choice.prompt"))
+        except EOFError:
+            print()
+            print(get_message("pause.disabled"))
+            self.pause = False
+            return False
+        except KeyboardInterrupt:
+            print()
+            print(get_message("pause.aborted"))
+            raise
+
+        if choice.strip() != "2":
+            return False
+
+        print(get_message("disconnect_choice.disconnecting"))
+        self._stop_client()
+        time.sleep(2)
+        self.connect(self.cert, self.key, "old")
+        print(get_message("disconnect_choice.reconnected"))
+
+        print(get_message("job.subscribing"))
+        self._subscribe_reply_topics()
+
+        print(get_message("job.waiting", self.thing))
+        # A fresh Future for each: the previous ones are already done() and
+        # cannot be resolved a second time.
+        self.job_started = Future()
+        claim_topic = f"{self.jobs_prefix}/start-next"
+        self._publish(claim_topic, json.dumps({}), timeout=30)
+        self._wire("pub", claim_topic)
+        print(get_message("wire.payload", "{}"))
+        execution = self.job_started.result(timeout=30)
+        print(
+            get_message(
+                "disconnect_choice.rediscovered",
+                execution.get("status", "-"),
+                json.dumps(execution.get("statusDetails", {}), sort_keys=True),
+            )
+        )
+
+        self.cert_arrived = Future()
+        print(get_message("disconnect_choice.reasking"))
+        self._send_signing_request(job_id, csr)
+        return True
+
+    def request_certificate(self, job_id, csr_path, timeout):
+        """Publish the certificate signing request and wait for the signed reply.
+
+        With ``--pause``, the moment the certificate arrives this offers a
+        choice instead of installing it right away — see
+        :meth:`_offer_disconnect_simulation` and the module docstring.
+        """
+        with open(csr_path, "r", encoding="utf-8") as handle:
+            csr = handle.read()
+
+        self._send_signing_request(job_id, csr)
+        answer = self._await_certificate(timeout)
         print(get_message("request.received", answer["certificateId"]))
+
+        if self.pause and self._offer_disconnect_simulation(job_id, csr):
+            answer = self._await_certificate(timeout)
+            print(get_message("request.received", answer["certificateId"]))
+
         new_cert = f"{self.thing}.new.cert.pem"
         print(get_message("cutover.installing", new_cert))
         with open(new_cert, "w", encoding="utf-8") as handle:
