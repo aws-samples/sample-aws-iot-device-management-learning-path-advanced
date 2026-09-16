@@ -69,6 +69,9 @@
     "failed": "Job execution reported FAILED. No certificate was retired, and the device keeps using its current certificate.",
     "summary": "Rotation complete for {}: new certificate {} is in use."
   },
+  "break_after_csr": {
+    "exit": "Breaking here on purpose, as requested by --break-after-csr. Certificate signing request sent for job execution {} and left unanswered - the execution stays IN_PROGRESS, phase=INITIATED. Re-run this same command WITHOUT --break-after-csr to pick it back up: a fresh process generates a new key pair and asks again, which is what makes the handler sign a second certificate (resigning) instead of re-delivering this one."
+  },
   "pause": {
     "rule": "  ----------------------------------------------------------------------",
     "prompt": "  Press Enter to let the device continue ...",

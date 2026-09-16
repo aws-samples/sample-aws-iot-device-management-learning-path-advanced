@@ -67,6 +67,22 @@ The private key generated here never leaves the device. Only the certificate
 signing request is transmitted, which is why a message the device misses costs
 a recoverable certificate rather than an unrecoverable key.
 
+Simulating a device that restarts before the reply arrives
+------------------------------------------------------------
+``--break-after-csr`` exits right after the certificate signing request is
+sent, before waiting for the signed reply — a deterministic stand-in for a
+device that crashes or reboots in that exact gap, generates a **new** key pair
+on restart, and asks again. Timing that moment with Ctrl-C against a live
+network round-trip is not reliably reproducible; this flag makes the same
+state reachable on purpose, every time. The execution stays exactly where it
+was left (``IN_PROGRESS``, ``phase=INITIATED``); run the same command again
+**without** the flag to pick it back up. Because a fresh process calls
+``generate_keypair()`` on startup with no memory of the request it sent
+moments ago, that second run's request carries a **different** public key
+than the one the handler already signed for this rotation — which is what
+leads the handler to sign a second certificate (``resigning``) rather than
+re-deliver the first one, unlike the same-key case above.
+
 Why MQTT 5
 ----------
 This agent speaks **MQTT 5**, which reports a **reason code** on every
@@ -223,6 +239,17 @@ class UnsupportedOperation(RuntimeError):
     """The job execution asked for an operation this agent does not implement."""
 
 
+class BreakAfterCsr(Exception):
+    """Requested exit right after the certificate signing request was sent.
+
+    Raised by :meth:`RotationAgent.request_certificate` when ``--break-after-csr``
+    is set, instead of waiting for the signed reply. This is a deterministic
+    stand-in for a device that restarts between sending its request and
+    receiving the answer — the same moment a Ctrl-C would have to land, but
+    exactly, every time, without racing the network.
+    """
+
+
 def reason_code_name(reason_code):
     """Render an MQTT 5 reason code as ``NAME (0xHH)``, or ``-`` when absent."""
     if reason_code is None:
@@ -303,6 +330,7 @@ class RotationAgent:
         in_progress_timeout=15,
         connect_retries=3,
         connect_backoff=2.0,
+        break_after_csr=False,
     ):
         self.endpoint = endpoint
         self.thing = thing
@@ -311,6 +339,10 @@ class RotationAgent:
         self.ca = ca
         self.telemetry_topic = telemetry_topic
         self.request_rule = request_rule
+        # Deterministic stand-in for "the device restarted before the reply
+        # arrived": exit immediately after the certificate signing request is
+        # sent, before waiting on the response. See request_certificate().
+        self.break_after_csr = break_after_csr
 
         self.jobs_prefix = f"$aws/things/{thing}/jobs"
         # The certificate signing request goes out over BASIC INGEST — the
@@ -855,11 +887,20 @@ class RotationAgent:
         With ``--pause``, the moment the certificate arrives this offers a
         choice instead of installing it right away — see
         :meth:`_offer_disconnect_simulation` and the module docstring.
+
+        With ``--break-after-csr``, this raises :class:`BreakAfterCsr` right
+        after the request is sent, before waiting for anything back — a
+        deterministic stand-in for a device that restarts in that exact gap,
+        in place of timing a Ctrl-C against the network.
         """
         with open(csr_path, "r", encoding="utf-8") as handle:
             csr = handle.read()
 
         self._send_signing_request(job_id, csr)
+
+        if self.break_after_csr:
+            raise BreakAfterCsr(job_id)
+
         answer = self._await_certificate(timeout)
         print(get_message("request.received", answer["certificateId"]))
 
@@ -1089,6 +1130,18 @@ def parse_arguments():
         ),
     )
     parser.add_argument(
+        "--break-after-csr",
+        action="store_true",
+        help=(
+            "Exit immediately after sending the certificate signing request, "
+            "before waiting for the signed reply — a deterministic stand-in for "
+            "a device that restarts in that gap. Re-run WITHOUT this flag "
+            "afterwards: a fresh process generates a new key pair and asks "
+            "again, which is what makes the handler sign a second certificate "
+            "(`resigning`) instead of re-delivering the first one"
+        ),
+    )
+    parser.add_argument(
         "--in-progress-timeout",
         type=int,
         default=15,
@@ -1120,6 +1173,7 @@ def main():
         in_progress_timeout=args.in_progress_timeout,
         connect_retries=args.connect_retries,
         connect_backoff=args.connect_backoff,
+        break_after_csr=args.break_after_csr,
     )
     try:
         ok = agent.run(
@@ -1133,6 +1187,16 @@ def main():
         print(get_message("connect.failed", get_message("connect.old_certificate"), error))
         agent._stop_client()
         sys.exit(1)
+    except BreakAfterCsr as error:
+        # Requested via --break-after-csr: the request is already on its way,
+        # so exit cleanly without waiting for a reply or rolling anything back.
+        # The execution stays exactly where it is (IN_PROGRESS); re-running
+        # WITHOUT this flag generates a fresh key pair and asks again.
+        job_id = error.args[0]
+        print()
+        print(get_message("break_after_csr.exit", job_id))
+        agent._stop_client()
+        sys.exit(0)
     except KeyboardInterrupt:
         # Ctrl-C during a --pause stop. The job execution stays wherever it was
         # left (IN_PROGRESS, most likely) - re-running the script claims the
