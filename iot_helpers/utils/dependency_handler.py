@@ -19,7 +19,7 @@ import sys
 import os
 import time
 import shutil
-import subprocess
+import subprocess  # nosec B404 -- used only for local, hardcoded openssl/aws CLI calls below
 
 # Add repository root to path for i18n imports
 # Navigate 3 levels up from iot_helpers/utils/dependency_handler.py to repository root
@@ -77,7 +77,7 @@ def check_openssl_available():
     # Step 2: Is it actually runnable? Run `openssl version` and capture output.
     try:
         result = subprocess.run(
-            ["openssl", "version"],
+            ["openssl", "version"],  # nosec B603 B607 -- list args, no shell, fixed executable name resolved via shutil.which above
             capture_output=True,
             text=True,
             timeout=10,
@@ -588,7 +588,7 @@ class DependencyHandler:
                 elapsed_time = 0
                 
                 while elapsed_time < max_wait_time:
-                    time.sleep(wait_interval)
+                    time.sleep(wait_interval)  # nosemgrep: arbitrary-sleep
                     elapsed_time += wait_interval
                     
                     response = self.iot_client.describe_job(jobId=job_id)

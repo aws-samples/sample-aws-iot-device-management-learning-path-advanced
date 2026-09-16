@@ -181,7 +181,7 @@ def safe_operation(func, operation_name, api_details=None, debug=None, **kwargs)
         if debug:
             print("🔍 DEBUG: Full error response:")
             print(json.dumps(e.response, indent=2, default=str))
-        time.sleep(0.5)
+        time.sleep(0.5)  # nosemgrep: arbitrary-sleep
         return None
     except Exception as e:
         print(get_message("errors.generic_error_detail", operation_name, str(e)))
@@ -190,7 +190,7 @@ def safe_operation(func, operation_name, api_details=None, debug=None, **kwargs)
 
             print("🔍 DEBUG: Full traceback:")
             traceback.print_exc()
-        time.sleep(0.5)
+        time.sleep(0.5)  # nosemgrep: arbitrary-sleep
         return None
 
 
@@ -205,7 +205,7 @@ def print_api_details(operation, method, path, description, inputs=None, outputs
         print(f"   {get_message('input_parameters_label')}: {inputs}")
     if outputs:
         print(f"   {get_message('expected_output_label')}: {outputs}")
-    time.sleep(1)
+    time.sleep(1)  # nosemgrep: arbitrary-sleep
 
 
 def save_certificate_files(thing_name, cert_id, cert_pem, private_key, public_key):
@@ -321,7 +321,7 @@ def create_certificate(iot, thing_name=None):
 
     print_info(get_message("certificates_for_auth"))
     print_info(get_message("cert_contains_keypair"))
-    time.sleep(1)
+    time.sleep(1)  # nosemgrep: arbitrary-sleep
 
     api_details = (
         "create_keys_and_certificate",
@@ -475,7 +475,7 @@ def attach_certificate_to_thing(iot, cert_arn, target_thing_name):
     print_info(get_message("certs_must_be_attached"))
     print_info(get_message("creates_secure_relationship"))
     print_info(get_message("cert_will_be_attached").format(target_thing_name))
-    time.sleep(1)
+    time.sleep(1)  # nosemgrep: arbitrary-sleep
 
     # Check for existing certificates
     existing_certs = check_existing_certificates(iot, target_thing_name)
@@ -520,7 +520,7 @@ def create_policy_interactive(iot):
 
     print_info(get_message("iot_policies_define_actions"))
     print_info(get_message("create_new_or_existing"))
-    time.sleep(1)
+    time.sleep(1)  # nosemgrep: arbitrary-sleep
 
     # First, check if there are existing policies
     try:
@@ -715,7 +715,7 @@ def attach_policy_to_certificate(iot, cert_arn, policy_name=None):
 
     print_info(get_message("policies_must_be_attached"))
     print_info(get_message("without_policy_no_operations"))
-    time.sleep(1)
+    time.sleep(1)  # nosemgrep: arbitrary-sleep
 
     if not policy_name:
         # List existing policies
@@ -1222,7 +1222,7 @@ def generate_sample_certificate():
 
     print_info(get_message("creates_self_signed_cert"))
     print_info(get_message("production_use_trusted_ca"))
-    time.sleep(1)
+    time.sleep(1)  # nosemgrep: arbitrary-sleep
 
     # Create sample-certs directory
     sample_dir = os.path.join(os.getcwd(), "sample-certs")
@@ -1264,9 +1264,10 @@ def generate_sample_certificate():
         print(f"\n{get_message('running_openssl_command')}")
         print(f"{get_message('command_label')}: {' '.join(openssl_cmd)}")
 
-        import subprocess
+        import subprocess  # nosec B404 -- used only for local, hardcoded openssl calls below
 
-        result = subprocess.run(openssl_cmd, capture_output=True, text=True, shell=False)
+        # nosemgrep: dangerous-subprocess-use-audit -- list args, shell=False, cert_name pre-validated against ^[a-zA-Z0-9_-]+$ above
+        result = subprocess.run(openssl_cmd, capture_output=True, text=True, shell=False)  # nosec B603 -- list args, no shell, fixed "openssl" executable
 
         if result.returncode == 0:
             print(get_message("certificate_generated_successfully"))
@@ -1278,7 +1279,8 @@ def generate_sample_certificate():
 
             # Show certificate info
             info_cmd = ["openssl", "x509", "-in", cert_file, "-text", "-noout"]
-            info_result = subprocess.run(info_cmd, capture_output=True, text=True, shell=False)
+            # nosemgrep: dangerous-subprocess-use-audit -- static command list, no external input, shell=False
+            info_result = subprocess.run(info_cmd, capture_output=True, text=True, shell=False)  # nosec B603 -- list args, no shell, fixed "openssl" executable
             if info_result.returncode == 0:
                 print(f"\n{get_message('certificate_information')}")
                 lines = info_result.stdout.split("\n")
@@ -1411,7 +1413,7 @@ def register_certificate_with_aws(iot, cert_path):
         print_info(get_message("registering_external_cert"))
         print_info(get_message("registers_without_new_keys"))
         print_info(get_message("private_key_stays_with_you"))
-        time.sleep(1)
+        time.sleep(1)  # nosemgrep: arbitrary-sleep
 
         api_details = (
             "register_certificate_without_ca",

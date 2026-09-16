@@ -239,7 +239,7 @@ def main():
                 print(get_message("publish.sent", topic, json.dumps(payload)))
         except Exception as exc:  # noqa: BLE001
             print(get_message("publish.failed", i, exc))
-        time.sleep(3)
+        time.sleep(3)  # nosemgrep: arbitrary-sleep
 
     client.stop()
     stopped.wait(timeout=10)

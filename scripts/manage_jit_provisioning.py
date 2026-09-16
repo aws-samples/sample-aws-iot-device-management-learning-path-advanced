@@ -100,8 +100,10 @@ def deploy_jitr_rule(rule_name, function_arn, debug=False):
     iot = boto3.client("iot")
 
     # SELECT * FROM the reserved registration-event topic; single Lambda action.
+    # This is an AWS IoT Rules Engine SQL statement (evaluated by AWS IoT, not a
+    # database), and JITR_EVENT_TOPIC is a fixed constant, not external input.
     topic_rule_payload = {
-        "sql": f'SELECT * FROM "{JITR_EVENT_TOPIC}"',
+        "sql": f'SELECT * FROM "{JITR_EVENT_TOPIC}"',  # nosec B608
         "description": "Route JITR device-registration events to the JITR handler.",
         "actions": [{"lambda": {"functionArn": function_arn}}],
         "ruleDisabled": False,

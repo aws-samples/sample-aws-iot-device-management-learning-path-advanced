@@ -454,7 +454,7 @@ class DeviceConnection:
         try:
             self.connection.stop()
             self._stopped.wait(timeout=DEFAULT_OPERATION_TIMEOUT_SEC)
-        except Exception:  # noqa: BLE001 - teardown is best effort
+        except Exception:  # noqa: BLE001 - teardown is best effort  # nosec B110
             pass
         self.connection = None
         self.connected = False

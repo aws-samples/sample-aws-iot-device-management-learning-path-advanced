@@ -42,7 +42,7 @@ as the ``templateBody`` string, matching what the content shows.
 import argparse
 import json
 import os
-import subprocess
+import subprocess  # nosec B404 -- used only for local, hardcoded openssl calls below
 import sys
 
 # --- Repository path wiring (import shared constructs) --------------------
@@ -102,7 +102,8 @@ def run_openssl(args, debug=False):
     cmd = ["openssl"] + args
     if debug:
         print(get_message("debug.openssl_cmd", " ".join(cmd)))
-    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    # nosemgrep: dangerous-subprocess-use-audit -- list args, shell=False; --ca-common-name is an operator-supplied CLI arg, not external/network input
+    result = subprocess.run(cmd, capture_output=True, text=True, check=False)  # nosec B603 -- list args, no shell, fixed "openssl" executable
     if result.returncode != 0:
         print(get_message("errors.openssl_failed", " ".join(cmd)))
         print(result.stderr.strip())

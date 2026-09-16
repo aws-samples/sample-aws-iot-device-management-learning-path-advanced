@@ -151,7 +151,7 @@ def _sign_csr(csr_pem: str) -> str:
     the CA above rather than the Amazon CA.
     """
     csr = x509.load_pem_x509_csr(csr_pem.encode("utf-8"))
-    if not csr.is_signature_valid:
+    if not csr.is_signature_valid:  # nosemgrep: is-function-without-parentheses -- cryptography lib property, not a method
         raise ValueError("CSR signature is not valid")
 
     ca_key, ca_cert = _get_ca()

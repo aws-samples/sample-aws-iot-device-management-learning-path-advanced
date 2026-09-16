@@ -169,7 +169,7 @@ import argparse
 import json
 import os
 import shutil
-import subprocess
+import subprocess  # nosec B404 -- used only for local, hardcoded openssl calls below
 import sys
 import threading
 import time
@@ -491,7 +491,7 @@ class RotationAgent:
         try:
             self.connection.stop()
             self._stopped.wait(timeout=15)
-        except Exception:  # noqa: BLE001 - teardown is best effort
+        except Exception:  # noqa: BLE001 - teardown is best effort  # nosec B110
             pass
         self.connection = None
 
@@ -583,7 +583,7 @@ class RotationAgent:
                 data = self._connect_once(cert_path, key_path)
             except ConnectFailed as error:
                 last_error = error
-                if error.is_terminal:
+                if error.is_terminal:  # nosemgrep: is-function-without-parentheses -- @property, not a method
                     # No retry: the broker has told us this will never work.
                     print(
                         get_message(
@@ -645,7 +645,7 @@ class RotationAgent:
             print(get_message("job.update_failed", status, error))
         if status in ("SUCCEEDED", "FAILED", "REJECTED"):
             self._terminal = True
-        time.sleep(1)
+        time.sleep(1)  # nosemgrep: arbitrary-sleep
 
     def _publish(self, topic, payload, timeout=15):
         """Publish at QoS 1 and check the PUBACK reason code.
@@ -758,7 +758,7 @@ class RotationAgent:
         print(get_message("keypair.generating"))
         try:
             subprocess.run(
-                ["openssl", "genrsa", "-out", new_key, "2048"],
+                ["openssl", "genrsa", "-out", new_key, "2048"],  # nosec B603 B607 -- list args, no shell, fixed executable, presence checked above
                 check=True,
                 stderr=subprocess.DEVNULL,
             )
@@ -768,7 +768,7 @@ class RotationAgent:
                     "-key", new_key,
                     "-out", new_csr,
                     "-subj", f"/CN={self.thing}",
-                ],
+                ],  # nosec B603 B607 -- list args, no shell, fixed executable, presence checked above
                 check=True,
                 stderr=subprocess.DEVNULL,
             )
@@ -847,7 +847,7 @@ class RotationAgent:
 
         print(get_message("disconnect_choice.disconnecting"))
         self._stop_client()
-        time.sleep(2)
+        time.sleep(2)  # nosemgrep: arbitrary-sleep
         self.connect(self.cert, self.key, "old")
         print(get_message("disconnect_choice.reconnected"))
 

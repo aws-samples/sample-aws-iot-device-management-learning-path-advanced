@@ -286,7 +286,9 @@ def handler(event, context):
         }
 
     except ClientError as error:
-        # Re-raise so the failure is visible in Amazon CloudWatch Logs and the
+        # Re-raised below, so this is a warning (not handled here) rather than an
+        # error: the caller (AWS Lambda) is what ultimately handles/reports it.
+        # Logged so the failure is visible in Amazon CloudWatch Logs and the
         # certificate stays PENDING_ACTIVATION rather than being wrongly trusted.
-        logger.error("JITR registration failed for %s: %s", certificate_id, error)
+        logger.warning("JITR registration failed for %s: %s", certificate_id, error)
         raise

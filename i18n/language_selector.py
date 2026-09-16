@@ -1,4 +1,5 @@
 import os
+import sys
 
 LANGUAGE_SELECTION = {
     "header": "🌍 Language Selection / Selección de Idioma / 言語選択 / 语言选择 / Seleção de Idioma / 언어 선택 / Sprachauswahl / Selezione della Lingua / Sélection de la Langue",
@@ -56,4 +57,4 @@ def get_language():
             print(LANGUAGE_SELECTION["invalid"])
         except KeyboardInterrupt:
             print("\n\nGoodbye! / ¡Adiós! / さようなら！ / 再见！ / Tchau! / 안녕히 가세요!")
-            exit(0)
+            sys.exit(0)

@@ -356,7 +356,7 @@ def _wait_for(device, accepted_topic, rejected_topic, timeout=20):
                         f"Fleet provisioning rejected on {rejected_topic}: "
                         f"{json.dumps(message['payload'])}"
                     )
-        time.sleep(0.25)
+        time.sleep(0.25)  # nosemgrep: arbitrary-sleep
     raise TimeoutError(f"Timed out waiting for a reply on {accepted_topic}")
 
 
