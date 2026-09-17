@@ -21,7 +21,9 @@ scoped to this topic):
   ``matches_workshop_pattern`` (``iot_helpers/utils/naming_conventions.py``) or an
   explicit, known workshop resource name. A resource that does not match the
   topic's pattern is never selected, so the shared environment and unrelated
-  account resources stay safe.
+  account resources stay safe. This includes things, certificates, provisioning
+  templates, custom CAs, topic rules, thing groups, thing types, and device/claim
+  policies — everything the sections create except the base-stack Lambdas below.
 - **Non-destructive by default.** With no flags the script performs a DRY RUN:
   it lists what it *would* remove and deletes nothing. Pass ``--execute`` to
   actually delete.
@@ -56,6 +58,7 @@ Usage
 import argparse
 import os
 import sys
+import time
 
 # --- Repository path wiring (import shared constructs) --------------------
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -120,6 +123,9 @@ WORKSHOP_POLICY_NAMES = [
     "SmartHomeDevicePolicy",         # Section 4 — trusted-user device policy
     "JITPDevicePolicy",              # Section 2 — JITP device policy
     "JITRDevicePolicy",              # Section 2 — JITR device policy
+    "MARLobbyDevicePolicy",          # Section 5 — MAR lobby (Region 1) device policy
+    "MARLobbyRestrictedPolicy",      # Section 5 — MAR challenge's restricted lobby policy
+    "RotationDevicePolicy",          # Section 6 — account-level rotation device policy
 ]
 
 # Device policy created in the SECOND Region for the MAR move (Section 5).
@@ -128,12 +134,24 @@ WORKSHOP_MAR_POLICY_NAMES = ["MARProductionDevicePolicy"]
 # Just-in-Time Registration topic rule (Section 2).
 WORKSHOP_TOPIC_RULES = ["JITRRegistrationRule"]
 
-# Static thing groups the provisioning templates reference (Section 3 v2 template).
-WORKSHOP_THING_GROUPS = ["fleet-connected-vehicles"]
+# Static thing groups the provisioning templates and JITP registration config
+# reference (Section 2's JITP-Onboarded, Section 3's v2 template).
+WORKSHOP_THING_GROUPS = ["fleet-connected-vehicles", "JITP-Onboarded"]
+
+# Thing types created by the fleet-provisioning sections (Sections 3 and 4).
+WORKSHOP_THING_TYPES = ["SedanVehicle", "SUVVehicle", "SmartHomeSensor"]
 
 # Thing-name prefixes this topic uses. Vehicle-VIN-### matches the built-in
-# "thing" pattern; the others are passed as custom prefixes.
-WORKSHOP_THING_PREFIXES = ["Vehicle-VIN-", "SmartHome-Sensor-", "Vehicle-VIN-MAR-"]
+# "thing" pattern; the others are passed as custom prefixes. AnyCompany-Sensor-
+# is Section 6 (Certificate Rotation) — normally cleaned by that section's own
+# reset block, but included here too so the automated script catches it if a
+# learner skips straight to this script instead.
+WORKSHOP_THING_PREFIXES = [
+    "Vehicle-VIN-",
+    "SmartHome-Sensor-",
+    "Vehicle-VIN-MAR-",
+    "AnyCompany-Sensor-",
+]
 
 # Thing prefix used specifically for the moved device in the MAR (second) Region.
 WORKSHOP_MAR_THING_PREFIXES = ["Vehicle-VIN-MAR-"]
@@ -489,6 +507,55 @@ class AdvancedProvisioningCleanup:
                     thingGroupName=group_name,
                 )
 
+    def _cleanup_thing_types(self):
+        """Deprecate + delete the topic's workshop thing types (pattern-scoped).
+
+        A thing type cannot be deleted while any thing still uses it, and AWS
+        IoT enforces a 5-minute wait after deprecation before deletion is
+        allowed (see the "Delete a thing type" developer guide topic). Because
+        this topic's things are removed earlier in ``run()`` (step 3, before
+        this step), only a thing outside the discovered set — for example one
+        you created by hand with the same thing type — could still block it;
+        the delete call is left to fail safely (and print why) in that case.
+        """
+        self._info(f"\n{get_message('status.discovering_thing_types')}")
+        existing = []
+        for type_name in WORKSHOP_THING_TYPES:
+            described = safe_api_call(
+                self.iot.describe_thing_type,
+                "Describe thing type",
+                type_name,
+                debug=self.debug,
+                thingTypeName=type_name,
+            )
+            if described:
+                existing.append(type_name)
+                self._plan(get_message("plan.thing_type", type_name))
+
+        if not existing or self.dry_run:
+            return
+
+        for type_name in existing:
+            safe_api_call(
+                self.iot.deprecate_thing_type,
+                "Deprecate thing type",
+                type_name,
+                debug=self.debug,
+                thingTypeName=type_name,
+            )
+
+        self._info(get_message("status.waiting_thing_types"))
+        time.sleep(300)  # AWS-required wait after deprecation before delete  # nosemgrep: arbitrary-sleep
+
+        for type_name in existing:
+            safe_api_call(
+                self.iot.delete_thing_type,
+                "Delete thing type",
+                type_name,
+                debug=self.debug,
+                thingTypeName=type_name,
+            )
+
     def _cleanup_policies(self, iot_client, policy_names, region_label):
         """Delete the topic's device/claim policies (after certs are detached)."""
         self._info(f"\n{get_message('status.discovering_policies', region_label)}")
@@ -630,6 +697,11 @@ class AdvancedProvisioningCleanup:
         self._cleanup_topic_rules()
         self._cleanup_thing_groups()
         self._cleanup_policies(self.iot, WORKSHOP_POLICY_NAMES, label)
+
+        # 6b) Thing types — deprecate + delete last among the main-Region cleanup,
+        # since deprecation requires a 5-minute wait and every thing that used
+        # to reference one was already deleted in step 3.
+        self._cleanup_thing_types()
 
         # 7) Second Region (MAR) cleanup, if requested.
         self.cleanup_mar_region()

@@ -18,6 +18,8 @@
     "discovering_templates": "🔎 Provisioning templates created by this topic...",
     "discovering_topic_rules": "🔎 Topic rules created by this topic...",
     "discovering_thing_groups": "🔎 Thing groups created by this topic...",
+    "discovering_thing_types": "🔎 Thing types created by this topic...",
+    "waiting_thing_types": "⏳ Waiting 5 minutes after deprecation before AWS IoT allows thing type deletion...",
     "discovering_policies": "🔎 Device / claim policies created by this topic ({})...",
     "cleaning_mar_region": "=== Cleaning up the second Region ({}) — Section 5 (MAR) ==="
   },
@@ -30,6 +32,7 @@
     "provisioning_template": "provisioning template {}",
     "topic_rule": "topic rule {}",
     "thing_group": "thing group {}",
+    "thing_type": "thing type {}",
     "policy": "policy {}"
   },
   "prompts": {
