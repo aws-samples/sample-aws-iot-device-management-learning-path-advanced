@@ -24,8 +24,42 @@ from iot_helpers.utils.resource_tagger import apply_workshop_tags
 # Global variables
 USER_LANG = "en"
 messages = {}
-DEBUG_MODE = True  # Default to True for educational purposes
+# This module-level literal is NOT the effective default: main() unconditionally
+# overwrites it with `"--debug" in sys.argv or "-d" in sys.argv` before any menu
+# option runs, so real debug-mode default is OFF unless --debug/-d is passed.
+DEBUG_MODE = True
 ENABLE_TAGGING = True  # Can be disabled with --no-tags
+
+# Response fields that must never be printed, even in debug mode. Key names are
+# matched case-insensitively so this also catches API-specific casings (for
+# example create_keys_and_certificate's "keyPair.PrivateKey").
+SENSITIVE_RESPONSE_KEYS = {
+    "privatekey",
+    "certificatepem",
+    "keypair",
+}
+
+
+def redact_sensitive(value):
+    """Recursively redact known-sensitive fields from an API response before logging.
+
+    Debug mode prints the full response of every wrapped API call, and some IoT
+    control-plane responses embed key material or PEM bodies directly (for example
+    create_keys_and_certificate's keyPair.PrivateKey and certificatePem). This walks
+    dicts/lists and replaces any key matching SENSITIVE_RESPONSE_KEYS with a
+    redaction marker so debug output never contains the actual secret.
+    """
+    if isinstance(value, dict):
+        redacted = {}
+        for key, val in value.items():
+            if isinstance(key, str) and key.lower() in SENSITIVE_RESPONSE_KEYS:
+                redacted[key] = "***REDACTED***"
+            else:
+                redacted[key] = redact_sensitive(val)
+        return redacted
+    if isinstance(value, list):
+        return [redact_sensitive(item) for item in value]
+    return value
 
 
 def get_message(key, *args):
@@ -158,7 +192,7 @@ def safe_operation(func, operation_name, api_details=None, debug=None, **kwargs)
     try:
         if debug:
             print(f"🔄 {operation_name}...")
-            print(f"📥 Input: {json.dumps(kwargs, indent=2, default=str)}")
+            print(f"📥 Input: {json.dumps(redact_sensitive(kwargs), indent=2, default=str)}")
         else:
             print(f"🔄 {operation_name}...")
 
@@ -166,8 +200,9 @@ def safe_operation(func, operation_name, api_details=None, debug=None, **kwargs)
 
         if debug:
             print(f"✅ {get_message('operation_completed_successfully').format(operation_name)}")
+            safe_response = redact_sensitive(response)
             print(
-                f"📤 {get_message('output_label')}: {json.dumps(response, indent=2, default=str)[:500]}{'...' if len(str(response)) > 500 else ''}"
+                f"📤 {get_message('output_label')}: {json.dumps(safe_response, indent=2, default=str)[:500]}{'...' if len(str(safe_response)) > 500 else ''}"
             )
         else:
             print(f"✅ {get_message('operation_completed').format(operation_name)}")
