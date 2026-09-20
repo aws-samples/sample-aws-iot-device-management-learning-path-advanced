@@ -145,6 +145,24 @@ def print_info(message, indent=0):
     print(f"{prefix}ℹ️  {message}")
 
 
+def _prompt_topic_prefix(policy_name):
+    """Ask for a topic namespace to scope a policy template's MQTT actions to.
+
+    iot:Connect can be scoped generically via the ${iot:Connection.Thing.ThingName}
+    policy variable, which AWS IoT Core resolves from the connecting client with
+    no extra input needed here. iot:Publish/Subscribe/Receive have no such
+    variable — they need an actual topic namespace, and this generic helper has
+    no fixed one, so ask rather than default to Resource: "*".
+    """
+    default_prefix = re.sub(r"[^a-zA-Z0-9_-]", "-", policy_name) or "device"
+    raw = input(get_message("enter_topic_prefix", default_prefix)).strip()
+    prefix = raw or default_prefix
+    # Keep the resulting ARN well-formed: strip characters a topic/topicfilter
+    # ARN cannot contain cleanly (a trailing "/" would otherwise double up with
+    # the "/*" this function appends at the call site).
+    return prefix.strip("/")
+
+
 def validate_policy_security(policy_document, policy_name):
     """Validate policy for security best practices"""
     warnings = []
@@ -629,19 +647,27 @@ def create_policy_interactive(iot):
         choice = input(get_message("select_policy_template")).strip()
 
         if choice == "1":
+            topic_prefix = _prompt_topic_prefix(policy_name)
             policy_document = {
                 "Version": "2012-10-17",
                 "Statement": [
                     {
                         "Effect": "Allow",
-                        "Action": [
-                            "iot:Connect",
-                            "iot:Publish",
-                            "iot:Subscribe",
-                            "iot:Receive",
+                        "Action": ["iot:Connect"],
+                        "Resource": [
+                            "arn:aws:iot:*:*:client/${iot:Connection.Thing.ThingName}"
                         ],
-                        "Resource": "*",
-                    }
+                    },
+                    {
+                        "Effect": "Allow",
+                        "Action": ["iot:Publish", "iot:Receive"],
+                        "Resource": [f"arn:aws:iot:*:*:topic/{topic_prefix}/*"],
+                    },
+                    {
+                        "Effect": "Allow",
+                        "Action": ["iot:Subscribe"],
+                        "Resource": [f"arn:aws:iot:*:*:topicfilter/{topic_prefix}/*"],
+                    },
                 ],
             }
             # Validate policy and show enhanced warnings
@@ -657,14 +683,27 @@ def create_policy_interactive(iot):
             break
 
         elif choice == "2":
+            topic_prefix = _prompt_topic_prefix(policy_name)
             policy_document = {
                 "Version": "2012-10-17",
                 "Statement": [
                     {
                         "Effect": "Allow",
-                        "Action": ["iot:Connect", "iot:Subscribe", "iot:Receive"],
-                        "Resource": "*",
-                    }
+                        "Action": ["iot:Connect"],
+                        "Resource": [
+                            "arn:aws:iot:*:*:client/${iot:Connection.Thing.ThingName}"
+                        ],
+                    },
+                    {
+                        "Effect": "Allow",
+                        "Action": ["iot:Receive"],
+                        "Resource": [f"arn:aws:iot:*:*:topic/{topic_prefix}/*"],
+                    },
+                    {
+                        "Effect": "Allow",
+                        "Action": ["iot:Subscribe"],
+                        "Resource": [f"arn:aws:iot:*:*:topicfilter/{topic_prefix}/*"],
+                    },
                 ],
             }
             # Validate policy and show enhanced warnings

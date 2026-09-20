@@ -382,6 +382,7 @@
   "policy_name_available": "✅ Policy name '{}' is available",
   "error_checking_policy": "❌ Error checking policy: {}",
   "select_policy_template": "Select policy template (1-3): ",
+  "enter_topic_prefix": "Enter a topic prefix this device may use, e.g. 'myfleet' (default: policy name '{}'): ",
   "invalid_json_error": "❌ Invalid JSON: {}",
   "name_label_simple": "Name",
   "document_label_simple": "Document",
