@@ -122,10 +122,17 @@ def _deny(reason: str) -> dict:
 
 def handler(event, context):
     """Entry point invoked synchronously by AWS IoT Core during RegisterThing."""
-    logger.info("Pre-provisioning hook event: %s", json.dumps(event, default=str))
-
     parameters = event.get("parameters", {}) or {}
     serial = parameters.get("SerialNumber", "")
+
+    # Log only what a learner needs to debug a hook decision. The full event also
+    # carries claimCertificateId, certificateId, and templateArn — certificate and
+    # template identifiers that do not belong in Amazon CloudWatch Logs unfiltered.
+    logger.info(
+        "Pre-provisioning hook invoked: SerialNumber=%s templateArn=%s",
+        serial,
+        event.get("templateArn", ""),
+    )
 
     # 1) Simple hook: allow-list the serial prefix (fail closed on anything else).
     if not _serial_prefix_allowed(serial):

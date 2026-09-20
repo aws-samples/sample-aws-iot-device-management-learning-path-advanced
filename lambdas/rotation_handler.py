@@ -262,7 +262,25 @@ def handler(event, context):
     ``_create_schedule``. Everything that is not a recognised event shape falls
     through to the signing path, which is the only one that validates its caller.
     """
-    print(json.dumps({"received": event}))
+    # Log only routing-relevant metadata, never the raw event. A signing request
+    # carries the device's certificate signing request (csr) and its
+    # callerCertificateId, and every downstream log call in this file already
+    # names the certificate ids and thing name it actually acted on when there is
+    # a decision to explain (see deny/refuse/retire_old_certificate below) — this
+    # entry-point line only needs enough to tell which branch a given invocation
+    # took, not a copy of the request that reached it.
+    print(
+        json.dumps(
+            {
+                "routing": {
+                    "operation": event.get("operation"),
+                    "eventType": event.get("eventType"),
+                    "thingName": event.get("thingName"),
+                    "jobId": event.get("jobId"),
+                }
+            }
+        )
+    )
 
     # The Lambda needs its own ARN to point a schedule back at itself. Stash it
     # once per invocation rather than reconstructing it from Region and account.
