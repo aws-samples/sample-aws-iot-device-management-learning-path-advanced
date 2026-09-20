@@ -42,6 +42,7 @@ as the ``templateBody`` string, matching what the content shows.
 import argparse
 import json
 import os
+import re
 import subprocess  # nosec B404 -- used only for local, hardcoded openssl calls below
 import sys
 
@@ -102,7 +103,7 @@ def run_openssl(args, debug=False):
     cmd = ["openssl"] + args
     if debug:
         print(get_message("debug.openssl_cmd", " ".join(cmd)))
-    # nosemgrep: dangerous-subprocess-use-audit -- list args, shell=False; --ca-common-name is an operator-supplied CLI arg, not external/network input
+    # nosemgrep: dangerous-subprocess-use-audit -- list args, shell=False; --ca-common-name pre-validated against ^[a-zA-Z0-9 _.-]+$ in create_root_ca above
     result = subprocess.run(cmd, capture_output=True, text=True, check=False)  # nosec B603 -- list args, no shell, fixed "openssl" executable
     if result.returncode != 0:
         print(get_message("errors.openssl_failed", " ".join(cmd)))
@@ -116,6 +117,15 @@ def create_root_ca(common_name, debug=False):
     if os.path.exists(ROOT_CA_KEY) and os.path.exists(ROOT_CA_PEM):
         print(get_message("status.reusing_root_ca", ROOT_CA_PEM))
         return
+
+    # Validate the CA common name before it is interpolated into a -subj value.
+    # No shell is involved (list args, shell=False in run_openssl), so this is
+    # not a command-injection guard — it stops an operator-supplied name with a
+    # stray "/" (the openssl distinguished-name field separator) from silently
+    # producing a self-signed cert with an unexpected subject.
+    if not re.match(r"^[a-zA-Z0-9 _.-]+$", common_name):
+        print(get_message("errors.ca_common_name_invalid_chars"))
+        sys.exit(1)
 
     print(get_message("status.creating_root_ca"))
     run_openssl(["genrsa", "-out", ROOT_CA_KEY, "2048"], debug=debug)

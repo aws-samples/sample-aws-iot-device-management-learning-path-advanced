@@ -5,7 +5,8 @@
   "errors": {
     "openssl_failed": "❌ OpenSSL failed: {}",
     "no_registration_code": "❌ Could not obtain a registration code",
-    "registration_failed": "❌ CA registration failed"
+    "registration_failed": "❌ CA registration failed",
+    "ca_common_name_invalid_chars": "❌ --ca-common-name can only contain letters, numbers, spaces, hyphens, underscores, and periods"
   },
   "status": {
     "reusing_root_ca": "ℹ️  Reusing existing root CA ({})",
