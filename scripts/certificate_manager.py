@@ -1279,7 +1279,7 @@ def generate_sample_certificate():
 
             # Show certificate info
             info_cmd = ["openssl", "x509", "-in", cert_file, "-text", "-noout"]
-            # nosemgrep: dangerous-subprocess-use-audit -- static command list, no external input, shell=False
+            # nosemgrep: dangerous-subprocess-use-audit -- list args, shell=False, cert_file derived from cert_name pre-validated against ^[a-zA-Z0-9_-]+$ above
             info_result = subprocess.run(info_cmd, capture_output=True, text=True, shell=False)  # nosec B603 -- list args, no shell, fixed "openssl" executable
             if info_result.returncode == 0:
                 print(f"\n{get_message('certificate_information')}")
