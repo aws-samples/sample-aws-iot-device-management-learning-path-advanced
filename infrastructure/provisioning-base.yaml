@@ -1,8 +1,9 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
 Description: >-
-  Advanced Device Provisioning End-to-End — base infrastructure (Region 1 / us-east-1
-  "lobby"). Pre-deploys the *undifferentiated plumbing* for the provisioning topic:
+  Advanced Device Provisioning End-to-End — base infrastructure (Region 1, the
+  "lobby" — the Region where you deploy this stack). Pre-deploys the
+  *undifferentiated plumbing* for the provisioning topic:
   the AWS IoT Just-in-Time Provisioning (JITP) registration role, the AWS IoT fleet
   provisioning service role, the two AWS Lambda execution roles, and two empty AWS
   Lambda function skeletons (JITR registration handler + pre-provisioning hook).
