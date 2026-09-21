@@ -33,6 +33,43 @@ ALREADY_EXISTS_ERROR_CODES = (
 # Client-side rate limiting applied after every call (seconds).
 RATE_LIMIT_SECONDS = 0.125
 
+# Request/response field names that carry certificate or key material. Every
+# script that calls safe_api_call eventually passes a caCertificate,
+# certificatePem, verificationCertificate, or a create_keys_and_certificate
+# response's keyPair/PrivateKey/PublicKey through here, so debug=True must
+# never dump these verbatim. Matched case-insensitively so this also catches
+# API-specific casings the exact-name list below might miss.
+_SENSITIVE_FIELD_NAMES = {
+    "cacertificate",
+    "certificatepem",
+    "verificationcertificate",
+    "privatekey",
+    "publickey",
+    "keypair",
+}
+
+
+def _redact(value):
+    """Recursively replace known-sensitive fields with a truncated preview.
+
+    Mirrors the truncation style already used by fleet_provision_trusted_user.py's
+    _fmt_payload (first line + a character count) rather than a bare
+    "***REDACTED***" marker, so debug output still shows enough to confirm which
+    PEM/key landed in a given field without printing the material itself.
+    """
+    if isinstance(value, dict):
+        redacted = {}
+        for key, val in value.items():
+            if isinstance(key, str) and key.lower() in _SENSITIVE_FIELD_NAMES and isinstance(val, str):
+                first_line = val.strip().splitlines()[0] if val.strip() else ""
+                redacted[key] = f"{first_line} …(truncated, {len(val)} chars total)"
+            else:
+                redacted[key] = _redact(val)
+        return redacted
+    if isinstance(value, list):
+        return [_redact(item) for item in value]
+    return value
+
 
 def safe_api_call(
     func: Callable[..., Any],
@@ -74,7 +111,7 @@ def safe_api_call(
             print(f"\n🔍 DEBUG: {operation_name} -> {resource_name}")
             print(f"   API call: {func.__name__}")
             print("   Input parameters:")
-            print(json.dumps(kwargs, indent=2, default=str))
+            print(json.dumps(_redact(kwargs), indent=2, default=str))
         else:
             print(f"⚙️  {operation_name}: creating {resource_name}...")
 
@@ -82,7 +119,7 @@ def safe_api_call(
 
         if debug:
             print("   API response:")
-            print(json.dumps(response, indent=2, default=str))
+            print(json.dumps(_redact(response), indent=2, default=str))
 
         print(f"✅ {operation_name}: {resource_name} ready")
         time.sleep(RATE_LIMIT_SECONDS)  # Rate limiting  # nosemgrep: arbitrary-sleep
@@ -97,7 +134,7 @@ def safe_api_call(
             print(f"❌ {operation_name}: error creating {resource_name}: {error_message}")
             if debug:
                 print("   Full error:")
-                print(json.dumps(e.response, indent=2, default=str))
+                print(json.dumps(_redact(e.response), indent=2, default=str))
         time.sleep(RATE_LIMIT_SECONDS)  # nosemgrep: arbitrary-sleep
         return None
 
