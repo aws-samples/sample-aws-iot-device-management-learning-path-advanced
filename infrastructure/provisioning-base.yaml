@@ -1,20 +1,19 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
 Description: >-
-  Advanced Device Provisioning End-to-End — base infrastructure (Region 1, the
-  "lobby" — the Region where you deploy this stack). Pre-deploys the
-  *undifferentiated plumbing* for the provisioning topic:
-  the AWS IoT Just-in-Time Provisioning (JITP) registration role, the AWS IoT fleet
-  provisioning service role, the two AWS Lambda execution roles, and two empty AWS
-  Lambda function skeletons (JITR registration handler + pre-provisioning hook).
-  Learners author and deploy the actual function code in Modules 3 and 4 via
-  'aws lambda update-function-code' against these pre-created function names/ARNs
-  (see design section 2.10, item 4 — RESOLVED: hybrid pre-deploy the plumbing,
-  learners deploy the code). It also pre-deploys the certificate-rotation plumbing
-  for Module 6 (rotation static thing group, rotation-handler Lambda skeleton and its
-  execution role/log group/invoke permission, and the Amazon EventBridge Scheduler
-  role used for the deferred old-certificate deletion). No hardcoded secrets; IAM is
-  scoped to this account and region.
+  Advanced Device Provisioning End-to-End — base infrastructure (Region 1,
+  the account/Region where you deploy this stack). Pre-deploys the
+  *undifferentiated plumbing* for the provisioning topic: the AWS IoT
+  Just-in-Time Provisioning (JITP) registration role, the AWS IoT fleet
+  provisioning service role, two AWS Lambda execution roles, and two empty
+  AWS Lambda function skeletons (JITR registration handler + pre-provisioning
+  hook). Learners deploy the actual function code in later modules via
+  'aws lambda update-function-code' against these pre-created function
+  names/ARNs. Also pre-deploys the certificate-rotation plumbing (rotation
+  static thing group, rotation-handler Lambda skeleton with its execution
+  role/log group/invoke permission, and the Amazon EventBridge Scheduler role
+  used for deferred old-certificate deletion). No hardcoded secrets; IAM is
+  scoped to this account and Region.
 
 # ---------------------------------------------------------------------------
 # Parameters
