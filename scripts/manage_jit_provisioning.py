@@ -88,6 +88,7 @@ def get_message(key, *args):
         return msg.format(*args)
     return msg
 
+
 # The reserved topic AWS IoT Core publishes to when a device whose CA is
 # registered connects for the first time. The '+' wildcard matches any CA id.
 JITR_EVENT_TOPIC = "$aws/events/certificates/registered/+"
@@ -180,8 +181,7 @@ def observe(ca_cert_id, thing_name=None, debug=False):
             thingName=thing_name,
         )
         if thing:
-            print(get_message("status.thing_attributes", thing_name,
-                              json.dumps(thing.get("attributes", {}))))
+            print(get_message("status.thing_attributes", thing_name, json.dumps(thing.get("attributes", {}))))
 
 
 def register_ca(args):
@@ -198,31 +198,21 @@ def register_ca(args):
 
 def parse_arguments():
     """Parse command-line arguments."""
-    parser = argparse.ArgumentParser(
-        description="Manage Just-in-Time Provisioning (JITP) and JITR resources."
-    )
+    parser = argparse.ArgumentParser(description="Manage Just-in-Time Provisioning (JITP) and JITR resources.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    ca_parser = subparsers.add_parser(
-        "register-ca", help="Register the custom CA with JITP config."
-    )
+    ca_parser = subparsers.add_parser("register-ca", help="Register the custom CA with JITP config.")
     ca_parser.add_argument("--role-arn", required=True, help="JITP registration role ARN.")
     ca_parser.add_argument("--template-file", default=None, help="JITP template JSON path.")
-    ca_parser.add_argument(
-        "--ca-common-name", default="AnyCompany Device Root CA", help="Root CA common name."
-    )
+    ca_parser.add_argument("--ca-common-name", default="AnyCompany Device Root CA", help="Root CA common name.")
     ca_parser.add_argument("--debug", action="store_true", help="Verbose output.")
 
-    rule_parser = subparsers.add_parser(
-        "deploy-jitr-rule", help="Create the JITR topic rule (create-topic-rule)."
-    )
+    rule_parser = subparsers.add_parser("deploy-jitr-rule", help="Create the JITR topic rule (create-topic-rule).")
     rule_parser.add_argument("--rule-name", default="JITRRegistrationRule", help="Topic rule name.")
     rule_parser.add_argument("--function-arn", required=True, help="JITR handler Lambda ARN.")
     rule_parser.add_argument("--debug", action="store_true", help="Verbose output.")
 
-    code_parser = subparsers.add_parser(
-        "deploy-jitr-code", help="Deploy the JITR handler code (update-function-code)."
-    )
+    code_parser = subparsers.add_parser("deploy-jitr-code", help="Deploy the JITR handler code (update-function-code).")
     code_parser.add_argument("--function-name", required=True, help="JITR handler function name.")
     code_parser.add_argument("--debug", action="store_true", help="Verbose output.")
 

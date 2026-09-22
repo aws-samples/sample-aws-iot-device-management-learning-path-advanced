@@ -95,6 +95,7 @@ def _iot():
         _iot_client = boto3.client("iot")
     return _iot_client
 
+
 # Device policy attached to every JITR-registered certificate. Kept distinct
 # from the JITP path's ``JITPDevicePolicy`` so the two flows can be told apart
 # in the console. Created on first use if it does not already exist.

@@ -85,9 +85,7 @@ def get_message(key, *args):
     return msg
 
 
-TEMPLATE_DIR = os.path.join(
-    REPO_ROOT, "iot_helpers", "utils", "fleet_provisioning_templates"
-)
+TEMPLATE_DIR = os.path.join(REPO_ROOT, "iot_helpers", "utils", "fleet_provisioning_templates")
 DEFAULT_TEMPLATE_FILE = os.path.join(TEMPLATE_DIR, "jitp-template.json")
 
 # File names kept identical to the CLI-first commands in the module content.
@@ -104,7 +102,9 @@ def run_openssl(args, debug=False):
     if debug:
         print(get_message("debug.openssl_cmd", " ".join(cmd)))
     # nosemgrep: dangerous-subprocess-use-audit -- list args, shell=False; --ca-common-name pre-validated against ^[a-zA-Z0-9 _.-]+$ in create_root_ca above
-    result = subprocess.run(cmd, capture_output=True, text=True, check=False)  # nosec B603 -- list args, no shell, fixed "openssl" executable
+    result = subprocess.run(
+        cmd, capture_output=True, text=True, check=False
+    )  # nosec B603 -- list args, no shell, fixed "openssl" executable
     if result.returncode != 0:
         print(get_message("errors.openssl_failed", " ".join(cmd)))
         print(result.stderr.strip())
@@ -131,11 +131,19 @@ def create_root_ca(common_name, debug=False):
     run_openssl(["genrsa", "-out", ROOT_CA_KEY, "2048"], debug=debug)
     run_openssl(
         [
-            "req", "-x509", "-new", "-nodes",
-            "-key", ROOT_CA_KEY,
-            "-sha256", "-days", "365",
-            "-out", ROOT_CA_PEM,
-            "-subj", f"/CN={common_name}",
+            "req",
+            "-x509",
+            "-new",
+            "-nodes",
+            "-key",
+            ROOT_CA_KEY,
+            "-sha256",
+            "-days",
+            "365",
+            "-out",
+            ROOT_CA_PEM,
+            "-subj",
+            f"/CN={common_name}",
         ],
         debug=debug,
     )
@@ -148,22 +156,33 @@ def create_verification_certificate(registration_code, debug=False):
     run_openssl(["genrsa", "-out", VERIFICATION_KEY, "2048"], debug=debug)
     run_openssl(
         [
-            "req", "-new",
-            "-key", VERIFICATION_KEY,
-            "-out", VERIFICATION_CSR,
-            "-subj", f"/CN={registration_code}",
+            "req",
+            "-new",
+            "-key",
+            VERIFICATION_KEY,
+            "-out",
+            VERIFICATION_CSR,
+            "-subj",
+            f"/CN={registration_code}",
         ],
         debug=debug,
     )
     run_openssl(
         [
-            "x509", "-req",
-            "-in", VERIFICATION_CSR,
-            "-CA", ROOT_CA_PEM,
-            "-CAkey", ROOT_CA_KEY,
+            "x509",
+            "-req",
+            "-in",
+            VERIFICATION_CSR,
+            "-CA",
+            ROOT_CA_PEM,
+            "-CAkey",
+            ROOT_CA_KEY,
             "-CAcreateserial",
-            "-out", VERIFICATION_PEM,
-            "-days", "365", "-sha256",
+            "-out",
+            VERIFICATION_PEM,
+            "-days",
+            "365",
+            "-sha256",
         ],
         debug=debug,
     )
@@ -245,17 +264,13 @@ def parse_arguments():
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
         description=(
-            "Register a custom Certificate Authority with AWS IoT Core and enable "
-            "Just-in-Time Provisioning (JITP)."
+            "Register a custom Certificate Authority with AWS IoT Core and enable " "Just-in-Time Provisioning (JITP)."
         )
     )
     parser.add_argument(
         "--role-arn",
         required=True,
-        help=(
-            "ARN of the JITP registration role (the base stack output "
-            "'JitpRegistrationRoleArn')."
-        ),
+        help=("ARN of the JITP registration role (the base stack output " "'JitpRegistrationRoleArn')."),
     )
     parser.add_argument(
         "--template-file",

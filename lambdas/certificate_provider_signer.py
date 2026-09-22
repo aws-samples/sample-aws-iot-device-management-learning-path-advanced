@@ -113,10 +113,12 @@ def _get_ca():
         return _CA_KEY, _CA_CERT
 
     ca_key = ec.generate_private_key(ec.SECP256R1())
-    ca_name = x509.Name([
-        x509.NameAttribute(NameOID.ORGANIZATION_NAME, _CA_ORGANIZATION),
-        x509.NameAttribute(NameOID.COMMON_NAME, _CA_COMMON_NAME),
-    ])
+    ca_name = x509.Name(
+        [
+            x509.NameAttribute(NameOID.ORGANIZATION_NAME, _CA_ORGANIZATION),
+            x509.NameAttribute(NameOID.COMMON_NAME, _CA_COMMON_NAME),
+        ]
+    )
     now = datetime.datetime.now(datetime.timezone.utc)
     ca_cert = (
         x509.CertificateBuilder()
@@ -129,10 +131,15 @@ def _get_ca():
         .add_extension(x509.BasicConstraints(ca=True, path_length=0), critical=True)
         .add_extension(
             x509.KeyUsage(
-                digital_signature=False, content_commitment=False,
-                key_encipherment=False, data_encipherment=False,
-                key_agreement=False, key_cert_sign=True, crl_sign=True,
-                encipher_only=False, decipher_only=False,
+                digital_signature=False,
+                content_commitment=False,
+                key_encipherment=False,
+                data_encipherment=False,
+                key_agreement=False,
+                key_cert_sign=True,
+                crl_sign=True,
+                encipher_only=False,
+                decipher_only=False,
             ),
             critical=True,
         )
@@ -158,19 +165,24 @@ def _sign_csr(csr_pem: str) -> str:
     now = datetime.datetime.now(datetime.timezone.utc)
     certificate = (
         x509.CertificateBuilder()
-        .subject_name(csr.subject)              # same subject as the CSR (required)
-        .issuer_name(ca_cert.subject)           # signed by the simulated CA
-        .public_key(csr.public_key())           # same public key as the CSR (required)
+        .subject_name(csr.subject)  # same subject as the CSR (required)
+        .issuer_name(ca_cert.subject)  # signed by the simulated CA
+        .public_key(csr.public_key())  # same public key as the CSR (required)
         .serial_number(x509.random_serial_number())
         .not_valid_before(now - datetime.timedelta(minutes=5))
         .not_valid_after(now + datetime.timedelta(days=_CERT_VALIDITY_DAYS))
         .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
         .add_extension(
             x509.KeyUsage(
-                digital_signature=True, content_commitment=False,
-                key_encipherment=True, data_encipherment=False,
-                key_agreement=False, key_cert_sign=False, crl_sign=False,
-                encipher_only=False, decipher_only=False,
+                digital_signature=True,
+                content_commitment=False,
+                key_encipherment=True,
+                data_encipherment=False,
+                key_agreement=False,
+                key_cert_sign=False,
+                crl_sign=False,
+                encipher_only=False,
+                decipher_only=False,
             ),
             critical=True,
         )
@@ -185,7 +197,8 @@ def handler(event, context):
     principal_id = event.get("principalId", "")
     logger.info(
         "Certificate provider invoked (clientId=%s, principalId=%s)",
-        client_id, principal_id,
+        client_id,
+        principal_id,
     )
 
     csr_pem = event.get("certificateSigningRequest")

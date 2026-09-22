@@ -159,8 +159,7 @@ def _account_id():
 # =========================================================================
 
 
-def register_without_ca(certificate_pem, region, policy_name=None,
-                        policy_document=None, thing_name=None, debug=False):
+def register_without_ca(certificate_pem, region, policy_name=None, policy_document=None, thing_name=None, debug=False):
     """Register an existing device certificate in the destination Region (MAR core).
 
     Wraps ``register-certificate-without-ca``. This is the heart of MAR: it

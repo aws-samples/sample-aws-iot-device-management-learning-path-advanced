@@ -103,9 +103,8 @@ def get_message(key, *args):
         return msg.format(*args)
     return msg
 
-TEMPLATE_DIR = os.path.join(
-    REPO_ROOT, "iot_helpers", "utils", "fleet_provisioning_templates"
-)
+
+TEMPLATE_DIR = os.path.join(REPO_ROOT, "iot_helpers", "utils", "fleet_provisioning_templates")
 DEFAULT_TEMPLATE_FILE = os.path.join(TEMPLATE_DIR, "fleet-claim-template.json")
 DEFAULT_CLAIM_POLICY_FILE = os.path.join(TEMPLATE_DIR, "claim-policy.json")
 
@@ -142,6 +141,7 @@ _TRUNCATE_KEYS = ("certificatePem", "privateKey", "publicKey", "keyPair")
 
 def _fmt_payload(payload):
     """Pretty-print an MQTT payload, truncating long/secret fields for readability."""
+
     def _trunc(key, value):
         if isinstance(value, str) and key in _TRUNCATE_KEYS:
             first = value.strip().splitlines()[0] if value.strip() else ""
@@ -164,8 +164,7 @@ def _indent(text, prefix="   "):
 # =========================================================================
 
 
-def create_claim(policy_name, policy_file, claim_cert_out, claim_key_out,
-                 claim_pub_out, debug=False):
+def create_claim(policy_name, policy_file, claim_cert_out, claim_key_out, claim_pub_out, debug=False):
     """Create the claim certificate and attach the tightly scoped claim policy.
 
     Wraps ``create-keys-and-certificate`` + ``create-policy`` + ``attach-policy``.
@@ -232,8 +231,7 @@ def load_template_body(template_file):
     return json.dumps(template, separators=(",", ":"))
 
 
-def create_template(template_name, provisioning_role_arn, template_file,
-                    hook_arn=None, debug=False):
+def create_template(template_name, provisioning_role_arn, template_file, hook_arn=None, debug=False):
     """Create the fleet provisioning template, optionally with a pre-provisioning hook.
 
     Wraps ``create-provisioning-template`` (with ``--pre-provisioning-hook`` when
@@ -267,8 +265,9 @@ def create_template(template_name, provisioning_role_arn, template_file,
     return response
 
 
-def manage_versions(template_name, list_versions=False, new_version_file=None,
-                    set_default=False, delete_version_id=None, debug=False):
+def manage_versions(
+    template_name, list_versions=False, new_version_file=None, set_default=False, delete_version_id=None, debug=False
+):
     """List, create-as-default, or delete provisioning template versions."""
     iot = boto3.client("iot")
 
@@ -323,8 +322,9 @@ def observe(thing_name, debug=False):
         thingName=thing_name,
     )
     if thing:
-        print(get_message("status.thing_info", thing_name, thing.get("thingTypeName"),
-                          json.dumps(thing.get("attributes", {}))))
+        print(
+            get_message("status.thing_info", thing_name, thing.get("thingTypeName"), json.dumps(thing.get("attributes", {})))
+        )
 
     principals = safe_api_call(
         iot.list_thing_principals,
@@ -353,8 +353,7 @@ def _wait_for(device, accepted_topic, rejected_topic, timeout=20):
                     return message["payload"]
                 if message["topic"] == rejected_topic:
                     raise RuntimeError(
-                        f"Fleet provisioning rejected on {rejected_topic}: "
-                        f"{json.dumps(message['payload'])}"
+                        f"Fleet provisioning rejected on {rejected_topic}: " f"{json.dumps(message['payload'])}"
                     )
         time.sleep(0.25)  # nosemgrep: arbitrary-sleep
     raise TimeoutError(f"Timed out waiting for a reply on {accepted_topic}")
@@ -420,8 +419,9 @@ def _create_certificate_from_csr(device, out_prefix, csr_file):
     return created["certificateOwnershipToken"], cert_out
 
 
-def provision(template_name, claim_cert, claim_key, serial_number, model_type,
-              endpoint=None, out_prefix=None, csr_file=None, debug=False):
+def provision(
+    template_name, claim_cert, claim_key, serial_number, model_type, endpoint=None, out_prefix=None, csr_file=None, debug=False
+):
     """Run the fleet-provisioning MQTT exchange with the claim certificate.
 
     CreateKeysAndCertificate (default) or CreateCertificateFromCsr (when
@@ -472,8 +472,7 @@ def provision(template_name, claim_cert, claim_key, serial_number, model_type,
 
     print(f"\n{get_message('status.provisioned')}")
     print(get_message("status.provisioned_thing_name", registered.get("thingName")))
-    print(get_message("status.provisioned_device_config",
-                      json.dumps(registered.get("deviceConfiguration", {}))))
+    print(get_message("status.provisioned_device_config", json.dumps(registered.get("deviceConfiguration", {}))))
     print(get_message("status.provisioned_reconnect", cert_out))
 
     device.disconnect()
@@ -510,10 +509,13 @@ def parse_arguments():
     prov.add_argument("--model-type", default="SedanVehicle", help="Device ModelType parameter.")
     prov.add_argument("--endpoint", default=None, help="iot:Data-ATS endpoint (auto-discovered if omitted).")
     prov.add_argument("--out-prefix", default=None, help="Output prefix for the permanent cert/key.")
-    prov.add_argument("--csr-file", default=None,
-                     help="CSR PEM to use CreateCertificateFromCsr (device keeps its own key). "
-                          "Omit to use CreateKeysAndCertificate. This is the path the "
-                          "optional certificate-provider lab exercises.")
+    prov.add_argument(
+        "--csr-file",
+        default=None,
+        help="CSR PEM to use CreateCertificateFromCsr (device keeps its own key). "
+        "Omit to use CreateKeysAndCertificate. This is the path the "
+        "optional certificate-provider lab exercises.",
+    )
     prov.add_argument("--debug", action="store_true", help="Verbose output.")
 
     versions = subparsers.add_parser("versions", help="Manage provisioning template versions.")

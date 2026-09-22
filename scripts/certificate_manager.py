@@ -403,15 +403,12 @@ def create_certificate(iot, thing_name=None):
         print(f"   {get_message('certificate_id_label')}: {cert_id}")
         print(f"   {get_message('certificate_arn_label')}: {cert_arn}")
         print(f"   {get_message('status_active')}")
-        
+
         # Add tagging
         if ENABLE_TAGGING:
             try:
                 apply_workshop_tags(
-                    client=iot,
-                    resource_arn=cert_arn,
-                    resource_type='certificate',
-                    script_name='certificate-manager'
+                    client=iot, resource_arn=cert_arn, resource_type="certificate", script_name="certificate-manager"
                 )
                 if DEBUG_MODE:
                     print(get_message("warnings.tags_applied_certificate"))
@@ -654,9 +651,7 @@ def create_policy_interactive(iot):
                     {
                         "Effect": "Allow",
                         "Action": ["iot:Connect"],
-                        "Resource": [
-                            "arn:aws:iot:*:*:client/${iot:Connection.Thing.ThingName}"
-                        ],
+                        "Resource": ["arn:aws:iot:*:*:client/${iot:Connection.Thing.ThingName}"],
                     },
                     {
                         "Effect": "Allow",
@@ -690,9 +685,7 @@ def create_policy_interactive(iot):
                     {
                         "Effect": "Allow",
                         "Action": ["iot:Connect"],
-                        "Resource": [
-                            "arn:aws:iot:*:*:client/${iot:Connection.Thing.ThingName}"
-                        ],
+                        "Resource": ["arn:aws:iot:*:*:client/${iot:Connection.Thing.ThingName}"],
                     },
                     {
                         "Effect": "Allow",
@@ -760,24 +753,21 @@ def create_policy_interactive(iot):
 
     if response:
         print(get_message("status.policy_created", policy_name))
-        
+
         # Add tagging to policy
         if ENABLE_TAGGING:
-            policy_arn = response.get('policyArn')
+            policy_arn = response.get("policyArn")
             if policy_arn:
                 try:
                     apply_workshop_tags(
-                        client=iot,
-                        resource_arn=policy_arn,
-                        resource_type='policy',
-                        script_name='certificate-manager'
+                        client=iot, resource_arn=policy_arn, resource_type="policy", script_name="certificate-manager"
                     )
                     if DEBUG_MODE:
                         print(get_message("warnings.tags_applied_policy"))
                 except Exception as e:
                     if DEBUG_MODE:
                         print(get_message("warnings.tags_not_applied", e))
-        
+
         return policy_name
 
     return None
@@ -1341,7 +1331,9 @@ def generate_sample_certificate():
         import subprocess  # nosec B404 -- used only for local, hardcoded openssl calls below
 
         # nosemgrep: dangerous-subprocess-use-audit -- list args, shell=False, cert_name pre-validated against ^[a-zA-Z0-9_-]+$ above
-        result = subprocess.run(openssl_cmd, capture_output=True, text=True, shell=False)  # nosec B603 -- list args, no shell, fixed "openssl" executable
+        result = subprocess.run(
+            openssl_cmd, capture_output=True, text=True, shell=False
+        )  # nosec B603 -- list args, no shell, fixed "openssl" executable
 
         if result.returncode == 0:
             print(get_message("certificate_generated_successfully"))
@@ -1354,7 +1346,9 @@ def generate_sample_certificate():
             # Show certificate info
             info_cmd = ["openssl", "x509", "-in", cert_file, "-text", "-noout"]
             # nosemgrep: dangerous-subprocess-use-audit -- list args, shell=False, cert_file derived from cert_name pre-validated against ^[a-zA-Z0-9_-]+$ above
-            info_result = subprocess.run(info_cmd, capture_output=True, text=True, shell=False)  # nosec B603 -- list args, no shell, fixed "openssl" executable
+            info_result = subprocess.run(
+                info_cmd, capture_output=True, text=True, shell=False
+            )  # nosec B603 -- list args, no shell, fixed "openssl" executable
             if info_result.returncode == 0:
                 print(f"\n{get_message('certificate_information')}")
                 lines = info_result.stdout.split("\n")
@@ -1713,7 +1707,7 @@ def main():
         print(get_message("description_intro"))
         for concept in get_message("security_concepts"):
             print(concept)
-        
+
         # Display tagging status
         if ENABLE_TAGGING:
             print(get_message("tagging.status_enabled"))

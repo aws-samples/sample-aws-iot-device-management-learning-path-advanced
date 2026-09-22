@@ -260,6 +260,7 @@ def reason_code_name(reason_code):
     except (TypeError, ValueError):
         return name
 
+
 # --- i18n message catalog + resolver -------------------------------------
 # Populated once at entry (see main()) via load_messages(). The wrapper below
 # is the shared nested-capable convention documented in i18n/README.md: dotted
@@ -358,9 +359,7 @@ class RotationAgent:
         # so no other client (including the console MQTT test client) can observe
         # it. That is why the RESPONSE below stays an ordinary topic: the device
         # has to be able to subscribe to it.
-        self.request_topic = (
-            f"$aws/rules/{request_rule}/devices/{thing}/certificate/rotation/request"
-        )
+        self.request_topic = f"$aws/rules/{request_rule}/devices/{thing}/certificate/rotation/request"
         self.response_topic = f"devices/{thing}/certificate/rotation/response"
 
         self.job_started = Future()
@@ -607,11 +606,7 @@ class RotationAgent:
                     )
                     time.sleep(delay)
                     continue
-                print(
-                    get_message(
-                        "connect.refused_exhausted", label, self.connect_retries
-                    )
-                )
+                print(get_message("connect.refused_exhausted", label, self.connect_retries))
                 raise
             else:
                 connack = getattr(data, "connack_packet", None)
@@ -655,15 +650,11 @@ class RotationAgent:
         lost one and showed up only as a timeout.
         """
         completion = self.connection.publish(
-            publish_packet=mqtt5.PublishPacket(
-                topic=topic, payload=payload, qos=mqtt5.QoS.AT_LEAST_ONCE
-            )
+            publish_packet=mqtt5.PublishPacket(topic=topic, payload=payload, qos=mqtt5.QoS.AT_LEAST_ONCE)
         ).result(timeout=timeout)
         puback = getattr(completion, "puback", None)
         if puback is not None and puback.reason_code != mqtt5.PubackReasonCode.SUCCESS:
-            raise PublishRefused(
-                reason_code_name(puback.reason_code), reason_code=puback.reason_code
-            )
+            raise PublishRefused(reason_code_name(puback.reason_code), reason_code=puback.reason_code)
         return puback
 
     # --- Flow ------------------------------------------------------------
@@ -683,22 +674,14 @@ class RotationAgent:
         for topic in (f"{self.jobs_prefix}/start-next/accepted", self.response_topic):
             suback = self.connection.subscribe(
                 subscribe_packet=mqtt5.SubscribePacket(
-                    subscriptions=[
-                        mqtt5.Subscription(
-                            topic_filter=topic, qos=mqtt5.QoS.AT_LEAST_ONCE
-                        )
-                    ]
+                    subscriptions=[mqtt5.Subscription(topic_filter=topic, qos=mqtt5.QoS.AT_LEAST_ONCE)]
                 )
             ).result(timeout=30)
             # MQTT 5 reports a per-subscription reason code, so a refused
             # subscription fails here instead of looking like silence later.
             for code in suback.reason_codes:
                 if code not in granted:
-                    raise RuntimeError(
-                        get_message(
-                            "job.subscribe_refused", topic, reason_code_name(code)
-                        )
-                    )
+                    raise RuntimeError(get_message("job.subscribe_refused", topic, reason_code_name(code)))
             self._wire("sub", topic)
 
     def take_job(self, timeout):
@@ -758,16 +741,27 @@ class RotationAgent:
         print(get_message("keypair.generating"))
         try:
             subprocess.run(
-                ["openssl", "genrsa", "-out", new_key, "2048"],  # nosec B603 B607 -- list args, no shell, fixed executable, presence checked above
+                [
+                    "openssl",
+                    "genrsa",
+                    "-out",
+                    new_key,
+                    "2048",
+                ],  # nosec B603 B607 -- list args, no shell, fixed executable, presence checked above
                 check=True,
                 stderr=subprocess.DEVNULL,
             )
             subprocess.run(
                 [
-                    "openssl", "req", "-new",
-                    "-key", new_key,
-                    "-out", new_csr,
-                    "-subj", f"/CN={self.thing}",
+                    "openssl",
+                    "req",
+                    "-new",
+                    "-key",
+                    new_key,
+                    "-out",
+                    new_csr,
+                    "-subj",
+                    f"/CN={self.thing}",
                 ],  # nosec B603 B607 -- list args, no shell, fixed executable, presence checked above
                 check=True,
                 stderr=subprocess.DEVNULL,
@@ -790,9 +784,7 @@ class RotationAgent:
         """
         self._publish(
             self.request_topic,
-            json.dumps(
-                {"jobId": job_id, "executionNumber": self.execution_number, "csr": csr}
-            ),
+            json.dumps({"jobId": job_id, "executionNumber": self.execution_number, "csr": csr}),
             timeout=30,
         )
         print(get_message("request.sent", self.request_topic))
@@ -927,14 +919,10 @@ class RotationAgent:
             # the status write travels over a connection that can carry it.
             self._stop_client()
             self.connect(self.cert, self.key, "old")
-            self.update_job(
-                job_id, "FAILED", {"phase": "CUTOVER_FAILED", "reason": reason}
-            )
+            self.update_job(job_id, "FAILED", {"phase": "CUTOVER_FAILED", "reason": reason})
             print(get_message("cutover.rolled_back"))
         else:
-            self.update_job(
-                job_id, "FAILED", {"phase": "CUTOVER_FAILED", "reason": reason}
-            )
+            self.update_job(job_id, "FAILED", {"phase": "CUTOVER_FAILED", "reason": reason})
         print(get_message("result.failed"))
         return False
 
@@ -989,9 +977,7 @@ class RotationAgent:
             )
         except Exception as error:  # noqa: BLE001 - report any publish failure
             print(get_message("cutover.publish_failed", error))
-            return self._abandon_cutover(
-                job_id, f"new certificate could not publish: {error}", rollback
-            )
+            return self._abandon_cutover(job_id, f"new certificate could not publish: {error}", rollback)
 
         print(get_message("cutover.proved"))
         # Report the phase and nothing else. The device does NOT tell the backend
@@ -1023,16 +1009,12 @@ class RotationAgent:
         # Observation 1: the execution has moved QUEUED -> IN_PROGRESS.
         self._pause_here(
             get_message("pause.job_taken.what"),
-            get_message(
-                "pause.job_taken.console", console_url("jobhub", self.region)
-            ),
+            get_message("pause.job_taken.console", console_url("jobhub", self.region)),
             get_message("pause.job_taken.cli", job_id, self.thing),
         )
 
         new_key, new_csr = self.generate_keypair()
-        new_cert, certificate_id = self.request_certificate(
-            job_id, new_csr, cert_timeout
-        )
+        new_cert, certificate_id = self.request_certificate(job_id, new_csr, cert_timeout)
 
         # Observation 2: the overlap window. The handler has attached the new
         # certificate while the current one is still attached and active, so
@@ -1040,9 +1022,7 @@ class RotationAgent:
         # rotation is safe, and it is only visible here.
         self._pause_here(
             get_message("pause.overlap.what"),
-            get_message(
-                "pause.overlap.console", console_url("thinghub", self.region)
-            ),
+            get_message("pause.overlap.console", console_url("thinghub", self.region)),
             get_message("pause.overlap.cli", self.thing),
             get_message("pause.overlap.expect", certificate_id[-12:]),
         )
@@ -1053,9 +1033,7 @@ class RotationAgent:
         if ok:
             self._pause_here(
                 get_message("pause.retired.what"),
-                get_message(
-                    "pause.retired.console", console_url("certificatehub", self.region)
-                ),
+                get_message("pause.retired.console", console_url("certificatehub", self.region)),
                 get_message("pause.retired.cli"),
                 get_message("pause.retired.scheduler"),
             )
@@ -1064,9 +1042,7 @@ class RotationAgent:
 
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(
-        description="Run the device half of a backend-driven certificate rotation."
-    )
+    parser = argparse.ArgumentParser(description="Run the device half of a backend-driven certificate rotation.")
     parser.add_argument("--endpoint", required=True, help="iot:Data-ATS endpoint")
     parser.add_argument("--thing-name", required=True, help="Thing being rotated")
     parser.add_argument("--cert", required=True, help="Current certificate PEM")

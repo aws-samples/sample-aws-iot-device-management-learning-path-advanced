@@ -164,11 +164,7 @@ def main():
     def on_disconnection(data):
         """Lifecycle: an established connection dropped."""
         reason_code = getattr(data.disconnect_packet, "reason_code", None)
-        print(
-            get_message(
-                "callbacks.interrupted", reason_code_name(reason_code), data.exception
-            )
-        )
+        print(get_message("callbacks.interrupted", reason_code_name(reason_code), data.exception))
 
     def on_stopped(data):  # noqa: ARG001 - dataclass is unused
         stopped.set()

@@ -204,8 +204,7 @@ class DeviceConnection:
         if self._connect_result is not None and not self._connect_result.done():
             self._connect_result.set_exception(
                 ConnectFailed(
-                    f"connection refused: reason_code={reason_code_name(reason_code)}"
-                    f" exception={data.exception}",
+                    f"connection refused: reason_code={reason_code_name(reason_code)}" f" exception={data.exception}",
                     reason_code=reason_code,
                     cause=data.exception,
                 )
@@ -217,8 +216,7 @@ class DeviceConnection:
         packet = data.disconnect_packet
         reason_code = getattr(packet, "reason_code", None)
         print(
-            f"\n⚠️  MQTT connection interrupted "
-            f"(reason_code={reason_code_name(reason_code)}, exception={data.exception})"
+            f"\n⚠️  MQTT connection interrupted " f"(reason_code={reason_code_name(reason_code)}, exception={data.exception})"
         )
 
     def _on_lifecycle_stopped(self, data):  # noqa: ARG002 - dataclass is unused
@@ -366,9 +364,7 @@ class DeviceConnection:
             raise
         except TimeoutError as error:
             self._stop_client()
-            raise ConnectFailed(
-                f"no CONNACK within {timeout}s", cause=error
-            ) from error
+            raise ConnectFailed(f"no CONNACK within {timeout}s", cause=error) from error
         finally:
             self._connect_result = None
 
@@ -383,11 +379,7 @@ class DeviceConnection:
         """Send one SUBSCRIBE and fail if the SUBACK does not grant it."""
         mqtt_qos = mqtt5.QoS.AT_MOST_ONCE if qos == 0 else mqtt5.QoS.AT_LEAST_ONCE
         suback = self.connection.subscribe(
-            subscribe_packet=mqtt5.SubscribePacket(
-                subscriptions=[
-                    mqtt5.Subscription(topic_filter=topic, qos=mqtt_qos)
-                ]
-            )
+            subscribe_packet=mqtt5.SubscribePacket(subscriptions=[mqtt5.Subscription(topic_filter=topic, qos=mqtt_qos)])
         ).result(timeout=DEFAULT_OPERATION_TIMEOUT_SEC)
 
         granted = {
@@ -397,9 +389,7 @@ class DeviceConnection:
         }
         for code in suback.reason_codes:
             if code not in granted:
-                raise RuntimeError(
-                    f"subscription to {topic} refused: {reason_code_name(code)}"
-                )
+                raise RuntimeError(f"subscription to {topic} refused: {reason_code_name(code)}")
         return suback
 
     def subscribe(self, topic, qos=0):
@@ -430,9 +420,7 @@ class DeviceConnection:
         payload = json.dumps(message) if isinstance(message, dict) else str(message)
         mqtt_qos = mqtt5.QoS.AT_MOST_ONCE if qos == 0 else mqtt5.QoS.AT_LEAST_ONCE
         completion = self.connection.publish(
-            publish_packet=mqtt5.PublishPacket(
-                topic=topic, payload=payload, qos=mqtt_qos
-            )
+            publish_packet=mqtt5.PublishPacket(topic=topic, payload=payload, qos=mqtt_qos)
         ).result(timeout=DEFAULT_OPERATION_TIMEOUT_SEC)
 
         # QoS 0 is fire-and-forget, so there is no PUBACK to inspect.

@@ -107,6 +107,7 @@ def get_message(key, *args):
         return msg.format(*args)
     return msg
 
+
 # ---------------------------------------------------------------------------
 # Known workshop resource names created by THIS topic (used alongside
 # matches_workshop_pattern for scoping). Keeping these explicit means the
@@ -118,14 +119,14 @@ WORKSHOP_PROVISIONING_TEMPLATES = ["FleetClaimTemplate", "TrustedUserTemplate"]
 
 # Device / claim policies created by the scripts and provisioning templates.
 WORKSHOP_POLICY_NAMES = [
-    "FleetClaimPolicy",             # Section 3 — scoped claim (bootstrap) policy
+    "FleetClaimPolicy",  # Section 3 — scoped claim (bootstrap) policy
     "FleetProvisionedDevicePolicy",  # Section 3 — template-created device policy
-    "SmartHomeDevicePolicy",         # Section 4 — trusted-user device policy
-    "JITPDevicePolicy",              # Section 2 — JITP device policy
-    "JITRDevicePolicy",              # Section 2 — JITR device policy
-    "MARLobbyDevicePolicy",          # Section 5 — MAR lobby (Region 1) device policy
-    "MARLobbyRestrictedPolicy",      # Section 5 — MAR challenge's restricted lobby policy
-    "RotationDevicePolicy",          # Section 6 — account-level rotation device policy
+    "SmartHomeDevicePolicy",  # Section 4 — trusted-user device policy
+    "JITPDevicePolicy",  # Section 2 — JITP device policy
+    "JITRDevicePolicy",  # Section 2 — JITR device policy
+    "MARLobbyDevicePolicy",  # Section 5 — MAR lobby (Region 1) device policy
+    "MARLobbyRestrictedPolicy",  # Section 5 — MAR challenge's restricted lobby policy
+    "RotationDevicePolicy",  # Section 6 — account-level rotation device policy
 ]
 
 # Device policy created in the SECOND Region for the MAR move (Section 5).
@@ -174,9 +175,7 @@ class AdvancedProvisioningCleanup:
 
         self.region = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
         self.iot = boto3.client("iot", region_name=self.region)
-        self.iot_mar = (
-            boto3.client("iot", region_name=mar_region) if mar_region else None
-        )
+        self.iot_mar = boto3.client("iot", region_name=mar_region) if mar_region else None
 
         # Populated during CA discovery; reused for certificate discovery.
         self.workshop_ca_ids = []
@@ -199,12 +198,8 @@ class AdvancedProvisioningCleanup:
         """
         if self.dry_run or count == 0:
             return not self.dry_run and count > 0
-        print(
-            f"\n{Fore.RED}{get_message('prompts.confirm_warning', count, category)}{Style.RESET_ALL}"
-        )
-        answer = input(
-            f"{Fore.YELLOW}{get_message('prompts.confirm_question', category)}{Style.RESET_ALL}"
-        )
+        print(f"\n{Fore.RED}{get_message('prompts.confirm_warning', count, category)}{Style.RESET_ALL}")
+        answer = input(f"{Fore.YELLOW}{get_message('prompts.confirm_question', category)}{Style.RESET_ALL}")
         if is_affirmative(answer, self.language):
             return True
         print(f"{Fore.GREEN}{get_message('prompts.retained', category)}{Style.RESET_ALL}")
@@ -214,10 +209,7 @@ class AdvancedProvisioningCleanup:
         """True if the thing name matches any workshop prefix/pattern."""
         if matches_workshop_pattern(thing_name, "thing"):
             return True
-        return any(
-            matches_workshop_pattern(thing_name, "thing", prefix=prefix)
-            for prefix in WORKSHOP_THING_PREFIXES
-        )
+        return any(matches_workshop_pattern(thing_name, "thing", prefix=prefix) for prefix in WORKSHOP_THING_PREFIXES)
 
     def _list_things(self, iot_client, prefixes):
         """Return workshop thing names in an account/Region for the given prefixes."""
@@ -614,24 +606,16 @@ class AdvancedProvisioningCleanup:
             cfn = boto3.client("cloudformation", region_name=self.region)
             stacks = cfn.describe_stacks()
             candidates = [
-                stack["StackName"]
-                for stack in stacks.get("Stacks", [])
-                if "provisioning" in stack["StackName"].lower()
+                stack["StackName"] for stack in stacks.get("Stacks", []) if "provisioning" in stack["StackName"].lower()
             ]
         except ClientError:
             candidates = []
         if candidates:
             for name in candidates:
-                print(
-                    f"{Fore.CYAN}{get_message('notice.stack_named', name)}{Style.RESET_ALL}"
-                )
-            print(
-                f"{Fore.CYAN}{get_message('notice.stack_named_detail')}{Style.RESET_ALL}"
-            )
+                print(f"{Fore.CYAN}{get_message('notice.stack_named', name)}{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}{get_message('notice.stack_named_detail')}{Style.RESET_ALL}")
         else:
-            print(
-                f"{Fore.CYAN}{get_message('notice.stack_unknown')}{Style.RESET_ALL}"
-            )
+            print(f"{Fore.CYAN}{get_message('notice.stack_unknown')}{Style.RESET_ALL}")
 
     # -- MAR (second Region) ----------------------------------------------
 
@@ -647,9 +631,7 @@ class AdvancedProvisioningCleanup:
         saved_ca_ids = self.workshop_ca_ids
         self.workshop_ca_ids = []
         try:
-            self._cleanup_certificates(
-                self.iot_mar, thing_names, WORKSHOP_MAR_POLICY_NAMES, label
-            )
+            self._cleanup_certificates(self.iot_mar, thing_names, WORKSHOP_MAR_POLICY_NAMES, label)
         finally:
             self.workshop_ca_ids = saved_ca_ids
         self._cleanup_things(self.iot_mar, thing_names, label)
@@ -665,13 +647,9 @@ class AdvancedProvisioningCleanup:
         self._info(get_message("status.region_workshop", self.region))
         if self.mar_region:
             self._info(get_message("status.region_mar", self.mar_region))
-        print(
-            f"{Fore.GREEN}{get_message('status.scope_note')}{Style.RESET_ALL}"
-        )
+        print(f"{Fore.GREEN}{get_message('status.scope_note')}{Style.RESET_ALL}")
         if self.dry_run:
-            print(
-                f"{Fore.YELLOW}{get_message('status.dry_run_hint')}{Style.RESET_ALL}"
-            )
+            print(f"{Fore.YELLOW}{get_message('status.dry_run_hint')}{Style.RESET_ALL}")
 
         label = get_message("labels.region", self.region)
 
@@ -680,9 +658,7 @@ class AdvancedProvisioningCleanup:
 
         # 2) Certificates (destructive → confirm). Detaches policies + principals.
         thing_names = self._list_things(self.iot, WORKSHOP_THING_PREFIXES)
-        self._cleanup_certificates(
-            self.iot, thing_names, WORKSHOP_POLICY_NAMES, label
-        )
+        self._cleanup_certificates(self.iot, thing_names, WORKSHOP_POLICY_NAMES, label)
 
         # 3) Things (their certs are now detached/deleted).
         self._cleanup_things(self.iot, thing_names, label)

@@ -88,9 +88,7 @@ import os
 
 import boto3
 
-ROTATION_GROUP = os.environ.get(
-    "ROTATION_THING_GROUP", "ws-aws-iot-dm-adv-prov-rotation"
-)
+ROTATION_GROUP = os.environ.get("ROTATION_THING_GROUP", "ws-aws-iot-dm-adv-prov-rotation")
 SCHEDULER_ROLE_ARN = os.environ.get("REVOKE_SCHEDULER_ROLE_ARN", "")
 GRACE_MINUTES = int(os.environ.get("REVOKE_GRACE_MINUTES", "10"))
 
@@ -173,9 +171,7 @@ def jobs_client():
 def all_thing_principals(thing_name):
     """Every principal attached to a thing, across all pages."""
     principals = []
-    for page in iot.get_paginator("list_thing_principals").paginate(
-        thingName=thing_name
-    ):
+    for page in iot.get_paginator("list_thing_principals").paginate(thingName=thing_name):
         principals.extend(page.get("principals", []))
     return principals
 
@@ -183,9 +179,7 @@ def all_thing_principals(thing_name):
 def all_attached_policies(target_arn):
     """Every policy attached to a target (certificate), across all pages."""
     policies = []
-    for page in iot.get_paginator("list_attached_policies").paginate(
-        target=target_arn
-    ):
+    for page in iot.get_paginator("list_attached_policies").paginate(target=target_arn):
         policies.extend(page.get("policies", []))
     return policies
 
@@ -220,9 +214,7 @@ def read_rotation(thing):
     """Read the rotation record, or ``{}`` if this thing has none yet."""
     client = data_client()
     try:
-        response = client.get_thing_shadow(
-            thingName=thing, shadowName=ROTATION_SHADOW
-        )
+        response = client.get_thing_shadow(thingName=thing, shadowName=ROTATION_SHADOW)
     except client.exceptions.ResourceNotFoundException:
         # No shadow yet: this thing has never been through a rotation.
         return {}
@@ -243,9 +235,7 @@ def _certificate_matches_key(certificate_id, csr_key):
     retirement loop sweeps whatever is superseded.
     """
     try:
-        pem = iot.describe_certificate(certificateId=certificate_id)[
-            "certificateDescription"
-        ]["certificatePem"]
+        pem = iot.describe_certificate(certificateId=certificate_id)["certificateDescription"]["certificatePem"]
         return certificate_public_key(pem) == csr_key
     except iot.exceptions.ResourceNotFoundException:
         return False
@@ -343,9 +333,7 @@ def issue_new_certificate(event):
             execution_number=execution_number,
         )
 
-    caller_cert = iot.describe_certificate(certificateId=caller_cert_id)[
-        "certificateDescription"
-    ]
+    caller_cert = iot.describe_certificate(certificateId=caller_cert_id)["certificateDescription"]
     if caller_cert["status"] != "ACTIVE":
         return deny(
             thing,
@@ -474,9 +462,7 @@ def issue_new_certificate(event):
         )
 
     # Sign it. The new certificate is ACTIVE but not yet attached to anything.
-    created = iot.create_certificate_from_csr(
-        certificateSigningRequest=csr, setAsActive=True
-    )
+    created = iot.create_certificate_from_csr(certificateSigningRequest=csr, setAsActive=True)
     new_id = created["certificateId"]
     new_arn = created["certificateArn"]
 
@@ -566,9 +552,7 @@ def deliver(thing, certificate_id):
     certificate is public data, and ``DescribeCertificate`` is the recovery path
     when a device misses the message.
     """
-    pem = iot.describe_certificate(certificateId=certificate_id)[
-        "certificateDescription"
-    ]["certificatePem"]
+    pem = iot.describe_certificate(certificateId=certificate_id)["certificateDescription"]["certificatePem"]
     data_client().publish(
         topic=f"devices/{thing}/certificate/rotation/response",
         qos=1,
@@ -674,9 +658,7 @@ def retire_old_certificate(event):
             thing,
             {
                 "retiredCertificateIds": retired,
-                "deactivatedAt": datetime.datetime.now(
-                    datetime.timezone.utc
-                ).isoformat(),
+                "deactivatedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 "graceExpiresAt": grace_expires.isoformat(),
             },
         )
@@ -810,9 +792,7 @@ def delete_superseded_certificate(event):
     thing = event.get("thingName")
 
     try:
-        description = iot.describe_certificate(certificateId=certificate_id)[
-            "certificateDescription"
-        ]
+        description = iot.describe_certificate(certificateId=certificate_id)["certificateDescription"]
     except iot.exceptions.ResourceNotFoundException:
         print(json.dumps({"revoke_already_deleted": certificate_id}))
         return {"already_deleted": certificate_id}
@@ -877,9 +857,7 @@ def schedule_deletion(certificate_id, thing):
     Returns the moment the timer will fire, so the caller can record it without
     recomputing the grace period and risking two slightly different answers.
     """
-    when = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
-        minutes=GRACE_MINUTES
-    )
+    when = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=GRACE_MINUTES)
     try:
         _create_schedule(certificate_id, thing, when)
     except scheduler.exceptions.ConflictException:
@@ -905,10 +883,7 @@ def _create_schedule(certificate_id, thing, when):
     ``ActionAfterCompletion=DELETE`` removes it afterwards either way.
     """
     if not _self_arn:
-        raise RuntimeError(
-            "cannot schedule deletion: this function's ARN is unknown "
-            "(no Lambda context captured)"
-        )
+        raise RuntimeError("cannot schedule deletion: this function's ARN is unknown " "(no Lambda context captured)")
     scheduler.create_schedule(
         Name=f"ws-aws-iot-dm-adv-prov-revoke-{certificate_id[:16]}",
         ScheduleExpression=f"at({when.strftime('%Y-%m-%dT%H:%M:%S')})",

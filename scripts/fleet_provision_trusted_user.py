@@ -115,9 +115,7 @@ def get_message(key, *args):
     return msg
 
 
-TEMPLATE_DIR = os.path.join(
-    REPO_ROOT, "iot_helpers", "utils", "fleet_provisioning_templates"
-)
+TEMPLATE_DIR = os.path.join(REPO_ROOT, "iot_helpers", "utils", "fleet_provisioning_templates")
 DEFAULT_TEMPLATE_FILE = os.path.join(TEMPLATE_DIR, "trusted-user-template.json")
 
 # Reserved MQTT topics for the fleet-provisioning device-plane exchange. The
@@ -155,6 +153,7 @@ _TRUNCATE_KEYS = ("certificatePem", "privateKey", "publicKey", "keyPair")
 
 def _fmt_payload(payload):
     """Pretty-print an MQTT payload, truncating long/secret fields for readability."""
+
     def _trunc(key, value):
         if isinstance(value, str) and key in _TRUNCATE_KEYS:
             first = value.strip().splitlines()[0] if value.strip() else ""
@@ -213,8 +212,7 @@ def create_template(template_name, provisioning_role_arn, template_file, debug=F
     return response
 
 
-def create_claim(template_name, claim_cert_out, claim_key_out, claim_pub_out=None,
-                 debug=False):
+def create_claim(template_name, claim_cert_out, claim_key_out, claim_pub_out=None, debug=False):
     """Call CreateProvisioningClaim as the trusted user; save the temporary claim.
 
     Wraps ``create-provisioning-claim``. This is the control-plane action the
@@ -263,8 +261,9 @@ def observe(thing_name, debug=False):
         thingName=thing_name,
     )
     if thing:
-        print(get_message("status.thing_info", thing_name, thing.get("thingTypeName"),
-                          json.dumps(thing.get("attributes", {}))))
+        print(
+            get_message("status.thing_info", thing_name, thing.get("thingTypeName"), json.dumps(thing.get("attributes", {})))
+        )
 
     principals = safe_api_call(
         iot.list_thing_principals,
@@ -293,8 +292,7 @@ def _wait_for(device, accepted_topic, rejected_topic, timeout=20):
                     return message["payload"]
                 if message["topic"] == rejected_topic:
                     raise RuntimeError(
-                        f"Fleet provisioning rejected on {rejected_topic}: "
-                        f"{json.dumps(message['payload'])}"
+                        f"Fleet provisioning rejected on {rejected_topic}: " f"{json.dumps(message['payload'])}"
                     )
         time.sleep(0.25)  # nosemgrep: arbitrary-sleep
     raise TimeoutError(f"Timed out waiting for a reply on {accepted_topic}")
@@ -358,8 +356,17 @@ def _create_certificate_from_csr(device, out_prefix, csr_file):
     return created["certificateOwnershipToken"], cert_out
 
 
-def provision(template_name, claim_cert, claim_key, serial_number, device_type,
-              endpoint=None, out_prefix=None, csr_file=None, debug=False):
+def provision(
+    template_name,
+    claim_cert,
+    claim_key,
+    serial_number,
+    device_type,
+    endpoint=None,
+    out_prefix=None,
+    csr_file=None,
+    debug=False,
+):
     """Run the fleet-provisioning MQTT exchange with the temporary claim certificate.
 
     CreateCertificateFromCsr (when ``csr_file`` is supplied) or
@@ -412,8 +419,7 @@ def provision(template_name, claim_cert, claim_key, serial_number, device_type,
 
     print(f"\n{get_message('status.provisioned')}")
     print(get_message("status.provisioned_thing_name", registered.get("thingName")))
-    print(get_message("status.provisioned_device_config",
-                      json.dumps(registered.get("deviceConfiguration", {}))))
+    print(get_message("status.provisioned_device_config", json.dumps(registered.get("deviceConfiguration", {}))))
     print(get_message("status.provisioned_reconnect", cert_out))
 
     device.disconnect()
@@ -448,9 +454,11 @@ def parse_arguments():
     prov.add_argument("--device-type", default="SmartHomeSensor", help="Device DeviceType parameter.")
     prov.add_argument("--endpoint", default=None, help="iot:Data-ATS endpoint (auto-discovered if omitted).")
     prov.add_argument("--out-prefix", default=None, help="Output prefix for the permanent cert/key.")
-    prov.add_argument("--csr-file", default=None,
-                     help="CSR PEM to use CreateCertificateFromCsr (device keeps its own key). "
-                          "Omit to use CreateKeysAndCertificate.")
+    prov.add_argument(
+        "--csr-file",
+        default=None,
+        help="CSR PEM to use CreateCertificateFromCsr (device keeps its own key). " "Omit to use CreateKeysAndCertificate.",
+    )
     prov.add_argument("--debug", action="store_true", help="Verbose output.")
 
     observe_parser = subparsers.add_parser("observe", help="describe-thing / list-thing-principals.")

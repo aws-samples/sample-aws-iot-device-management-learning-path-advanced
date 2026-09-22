@@ -142,9 +142,7 @@ import boto3
 
 CHECK_NAME = "DEVICE_CERTIFICATE_AGE_CHECK"
 
-ROTATION_GROUP = os.environ.get(
-    "ROTATION_THING_GROUP", "ws-aws-iot-dm-adv-prov-rotation"
-)
+ROTATION_GROUP = os.environ.get("ROTATION_THING_GROUP", "ws-aws-iot-dm-adv-prov-rotation")
 # How long to suppress a certificate's finding while its rotation is in flight.
 # Give a rotation room to complete, but keep it FINITE: a stalled rotation should
 # resurface as a finding rather than stay hidden.
@@ -235,9 +233,7 @@ def enqueue_rotation(thing):
         # Stranded: a member with no pending execution. Leave and rejoin so the
         # continuous job sees a genuine join and enqueues a fresh rotation.
         print(json.dumps({"rotation_stranded_requeued": thing}))
-        iot.remove_thing_from_thing_group(
-            thingGroupName=ROTATION_GROUP, thingName=thing
-        )
+        iot.remove_thing_from_thing_group(thingGroupName=ROTATION_GROUP, thingName=thing)
 
     iot.add_thing_to_thing_group(thingGroupName=ROTATION_GROUP, thingName=thing)
     return True
@@ -252,9 +248,9 @@ def pending_execution(thing):
     """
     for status in NON_TERMINAL:
         try:
-            summaries = iot.list_job_executions_for_thing(
-                thingName=thing, jobId=ROTATION_JOB_ID, status=status
-            ).get("executionSummaries", [])
+            summaries = iot.list_job_executions_for_thing(thingName=thing, jobId=ROTATION_JOB_ID, status=status).get(
+                "executionSummaries", []
+            )
         except iot.exceptions.ResourceNotFoundException:
             return False
         if summaries:
@@ -265,9 +261,7 @@ def pending_execution(thing):
 def things_in_rotation_group():
     """Current membership of the rotation queue, as a set."""
     members = set()
-    for page in iot.get_paginator("list_things_in_thing_group").paginate(
-        thingGroupName=ROTATION_GROUP
-    ):
+    for page in iot.get_paginator("list_things_in_thing_group").paginate(thingGroupName=ROTATION_GROUP):
         members.update(page.get("things", []))
     return members
 
@@ -346,13 +340,9 @@ def aged_certificates(task_id):
     is not yielded again on the next run.
     """
     paginator = iot.get_paginator("list_audit_findings")
-    for page in paginator.paginate(
-        taskId=task_id, checkName=CHECK_NAME, listSuppressedFindings=False
-    ):
+    for page in paginator.paginate(taskId=task_id, checkName=CHECK_NAME, listSuppressedFindings=False):
         for finding in page["findings"]:
-            identifier = finding.get("nonCompliantResource", {}).get(
-                "resourceIdentifier", {}
-            )
+            identifier = finding.get("nonCompliantResource", {}).get("resourceIdentifier", {})
             certificate_id = identifier.get("deviceCertificateId")
             certificate_arn = identifier.get("deviceCertificateArn")
             if certificate_id and certificate_arn:
@@ -380,17 +370,14 @@ def suppress_finding(certificate_id):
     a rotation that stalls comes back as a finding instead of disappearing, so
     the loop degrades into an alert rather than into silence.
     """
-    expires = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
-        days=SUPPRESSION_DAYS
-    )
+    expires = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=SUPPRESSION_DAYS)
     try:
         iot.create_audit_suppression(
             checkName=CHECK_NAME,
             resourceIdentifier={"deviceCertificateId": certificate_id},
             expirationDate=expires,
             description=(
-                "Rotation enqueued by rotation_enroller; suppressed while the "
-                "rotation job execution is in flight."
+                "Rotation enqueued by rotation_enroller; suppressed while the " "rotation job execution is in flight."
             ),
             clientRequestToken=f"rotation-{certificate_id[:32]}",
         )
