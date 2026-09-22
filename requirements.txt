@@ -35,7 +35,11 @@ awsiotsdk>=1.31,<2
 # manually bumps this file. The bound still keeps a future breaking major
 # release (cryptography has removed platform support and deprecated aliases in
 # recent majors) from landing unreviewed.
-cryptography>=41.0.0,<44
+# Floor raised from 41.0.0 to 50.0.0 on 2026-09-22: every release from 41.0.0
+# up to (and including) 46.0.7 carries at least one known CVE with no fix
+# available below 50.0.0 (incl. GHSA-537c-gmf6-5ccf, PYSEC-2026-1284/2141/35/
+# 3552/3553/3554), surfaced by this repo's pip-audit dependency-check.
+cryptography>=50.0.0,<53
 
 # --- Testing / validation (repo maintainer's own test suite; not part of the
 # learner-facing demo path, so left unbounded rather than pinned) ---
