@@ -1,0 +1,16 @@
+[flake8]
+# E402: module level import not at top of file
+# This is intentionally ignored for scripts that need to modify sys.path
+# before importing custom modules (i18n / iot_helpers in this case)
+per-file-ignores =
+    scripts/certificate_manager.py:E402
+    scripts/cleanup_script.py:E402
+    scripts/fleet_provision_by_claim.py:E402
+    scripts/fleet_provision_trusted_user.py:E402
+    scripts/manage_jit_provisioning.py:E402
+    scripts/manage_multi_account_registration.py:E402
+    scripts/mqtt_connect.py:E402
+    scripts/register_custom_ca.py:E402
+    scripts/rotate_certificate.py:E402
+    iot_helpers/utils/dependency_handler.py:E402
+    iot_helpers/utils/resource_tagger.py:E402
