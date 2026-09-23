@@ -1,5 +1,7 @@
 # AWS IoT Device Management - Learning Path - Advanced
 
+> **⚠️ Disclaimer:** This sample is provided for demonstration and educational purposes only and is not intended for production use without additional security review and testing.
+
 Sample code for the **ADVANCED** AWS IoT Device Management learning path. It accompanies the **AWS IoT Device Management: Advanced** workshop (all of its topics) and is the one-repo-per-learning-path sibling of [`sample-aws-iot-core-learning-path-basics`](../sample-aws-iot-core-learning-path-basics) and [`sample-aws-iot-device-management-learning-path-basics`](../sample-aws-iot-device-management-learning-path-basics).
 
 It is the sample-code companion for the **whole advanced learning path** — a set of self-contained AWS IoT Device Management topics (device provisioning, fleet task execution, fleet search & analytics, software delivery / OTA, secure remote access, and observability). The scripts compose a **boto3 control plane** with an **AWS IoT Device SDK for Python v2 device plane**, so you both create the cloud-side resources and connect a simulated device over MQTT. Scripts for each topic land in this repo as that topic's workshop content is published.
