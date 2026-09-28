@@ -1,0 +1,47 @@
+stages:
+  - verify
+
+# Guards against H4: this repo's infrastructure/provisioning-base.yaml is a
+# hand-vendored copy of the module repo's canonical template (see
+# modules/workshop-modules-aws-iot-dm/advanced/static/infrastructure/provisioning-base.yaml
+# in aws-iot-sa/aws-iot-modular-workshops). There is no automated sync between
+# the two repos, so a fix landed in one (e.g. dropping the AWS::IoT::Logging
+# singleton resource that throws CfnAlreadyExistsException on redeploy) can
+# silently go stale here. This job fails the pipeline the moment the two
+# copies diverge, instead of letting the drift resurface as a deploy failure.
+#
+# Requires a project CI/CD variable MODULE_REPO_DEPLOY_KEY (or an equivalent
+# read-only credential) with clone access to the module repo, since it lives
+# in a different GitLab group (aws-iot-sa) than this repo
+# (emea-iot-specialist-sa).
+template-drift-check:
+  stage: verify
+  image: alpine/git:latest
+  variables:
+    MODULE_REPO_URL: "git@ssh.gitlab.aws.dev:aws-iot-sa/aws-iot-modular-workshops.git"
+    MODULE_REPO_REF: "main"
+    MODULE_TEMPLATE_PATH: "modules/workshop-modules-aws-iot-dm/advanced/static/infrastructure/provisioning-base.yaml"
+    LOCAL_TEMPLATE_PATH: "infrastructure/provisioning-base.yaml"
+  before_script:
+    - mkdir -p ~/.ssh
+    - echo "$MODULE_REPO_DEPLOY_KEY" > ~/.ssh/id_ed25519
+    - chmod 600 ~/.ssh/id_ed25519
+    - ssh-keyscan -H gitlab.aws.dev >> ~/.ssh/known_hosts 2>/dev/null
+  script:
+    - git clone --depth 1 --branch "$MODULE_REPO_REF" --filter=blob:none --sparse "$MODULE_REPO_URL" module-repo
+    - git -C module-repo sparse-checkout set "$(dirname "$MODULE_TEMPLATE_PATH")"
+    - |
+      if ! diff -u "module-repo/$MODULE_TEMPLATE_PATH" "$LOCAL_TEMPLATE_PATH"; then
+        echo ""
+        echo "❌ $LOCAL_TEMPLATE_PATH has drifted from the canonical module-repo copy:"
+        echo "   $MODULE_TEMPLATE_PATH (aws-iot-sa/aws-iot-modular-workshops)"
+        echo ""
+        echo "Port the module repo's version of this file into this repo (or vice"
+        echo "versa if the fix originated here), then re-run this pipeline."
+        exit 1
+      fi
+      echo "✅ infrastructure/provisioning-base.yaml matches the canonical module-repo copy"
+  rules:
+    - changes:
+        - infrastructure/provisioning-base.yaml
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'

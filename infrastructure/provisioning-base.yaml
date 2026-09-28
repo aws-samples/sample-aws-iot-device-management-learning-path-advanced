@@ -1206,14 +1206,32 @@ Resources:
   # Every module in this workshop benefits from being able to see what AWS IoT
   # Core itself observed — a denied CONNECT, a rule that never fired, a job
   # execution the device never claimed — without adding print statements
-  # anywhere. Pre-enabling this once, workshop-wide, means every module's
-  # troubleshooting steps can point straight at CloudWatch Logs.
+  # anywhere.
+  #
+  # This stack pre-creates ONLY the IAM role below; it does not enable logging
+  # itself. AWS::IoT::Logging is an account-and-Region-wide singleton whose
+  # CloudFormation create handler throws CfnAlreadyExistsException if V2 logging
+  # is already configured for the account — by this stack, a different stack, or
+  # by hand — which would fail the whole stack on redeploy in any account that
+  # already has logging on. Rather than work around that with a custom resource,
+  # the role is simply made available: if you want account-level logging at INFO,
+  # enable it yourself (once, account/Region-wide) with:
+  #
+  #   aws iot set-v2-logging-options \
+  #     --default-log-level INFO \
+  #     --role-arn <the IotLoggingRoleArn output below>
+  #
+  # See the "If you already set the log function of AWS IoT Core" note on the
+  # AWS::IoT::Logging CloudFormation reference page for why CloudFormation
+  # cannot safely do this for you: https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-iot-logging.html
   # =========================================================================
 
   # Role AWS IoT Core assumes to write its own operational logs to Amazon
   # CloudWatch Logs. Scoped to exactly the log group AWS IoT Core V2 logging
   # writes to (AWSIotLogsV2) — see the "Logging role policy" in
   # https://docs.aws.amazon.com/iot/latest/developerguide/configure-logging.html.
+  # Pre-created so it is ready to use, but account-level logging itself is left
+  # for you to enable (see the note above) rather than turned on by this stack.
   IotLoggingRole:
     Type: AWS::IAM::Role
     Metadata:
@@ -1264,27 +1282,6 @@ Resources:
           Value: aws-iot-dm-advanced-provisioning
         - Key: purpose
           Value: iot-account-logging
-
-  # Turns AWS IoT Core account-level logging on at the default INFO level, workshop
-  # wide, so every module's troubleshooting steps can point at CloudWatch Logs
-  # without a separate per-module setup step. INFO surfaces the high-level flow
-  # (a client connected, a rule matched) without DEBUG's rule-by-rule volume.
-  #
-  # NOTE for anyone reusing this template outside a fresh workshop account: AWS IoT
-  # Core logging is account-and-Region-wide. If logging was already configured by
-  # hand before this stack deployed, deploying this resource will replace that
-  # configuration (see the "If you already set the log function of AWS IoT Core"
-  # note on the AWS::IoT::Logging CloudFormation reference page).
-  IotAccountLogging:
-    Type: AWS::IoT::Logging
-    Properties:
-      AccountId:
-        Ref: AWS::AccountId
-      DefaultLogLevel: INFO
-      RoleArn:
-        Fn::GetAtt:
-          - IotLoggingRole
-          - Arn
 
 # ---------------------------------------------------------------------------
 # Outputs — stable identifiers the module steps reference (CLI-first)
@@ -1443,8 +1440,11 @@ Outputs:
 
   IotLoggingRoleArn:
     Description: >-
-      ARN of the role AWS IoT Core assumes to write account-level logs at the
-      default INFO level, enabled workshop-wide by this stack.
+      ARN of the pre-created role AWS IoT Core can assume to write account-level
+      logs to CloudWatch Logs. This stack does not enable logging itself; pass this
+      ARN to 'aws iot set-v2-logging-options --default-log-level INFO --role-arn
+      <this value>' to turn it on, if you want it and it is not already configured
+      for this account/Region.
     Value:
       Fn::GetAtt:
         - IotLoggingRole
