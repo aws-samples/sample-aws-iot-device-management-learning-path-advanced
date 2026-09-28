@@ -188,12 +188,30 @@ class DeviceConnection:
             f"rejoined_session={self.rejoined_session})"
         )
         if not self.rejoined_session and self.subscriptions:
-            for topic, info in list(self.subscriptions.items()):
-                try:
-                    self._subscribe_once(topic, info["qos"])
-                except Exception as error:  # noqa: BLE001 - keep the others
-                    print(f"❌ Failed to re-subscribe to {topic}: {error}")
-                    self.subscriptions.pop(topic, None)
+            # _subscribe_once() blocks on .result() waiting for the SUBACK
+            # completion callback — but that callback, like this one, is
+            # dispatched on the CRT client's own event-loop thread. Calling it
+            # straight from here would wait on a thread that cannot make
+            # progress until this very call returns: the client's connect()
+            # (elsewhere in this class) already avoids this by bridging its
+            # wait onto the caller's thread instead of blocking inside a
+            # lifecycle callback; do the same here with a background thread,
+            # so this callback itself returns immediately.
+            threading.Thread(target=self._resubscribe_all, daemon=True).start()
+
+    def _resubscribe_all(self):
+        """Re-send every tracked subscription after a session that was not rejoined.
+
+        Runs on its own thread (see the caller), never on the CRT client's
+        event-loop thread, so the blocking `.result()` wait inside
+        _subscribe_once() can resolve normally.
+        """
+        for topic, info in list(self.subscriptions.items()):
+            try:
+                self._subscribe_once(topic, info["qos"])
+            except Exception as error:  # noqa: BLE001 - keep the others
+                print(f"❌ Failed to re-subscribe to {topic}: {error}")
+                self.subscriptions.pop(topic, None)
 
     def _on_lifecycle_connection_failure(self, data):
         """Lifecycle: the connection attempt failed. Capture WHY, once."""

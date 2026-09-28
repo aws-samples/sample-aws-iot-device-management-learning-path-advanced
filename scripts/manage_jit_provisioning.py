@@ -48,7 +48,10 @@ import argparse
 import io
 import json
 import os
+import shutil
+import subprocess  # nosec B404 -- used only for a local, hardcoded pip install call below
 import sys
+import tempfile
 import zipfile
 
 # --- Repository path wiring (import shared constructs) --------------------
@@ -126,21 +129,63 @@ def deploy_jitr_rule(rule_name, function_arn, debug=False):
     print(get_message("status.topic_rule_created", rule_name, JITR_EVENT_TOPIC))
 
 
+# The base stack's JitrRegistrationHandlerFunction runs python3.12 with no
+# Architectures override, which defaults to x86_64 — request that exact wheel
+# rather than whatever platform this script happens to run on, the same way
+# the module content's own deploy commands and rotation_handler.py's deploy
+# docstring do for the identical cryptography dependency.
+CRYPTOGRAPHY_PIP_ARGS = [
+    "--platform",
+    "manylinux2014_x86_64",
+    "--implementation",
+    "cp",
+    "--python-version",
+    "3.12",
+    "--only-binary=:all:",
+    "cryptography",
+]
+
+
 def deploy_jitr_code(function_name, debug=False):
-    """Package the JITR handler as index.py and deploy it over the skeleton."""
+    """Package the JITR handler as index.py, with cryptography bundled, and deploy it.
+
+    jitr_registration_handler.py's ``_parse_subject`` lazily imports
+    ``cryptography`` to parse the certificate CN — a compiled dependency the
+    base Lambda runtime does not include. Packaging only ``index.py`` (as this
+    function used to) leaves that import failing at runtime; the handler's own
+    broad ``except Exception`` catches it silently and falls back to naming the
+    thing ``jitr-device-<cert-id-prefix>`` instead of its real CN. Install the
+    dependency into the same package the source is zipped from, matching the
+    module content's own manual deploy commands and rotation_handler.py's
+    documented deploy step for the identical dependency.
+    """
     if not os.path.exists(LAMBDA_SOURCE):
         print(get_message("errors.handler_source_not_found", LAMBDA_SOURCE))
         sys.exit(1)
 
-    # The base stack created the function with handler 'index.handler', so the
-    # source must be packaged as index.py inside the zip.
-    with open(LAMBDA_SOURCE, "r", encoding="utf-8") as handle:
-        source = handle.read()
+    with tempfile.TemporaryDirectory() as build_dir:
+        result = subprocess.run(  # nosec B603 B607 -- list args, no shell, fixed executable, presence assumed (pip ships with Python)
+            [sys.executable, "-m", "pip", "install", "--quiet", "--target", build_dir] + CRYPTOGRAPHY_PIP_ARGS,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            print(get_message("errors.dependency_install_failed", result.stderr.strip()))
+            sys.exit(1)
 
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
-        archive.writestr("index.py", source)
-    zip_bytes = buffer.getvalue()
+        # The base stack created the function with handler 'index.handler', so
+        # the source must be packaged as index.py inside the zip, alongside
+        # the cryptography wheel just installed into the same directory.
+        shutil.copyfile(LAMBDA_SOURCE, os.path.join(build_dir, "index.py"))
+
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+            for root, _dirs, files in os.walk(build_dir):
+                for filename in files:
+                    file_path = os.path.join(root, filename)
+                    archive.write(file_path, os.path.relpath(file_path, build_dir))
+        zip_bytes = buffer.getvalue()
 
     lambda_client = boto3.client("lambda")
     response = safe_api_call(
@@ -185,12 +230,21 @@ def observe(ca_cert_id, thing_name=None, debug=False):
 
 
 def register_ca(args):
-    """Delegate CA registration to the dedicated register_custom_ca module."""
-    from register_custom_ca import register_custom_ca, DEFAULT_TEMPLATE_FILE
+    """Delegate CA registration to the dedicated register_custom_ca module.
 
-    register_custom_ca(
+    register_custom_ca.py keeps its own module-level ``messages`` catalog,
+    separate from this script's — calling register_custom_ca() directly (as
+    opposed to going through that module's own main()) never populates it,
+    so every get_message() call inside register_custom_ca() would otherwise
+    resolve to the raw dotted key instead of localized text. Load it here,
+    into that module's own global, before delegating.
+    """
+    import register_custom_ca as register_custom_ca_module
+
+    register_custom_ca_module.messages = load_messages("register_custom_ca", get_language())
+    register_custom_ca_module.register_custom_ca(
         role_arn=args.role_arn,
-        template_file=args.template_file or DEFAULT_TEMPLATE_FILE,
+        template_file=args.template_file or register_custom_ca_module.DEFAULT_TEMPLATE_FILE,
         ca_common_name=args.ca_common_name,
         debug=args.debug,
     )

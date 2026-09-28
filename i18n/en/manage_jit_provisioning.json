@@ -3,7 +3,8 @@
     "topic_rule_not_created": "⚠️  Topic rule was not created (see error above)."
   },
   "errors": {
-    "handler_source_not_found": "❌ Handler source not found: {}"
+    "handler_source_not_found": "❌ Handler source not found: {}",
+    "dependency_install_failed": "❌ Failed to bundle the cryptography dependency: {}"
   },
   "status": {
     "topic_rule_created": "✅ Topic rule '{}' routes {} to the JITR handler",
