@@ -50,6 +50,7 @@ Runs on top of the ``aws-iot-device-sdk-python-v2`` package (declared in
 import json
 import threading
 import uuid
+import concurrent.futures
 from concurrent.futures import Future
 from datetime import datetime
 
@@ -362,7 +363,7 @@ class DeviceConnection:
             # than leaving it spinning against a connection that was refused.
             self._stop_client()
             raise
-        except TimeoutError as error:
+        except (TimeoutError, concurrent.futures.TimeoutError) as error:
             self._stop_client()
             raise ConnectFailed(f"no CONNACK within {timeout}s", cause=error) from error
         finally:

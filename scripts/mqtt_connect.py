@@ -43,6 +43,7 @@ import os
 import sys
 import threading
 import time
+import concurrent.futures
 from concurrent.futures import Future
 
 # --- Repository path wiring (import i18n framework) ----------------------
@@ -203,7 +204,7 @@ def main():
     client.start()
     try:
         connected.result(timeout=FIRST_CONNECT_BUDGET_SEC)
-    except TimeoutError:
+    except (TimeoutError, concurrent.futures.TimeoutError):
         print(get_message("connect.failed"))
         client.stop()
         stopped.wait(timeout=10)

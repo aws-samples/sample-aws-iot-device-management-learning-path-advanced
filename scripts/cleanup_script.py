@@ -142,6 +142,12 @@ WORKSHOP_THING_GROUPS = ["fleet-connected-vehicles", "JITP-Onboarded"]
 # Thing types created by the fleet-provisioning sections (Sections 3 and 4).
 WORKSHOP_THING_TYPES = ["SedanVehicle", "SUVVehicle", "SmartHomeSensor"]
 
+# Fixed name of the base CloudFormation stack deployed once per topic (see
+# the topic overview's self-paced deploy step). Looked up by this exact name
+# rather than an unscoped describe_stacks() enumeration — see the notice on
+# print_base_stack_notice() below.
+BASE_STACK_NAME = "ws-aws-iot-dm-adv-prov-base"
+
 # Thing-name prefixes this topic uses. Vehicle-VIN-### matches the built-in
 # "thing" pattern; the others are passed as custom prefixes. AnyCompany-Sensor-
 # is Section 6 (Certificate Rotation) — normally cleaned by that section's own
@@ -157,10 +163,11 @@ WORKSHOP_THING_PREFIXES = [
 # Thing prefix used specifically for the moved device in the MAR (second) Region.
 WORKSHOP_MAR_THING_PREFIXES = ["Vehicle-VIN-MAR-"]
 
-# Substring markers identifying the self-signed workshop root CAs by subject
-# common name (for example "AnyCompany JITP Root CA", "AnyCompany JITR Root CA").
-# A CA whose subject does not contain BOTH markers is never selected.
-WORKSHOP_CA_CN_MARKERS = ("AnyCompany", "Root CA")
+# Exact common names of the self-signed workshop root CAs this topic creates
+# (Section 2's JITP and JITR labs). Matched exactly rather than by loose
+# substring ("AnyCompany" + "Root CA" alone) so a learner's own unrelated CA
+# sharing those words is never swept up by this cleanup.
+WORKSHOP_CA_COMMON_NAMES = ("AnyCompany JITP Root CA", "AnyCompany JITR Root CA")
 
 
 class AdvancedProvisioningCleanup:
@@ -370,7 +377,7 @@ class AdvancedProvisioningCleanup:
             return ""
 
     def discover_workshop_cas(self):
-        """Find workshop custom CAs by subject common-name markers (scoped)."""
+        """Find workshop custom CAs by exact subject common name (scoped)."""
         self._info(f"\n{get_message('status.discovering_cas')}")
         found = []
         listed = safe_api_call(
@@ -392,7 +399,7 @@ class AdvancedProvisioningCleanup:
                 continue
             pem = described["certificateDescription"].get("certificatePem", "")
             common_name = self._ca_common_name(pem)
-            if common_name and all(marker in common_name for marker in WORKSHOP_CA_CN_MARKERS):
+            if common_name in WORKSHOP_CA_COMMON_NAMES:
                 found.append((ca_id, common_name))
         self.workshop_ca_ids = [ca_id for ca_id, _ in found]
         if found:
@@ -632,10 +639,18 @@ class AdvancedProvisioningCleanup:
         self._info(f"\n{get_message('notice.header')}")
         try:
             cfn = boto3.client("cloudformation", region_name=self.region)
-            stacks = cfn.describe_stacks()
-            candidates = [
-                stack["StackName"] for stack in stacks.get("Stacks", []) if "provisioning" in stack["StackName"].lower()
-            ]
+            # Look up the one, fixed-named base stack directly rather than
+            # calling describe_stacks() with no StackName to enumerate every
+            # stack in the account: that unscoped form needs Resource: "*" in
+            # IAM (CloudFormation cannot apply a single-stack-scoped policy to
+            # a call with nothing to scope it against), while every other
+            # lookup in this workshop resolves a resource by its exact, known
+            # name instead of a broad list (see the naming-convention note on
+            # thing/certificate discovery elsewhere in this script). This
+            # stack's name is fixed and documented in the topic overview, so
+            # there is nothing to search for.
+            stacks = cfn.describe_stacks(StackName=BASE_STACK_NAME)
+            candidates = [stack["StackName"] for stack in stacks.get("Stacks", [])]
         except ClientError:
             candidates = []
         if candidates:

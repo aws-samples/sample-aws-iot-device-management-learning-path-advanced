@@ -173,6 +173,7 @@ import subprocess  # nosec B404 -- used only for local, hardcoded openssl calls 
 import sys
 import threading
 import time
+import concurrent.futures
 from concurrent.futures import Future
 
 # --- Repository path wiring (import shared constructs) --------------------
@@ -557,7 +558,7 @@ class RotationAgent:
         except ConnectFailed:
             self._stop_client()
             raise
-        except TimeoutError as error:
+        except (TimeoutError, concurrent.futures.TimeoutError) as error:
             self._stop_client()
             raise ConnectFailed("no CONNACK within 30s", cause=error) from error
         finally:
@@ -798,7 +799,7 @@ class RotationAgent:
         """Block on the response topic for the signed certificate."""
         try:
             return self.cert_arrived.result(timeout=timeout)
-        except TimeoutError:
+        except (TimeoutError, concurrent.futures.TimeoutError):
             raise RuntimeError(get_message("request.timeout", timeout)) from None
 
     def _offer_disconnect_simulation(self, job_id, csr):
@@ -993,7 +994,7 @@ class RotationAgent:
         self.connect(self.cert, self.key, "old")
         try:
             job_id = self.take_job(job_timeout)
-        except TimeoutError:
+        except (TimeoutError, concurrent.futures.TimeoutError):
             print(get_message("job.none"))
             self._stop_client()
             return False
