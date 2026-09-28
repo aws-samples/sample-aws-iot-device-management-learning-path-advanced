@@ -648,11 +648,18 @@ def retire_old_certificate(event):
         grace_expires = schedule_deletion(old_id, thing)
         retired.append(old_id)
 
-    # Extend the record with what was retired and when the grace period ends.
-    # This is a merge, not a replacement, so it ADDS to what the signing path
-    # wrote — which is what makes one shadow per thing a usable retirement log,
-    # and what turns the "prefer a sweeper at fleet scale" advice in Step 6 from
-    # a suggestion into something you can actually query.
+    # Extend the record with what was retired and when the grace period ends,
+    # and clear certificateId/supersedes now that this rotation is done. This is
+    # a merge, not a replacement (retiredCertificateIds/deactivatedAt/
+    # graceExpiresAt ADD to what the signing path wrote, which is what makes one
+    # shadow per thing a usable retirement log — see the "prefer a sweeper at
+    # fleet scale" advice in Step 6), but a named-shadow property set to null is
+    # REMOVED rather than merged, which is exactly what certificateId/supersedes
+    # need here: this rotation is finished, and the certificate it names is now
+    # simply the thing's certificate, not a pointer any future rotation attempt
+    # should read. Leaving it in place is what lets a LATER attempt's own
+    # abandon_failed_rotation misread this rotation's finished, working
+    # certificate as an orphan of its own — see that function's docstring.
     if retired:
         record_rotation(
             thing,
@@ -660,6 +667,8 @@ def retire_old_certificate(event):
                 "retiredCertificateIds": retired,
                 "deactivatedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 "graceExpiresAt": grace_expires.isoformat(),
+                "certificateId": None,
+                "supersedes": None,
             },
         )
 
@@ -694,6 +703,17 @@ def abandon_failed_rotation(event):
     leave the group, then rejoin it — stays in *Error-Handling Scenarios*, and
     this cleanup simply means that recovery no longer collides with an
     abandoned certificate when it runs.
+
+    A genuinely-abandoned certificate is never the thing's only attached
+    principal: it was issued and attached WHILE the device's previous
+    certificate was still attached too (the same overlap-window invariant
+    :func:`retire_old_certificate` relies on), and a device that fails or times
+    out never lost that earlier certificate. If ``certificateId`` in the shadow
+    turns out to be the thing's sole attachment, the record is stale, not a
+    real orphan — see the guard below before the detach/deactivate calls. This
+    is the second line of defence: :func:`retire_old_certificate` clears
+    ``certificateId``/``supersedes`` on every successful retirement precisely
+    so this situation should not arise in normal operation.
     """
     thing = event["thingArn"].split("/")[-1]
 
@@ -731,6 +751,27 @@ def abandon_failed_rotation(event):
         # event already cleaned it up, or an operator did. Idempotent by
         # construction, same as retire_old_certificate.
         print(json.dumps({"abandon_already_clean": thing, "certificateId": new_id}))
+    elif len(principals) < 2:
+        # A genuinely-abandoned certificate was issued and attached for THIS
+        # attempt while the device's previous certificate was still attached
+        # too — the same overlap-window invariant retire_old_certificate relies
+        # on. If new_id is the thing's ONLY attached certificate, it cannot be
+        # that: it is the device's real, working, sole credential, and the
+        # shadow record naming it is stale — left over from an EARLIER,
+        # already-succeeded rotation that (on older handler versions, or if
+        # something else wrote the shadow directly) never cleared its own
+        # pointer. Refuse rather than lock the device out; the shadow is still
+        # cleared below so the next attempt is not blocked by this stale
+        # record either.
+        print(
+            json.dumps(
+                {
+                    "abandon_refused": thing,
+                    "reason": "certificate is the thing's only attached principal",
+                    "certificateId": new_id,
+                }
+            )
+        )
     else:
         for policy in all_attached_policies(new_arn):
             iot.detach_policy(policyName=policy["policyName"], target=new_arn)
