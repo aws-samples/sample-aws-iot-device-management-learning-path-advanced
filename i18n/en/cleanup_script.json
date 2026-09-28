@@ -43,7 +43,8 @@
   "categories": {
     "certificate_authorities": "Certificate Authorities",
     "provisioning_templates": "provisioning templates",
-    "certificates_region": "certificates ({})"
+    "certificates_region": "certificates ({})",
+    "things_region": "things ({})"
   },
   "labels": {
     "region": "Region {}",

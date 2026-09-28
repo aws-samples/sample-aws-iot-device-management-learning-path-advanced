@@ -22,9 +22,11 @@ i18n/
     └── ...
 ```
 
-`load_messages` resolves paths relative to `loader.py`, so it is CWD-independent. A missing catalog
-is **silent** — `get_message` returns the raw key — so English output only exists once
-`i18n/en/<script>.json` is authored.
+`load_messages` resolves paths relative to `loader.py`, so it is CWD-independent. It loads
+`i18n/en/<script>.json` unconditionally first, then overlays the requested language's catalog on
+top if one exists — so a language with no catalog yet still gets real English text, not raw keys.
+A missing *key* inside a loaded catalog is still **silent** — `get_message` returns the raw key —
+but that only happens for a genuinely absent key, not for an unshipped language.
 
 ## 📐 Catalog convention
 
@@ -112,6 +114,7 @@ Only human-readable console output and `input()` prompts move into catalogs.
 ## 🌍 Languages
 
 The 9 workshop locales (`en`, `de`, `es`, `fr`, `it`, `ja`, `ko`, `pt`, `zh`) are all recognized by
-`language_selector.py`. **Only `i18n/en/*` ships today**; the other 8 locales fall back to the key
-(effectively English once the `en` catalog exists) and drop in later under `i18n/<lang>/` with the
-same nested structure — no code changes required.
+`language_selector.py`. **Only `i18n/en/*` ships today**; `load_messages` loads it first regardless
+of which locale is selected, so the other 8 locales run in real English today rather than raw
+message keys, and drop in later under `i18n/<lang>/` with the same nested structure — no code
+changes required, since a shipped catalog simply overlays the English base with translated values.

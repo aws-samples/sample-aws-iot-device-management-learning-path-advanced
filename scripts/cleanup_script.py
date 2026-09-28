@@ -28,9 +28,9 @@ scoped to this topic):
   it lists what it *would* remove and deletes nothing. Pass ``--execute`` to
   actually delete.
 - **Explicit confirmation before destructive deletes.** Before deleting any
-  Certificate Authority (CA), provisioning template, or certificate, the script
-  asks the learner to confirm. If the learner declines, the affected resource is
-  RETAINED and the script moves on.
+  Certificate Authority (CA), provisioning template, certificate, or thing, the
+  script asks the learner to confirm. If the learner declines, the affected
+  resource is RETAINED and the script moves on.
 - **Two Regions.** The main flow runs in the Region where the workshop runs
   (the AWS CLI default Region). Section 5 (Multi-Account Registration) also
   registered the same certificate in a second Region; pass ``--mar-region`` to
@@ -437,18 +437,31 @@ class AdvancedProvisioningCleanup:
         return cert_ids
 
     def _cleanup_things(self, iot_client, thing_names, region_label):
-        """Delete workshop things (their certificates are already detached)."""
+        """Delete workshop things (their certificates are already detached), with confirmation.
+
+        Things are matched by name PREFIX (``WORKSHOP_THING_PREFIXES``,
+        ``_list_things``), not an exact or account-scoped pattern — a prefix
+        like ``Vehicle-VIN-`` can also match a different sample repo's things
+        in the same account (the Device Management Basics workshop uses the
+        identical prefix for its own devices). Every other destructive
+        category in this script (CAs, templates, certificates) confirms before
+        deleting; things did not, so a learner running this script against an
+        account that also has another workshop's matching things would delete
+        them with no warning. Confirm here for the same reason.
+        """
         self._info(f"\n{get_message('status.discovering_things', region_label)}")
         for thing_name in thing_names:
             self._plan(get_message("plan.thing", thing_name))
-            if not self.dry_run:
-                safe_api_call(
-                    iot_client.delete_thing,
-                    "Delete thing",
-                    thing_name,
-                    debug=self.debug,
-                    thingName=thing_name,
-                )
+        if not self._confirm_destructive(get_message("categories.things_region", region_label), len(thing_names)):
+            return
+        for thing_name in thing_names:
+            safe_api_call(
+                iot_client.delete_thing,
+                "Delete thing",
+                thing_name,
+                debug=self.debug,
+                thingName=thing_name,
+            )
 
     def _cleanup_templates(self):
         """Delete the topic's provisioning templates, with confirmation."""
