@@ -21,7 +21,10 @@
     "discovering_thing_types": "🔎 Thing types created by this topic...",
     "waiting_thing_types": "⏳ Waiting 5 minutes after deprecation before AWS IoT allows thing type deletion...",
     "discovering_policies": "🔎 Device / claim policies created by this topic ({})...",
-    "cleaning_mar_region": "=== Cleaning up the second Region ({}) — Section 5 (MAR) ==="
+    "cleaning_mar_region": "=== Cleaning up the second Region ({}) — Section 5 (MAR) ===",
+    "discovering_rotation_resources": "🔎 Section 6 (Certificate Rotation) resources — job, topic rules, queue membership, timers...",
+    "discovering_certificate_provider": "🔎 Section 3's optional certificate provider...",
+    "reverting_event_configurations": "🔎 Account-wide JOB / JOB_EXECUTION event configuration Section 6 enabled..."
   },
   "plan": {
     "prefix_dry_run": "DRY RUN — would remove",
@@ -33,7 +36,12 @@
     "topic_rule": "topic rule {}",
     "thing_group": "thing group {}",
     "thing_type": "thing type {}",
-    "policy": "policy {}"
+    "policy": "policy {}",
+    "rotation_job": "rotation job {}",
+    "rotation_thing_group_member": "thing {} (removing from the rotation queue)",
+    "schedule": "deferred-deletion schedule {}",
+    "certificate_provider": "certificate provider {}",
+    "event_configurations": "account-wide JOB / JOB_EXECUTION event configuration (reverting to disabled)"
   },
   "prompts": {
     "confirm_warning": "⚠️  About to delete {} {}. This is destructive and not reversible.",

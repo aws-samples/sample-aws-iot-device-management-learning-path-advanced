@@ -140,7 +140,38 @@ WORKSHOP_TOPIC_RULES = ["JITRRegistrationRule"]
 WORKSHOP_THING_GROUPS = ["fleet-connected-vehicles", "JITP-Onboarded"]
 
 # Thing types created by the fleet-provisioning sections (Sections 3 and 4).
-WORKSHOP_THING_TYPES = ["SedanVehicle", "SUVVehicle", "SmartHomeSensor"]
+# ConnectedVehicle is created by Section 2's optional JITP challenge
+# ("Requirement 4 assumes the ConnectedVehicle thing type exists").
+WORKSHOP_THING_TYPES = ["SedanVehicle", "SUVVehicle", "SmartHomeSensor", "ConnectedVehicle"]
+
+# Section 6 (Certificate Rotation) resources. None of these match the generic
+# WORKSHOP_TOPIC_RULES/WORKSHOP_THING_GROUPS patterns above (the rotation rules
+# are snake_case, not *Rule; the rotation group is base infrastructure the
+# script must empty, never delete), so they get their own constants and their
+# own cleanup step rather than being folded into the generic ones.
+WORKSHOP_ROTATION_JOB_ID = "ws-cert-rotation-001"
+WORKSHOP_ROTATION_TOPIC_RULES = ["ws_rotation_request", "ws_rotation_terminal"]
+# Base-infrastructure thing group (provisioning-base.yaml's RotationThingGroup).
+# The script removes member things from it but never deletes the group itself.
+WORKSHOP_ROTATION_THING_GROUP = "ws-aws-iot-dm-adv-prov-rotation"
+# Deferred-deletion schedule name prefix (rotation_handler.py's _create_schedule:
+# f"ws-aws-iot-dm-adv-prov-revoke-{certificate_id[:16]}"). Certificates are
+# always deleted before this sweep runs (steps 2 and 3 of run() precede it), so
+# every schedule this finds is already pointed at a certificate that no longer
+# exists — there is no live cert-vs-schedule ordering hazard to preserve here,
+# unlike Section 6's own per-device reset block, which runs mid-topic while
+# other devices' certificates may still be live.
+WORKSHOP_REVOKE_SCHEDULE_PREFIX = "ws-aws-iot-dm-adv-prov-revoke"
+# Named shadow the rotation handler uses to track in-flight state per device
+# (GetThingShadow/DeleteThingShadow calls in rotation_handler.py). Deleting a
+# thing does NOT delete its shadows, so this must be removed explicitly before
+# the thing itself, or the record is orphaned with nothing left to find it by.
+WORKSHOP_ROTATION_SHADOW_NAME = "ws-rotation"
+
+# Section 3's optional certificate-provider lab (fleet_provision_by_claim.py /
+# 3-fleet-provisioning-claim's "sign with your own CA" exercise). Deleting this
+# reverts CreateCertificateFromCsr to Amazon-signed for the account.
+WORKSHOP_CERTIFICATE_PROVIDER_NAME = "ws-aws-iot-dm-adv-prov-cert-provider"
 
 # Fixed name of the base CloudFormation stack deployed once per topic (see
 # the topic overview's self-paced deploy step). Looked up by this exact name
@@ -162,6 +193,11 @@ WORKSHOP_THING_PREFIXES = [
 
 # Thing prefix used specifically for the moved device in the MAR (second) Region.
 WORKSHOP_MAR_THING_PREFIXES = ["Vehicle-VIN-MAR-"]
+
+# Section 6's own thing prefix — the only one that ever carries a ws-rotation
+# named shadow (see WORKSHOP_ROTATION_SHADOW_NAME below), so _cleanup_things
+# only attempts the shadow-delete pre-step for names matching this.
+WORKSHOP_ROTATION_THING_PREFIXES = ["AnyCompany-Sensor-"]
 
 # Exact common names of the self-signed workshop root CAs this topic creates
 # (Section 2's JITP and JITR labs). Matched exactly rather than by loose
@@ -201,6 +237,11 @@ class AdvancedProvisioningCleanup:
 
         # Populated during CA discovery; reused for certificate discovery.
         self.workshop_ca_ids = []
+
+        # Lazily resolved per-Region iot-data clients (Section 6's rotation
+        # shadow lives on the data plane, not the control plane). Cached by
+        # Region name so the endpoint lookup only happens once per Region.
+        self._iot_data_clients = {}
 
     # -- helpers -----------------------------------------------------------
 
@@ -243,6 +284,53 @@ class AdvancedProvisioningCleanup:
                 if any(name.startswith(prefix) for prefix in prefixes):
                     names.append(name)
         return names
+
+    def _iot_data_client(self, iot_client, region_name):
+        """Return a cached iot-data client for the Region iot_client talks to.
+
+        Resolved the same way rotation_handler.py and device_simulator.py
+        already do (describe_endpoint(endpointType="iot:Data-ATS") -> a
+        boto3 "iot-data" client against that endpoint), since DeleteThingShadow
+        lives on the data plane, not the control plane.
+        """
+        if region_name not in self._iot_data_clients:
+            described = safe_api_call(
+                iot_client.describe_endpoint,
+                "Describe endpoint",
+                f"IoT data endpoint ({region_name})",
+                debug=self.debug,
+                endpointType="iot:Data-ATS",
+            )
+            if not described:
+                return None
+            endpoint = described["endpointAddress"]
+            self._iot_data_clients[region_name] = boto3.client(
+                "iot-data", region_name=region_name, endpoint_url=f"https://{endpoint}"
+            )
+        return self._iot_data_clients[region_name]
+
+    def _delete_rotation_shadow(self, iot_client, region_name, thing_name):
+        """Delete the ws-rotation named shadow before its thing is deleted.
+
+        Deleting a thing does not delete its shadows (see the callout in
+        Section 6's own reset block), so a thing this script deletes without
+        this step first would leave its rotation record orphaned — attached
+        to a thing that no longer exists, and invisible until someone goes
+        looking for it. Only ever attempted for things this script is about
+        to delete itself, and errors (including "no such shadow") are
+        swallowed by safe_api_call, so a device that never rotated is unaffected.
+        """
+        data_client = self._iot_data_client(iot_client, region_name)
+        if not data_client:
+            return
+        safe_api_call(
+            data_client.delete_thing_shadow,
+            "Delete rotation shadow",
+            thing_name,
+            debug=self.debug,
+            thingName=thing_name,
+            shadowName=WORKSHOP_ROTATION_SHADOW_NAME,
+        )
 
     # -- certificate + thing teardown -------------------------------------
 
@@ -443,7 +531,7 @@ class AdvancedProvisioningCleanup:
                 self._delete_certificate(iot_client, cert_id)
         return cert_ids
 
-    def _cleanup_things(self, iot_client, thing_names, region_label):
+    def _cleanup_things(self, iot_client, thing_names, region_label, region_name=None):
         """Delete workshop things (their certificates are already detached), with confirmation.
 
         Things are matched by name PREFIX (``WORKSHOP_THING_PREFIXES``,
@@ -462,6 +550,14 @@ class AdvancedProvisioningCleanup:
         if not self._confirm_destructive(get_message("categories.things_region", region_label), len(thing_names)):
             return
         for thing_name in thing_names:
+            # Section 6's rotation devices carry a ws-rotation named shadow that
+            # delete_thing never removes on its own — delete it first so the
+            # record does not outlive the thing (see _delete_rotation_shadow).
+            # Scoped to that section's own thing prefix so every other device
+            # this loop deletes (which never had a rotation shadow) does not
+            # generate a spurious "shadow not found" error on every run.
+            if any(thing_name.startswith(prefix) for prefix in WORKSHOP_ROTATION_THING_PREFIXES):
+                self._delete_rotation_shadow(iot_client, region_name or self.region, thing_name)
             safe_api_call(
                 iot_client.delete_thing,
                 "Delete thing",
@@ -625,6 +721,216 @@ class AdvancedProvisioningCleanup:
                 policyName=policy_name,
             )
 
+    # -- Section 6 (Certificate Rotation) resources ------------------------
+
+    def _cleanup_rotation_job(self):
+        """Cancel + delete the rotation campaign, if it exists."""
+        described = safe_api_call(
+            self.iot.describe_job,
+            "Describe job",
+            WORKSHOP_ROTATION_JOB_ID,
+            debug=self.debug,
+            jobId=WORKSHOP_ROTATION_JOB_ID,
+        )
+        if not described:
+            return
+        self._plan(get_message("plan.rotation_job", WORKSHOP_ROTATION_JOB_ID))
+        if self.dry_run:
+            return
+        # A CONTINUOUS job runs until cancelled — delete_job on its own is
+        # refused while it is still IN_PROGRESS, so cancel first (force=True
+        # covers a job that already has in-flight executions, same as the
+        # topic content's own reset instructions).
+        safe_api_call(
+            self.iot.cancel_job,
+            "Cancel job",
+            WORKSHOP_ROTATION_JOB_ID,
+            debug=self.debug,
+            jobId=WORKSHOP_ROTATION_JOB_ID,
+            force=True,
+        )
+        safe_api_call(
+            self.iot.delete_job,
+            "Delete job",
+            WORKSHOP_ROTATION_JOB_ID,
+            debug=self.debug,
+            jobId=WORKSHOP_ROTATION_JOB_ID,
+            force=True,
+        )
+
+    def _cleanup_rotation_topic_rules(self):
+        """Delete the rotation request/terminal topic rules, if they exist."""
+        for rule_name in WORKSHOP_ROTATION_TOPIC_RULES:
+            described = safe_api_call(
+                self.iot.get_topic_rule,
+                "Get topic rule",
+                rule_name,
+                debug=self.debug,
+                ruleName=rule_name,
+            )
+            if not described:
+                continue
+            self._plan(get_message("plan.topic_rule", rule_name))
+            if not self.dry_run:
+                safe_api_call(
+                    self.iot.delete_topic_rule,
+                    "Delete topic rule",
+                    rule_name,
+                    debug=self.debug,
+                    ruleName=rule_name,
+                )
+
+    def _empty_rotation_thing_group(self):
+        """Remove every member thing from the rotation work-queue group.
+
+        The group itself (``WORKSHOP_ROTATION_THING_GROUP``) is base
+        infrastructure created by the topic's CloudFormation stack — it is
+        never deleted here, only emptied, so a thing left enrolled from an
+        interrupted run does not sit in the queue indefinitely.
+        """
+        described = safe_api_call(
+            self.iot.describe_thing_group,
+            "Describe thing group",
+            WORKSHOP_ROTATION_THING_GROUP,
+            debug=self.debug,
+            thingGroupName=WORKSHOP_ROTATION_THING_GROUP,
+        )
+        if not described:
+            return
+        member_things = []
+        paginator = self.iot.get_paginator("list_things_in_thing_group")
+        for page in paginator.paginate(thingGroupName=WORKSHOP_ROTATION_THING_GROUP):
+            member_things.extend(page.get("things", []))
+        for thing_name in member_things:
+            self._plan(get_message("plan.rotation_thing_group_member", thing_name))
+        if self.dry_run:
+            return
+        for thing_name in member_things:
+            safe_api_call(
+                self.iot.remove_thing_from_thing_group,
+                "Remove thing from rotation group",
+                thing_name,
+                debug=self.debug,
+                thingGroupName=WORKSHOP_ROTATION_THING_GROUP,
+                thingName=thing_name,
+            )
+
+    def _cleanup_rotation_schedules(self):
+        """Delete every pending deferred-deletion timer this topic created.
+
+        By the time this runs, every workshop certificate (including any a
+        pending schedule still targets) has already been deleted in steps 2
+        and 3 of run() — so unlike Section 6's own per-device reset block
+        (which scopes to just-detached certificate ids because other devices'
+        rotations may still be in flight), a full sweep by name prefix is safe
+        here: nothing this finds can still be a live, wanted timer.
+        """
+        scheduler_client = boto3.client("scheduler", region_name=self.region)
+        listed = safe_api_call(
+            scheduler_client.list_schedules,
+            "List schedules",
+            WORKSHOP_REVOKE_SCHEDULE_PREFIX,
+            debug=self.debug,
+            NamePrefix=WORKSHOP_REVOKE_SCHEDULE_PREFIX,
+        )
+        schedule_names = [s["Name"] for s in (listed or {}).get("Schedules", [])]
+        for name in schedule_names:
+            self._plan(get_message("plan.schedule", name))
+        if self.dry_run:
+            return
+        for name in schedule_names:
+            safe_api_call(
+                scheduler_client.delete_schedule,
+                "Delete schedule",
+                name,
+                debug=self.debug,
+                Name=name,
+            )
+
+    def cleanup_rotation_resources(self):
+        """Remove Section 6's rotation campaign, rules, queue membership, and timers.
+
+        None of these match the generic topic-rule/thing-group patterns this
+        script already scopes to (the rotation rules are snake_case, and the
+        rotation thing group is base infrastructure that must be emptied, not
+        deleted) — see the constants above for why each gets its own lookup.
+        """
+        self._info(f"\n{get_message('status.discovering_rotation_resources')}")
+        self._cleanup_rotation_job()
+        self._cleanup_rotation_topic_rules()
+        self._empty_rotation_thing_group()
+        self._cleanup_rotation_schedules()
+
+    # -- Section 3 optional certificate-provider lab -----------------------
+
+    def cleanup_certificate_provider(self):
+        """Delete the Section 3 optional lab's certificate provider, if created.
+
+        Deleting it reverts CreateCertificateFromCsr to Amazon-signed for the
+        account — the provider is not part of the base CloudFormation stack,
+        so deleting that stack does not remove it.
+        """
+        self._info(f"\n{get_message('status.discovering_certificate_provider')}")
+        described = safe_api_call(
+            self.iot.describe_certificate_provider,
+            "Describe certificate provider",
+            WORKSHOP_CERTIFICATE_PROVIDER_NAME,
+            debug=self.debug,
+            certificateProviderName=WORKSHOP_CERTIFICATE_PROVIDER_NAME,
+        )
+        if not described:
+            self._info(get_message("status.none_found"))
+            return
+        self._plan(get_message("plan.certificate_provider", WORKSHOP_CERTIFICATE_PROVIDER_NAME))
+        if not self.dry_run:
+            safe_api_call(
+                self.iot.delete_certificate_provider,
+                "Delete certificate provider",
+                WORKSHOP_CERTIFICATE_PROVIDER_NAME,
+                debug=self.debug,
+                certificateProviderName=WORKSHOP_CERTIFICATE_PROVIDER_NAME,
+            )
+
+    # -- account-wide settings this topic changed --------------------------
+
+    def revert_event_configurations(self):
+        """Turn the JOB/JOB_EXECUTION account-wide event setting back off.
+
+        Section 6 Step 3 enables these with update-event-configurations so
+        the rotation handler's topic rule can react to job-execution events;
+        nothing in the topic ever reverts it. This is account-wide (not
+        pattern-scoped to a resource name), so — like the SetV2LoggingOptions
+        revert this script's sibling instructions already document — it is
+        a plain revert-to-default with no destructive-delete confirmation
+        gate: unlike a resource deletion, disabling it is trivially
+        reversible by re-running Section 6 Step 3 if you run the section again.
+        """
+        described = safe_api_call(
+            self.iot.describe_event_configurations,
+            "Describe event configurations",
+            "JOB / JOB_EXECUTION",
+            debug=self.debug,
+        )
+        configs = (described or {}).get("eventConfigurations", {})
+        job_enabled = configs.get("JOB", {}).get("Enabled", False)
+        job_execution_enabled = configs.get("JOB_EXECUTION", {}).get("Enabled", False)
+        if not job_enabled and not job_execution_enabled:
+            return
+        self._info(f"\n{get_message('status.reverting_event_configurations')}")
+        self._plan(get_message("plan.event_configurations"))
+        if self.dry_run:
+            return
+        safe_api_call(
+            self.iot.update_event_configurations,
+            "Revert event configurations",
+            "JOB / JOB_EXECUTION",
+            debug=self.debug,
+            eventConfigurations={
+                "JOB": {"Enabled": False},
+                "JOB_EXECUTION": {"Enabled": False},
+            },
+        )
+
     # -- base CloudFormation stack notice ---------------------------------
 
     def print_base_stack_notice(self):
@@ -677,7 +983,7 @@ class AdvancedProvisioningCleanup:
             self._cleanup_certificates(self.iot_mar, thing_names, WORKSHOP_MAR_POLICY_NAMES, label)
         finally:
             self.workshop_ca_ids = saved_ca_ids
-        self._cleanup_things(self.iot_mar, thing_names, label)
+        self._cleanup_things(self.iot_mar, thing_names, label, region_name=self.mar_region)
         self._cleanup_policies(self.iot_mar, WORKSHOP_MAR_POLICY_NAMES, label)
 
     # -- entry point -------------------------------------------------------
@@ -704,7 +1010,7 @@ class AdvancedProvisioningCleanup:
         self._cleanup_certificates(self.iot, thing_names, WORKSHOP_POLICY_NAMES, label)
 
         # 3) Things (their certs are now detached/deleted).
-        self._cleanup_things(self.iot, thing_names, label)
+        self._cleanup_things(self.iot, thing_names, label, region_name=self.region)
 
         # 4) Provisioning templates (destructive → confirm).
         self._cleanup_templates()
@@ -721,6 +1027,18 @@ class AdvancedProvisioningCleanup:
         # since deprecation requires a 5-minute wait and every thing that used
         # to reference one was already deleted in step 3.
         self._cleanup_thing_types()
+
+        # 6c) Section 6 (Certificate Rotation) resources — job, topic rules,
+        # rotation-queue membership, and deferred-deletion timers. Runs after
+        # certificates/things (steps 2-3) so the schedule sweep below never
+        # races a certificate this run just deleted.
+        self.cleanup_rotation_resources()
+
+        # 6d) Section 3's optional certificate-provider lab, if used.
+        self.cleanup_certificate_provider()
+
+        # 6e) Account-wide settings this topic changed and never reverted.
+        self.revert_event_configurations()
 
         # 7) Second Region (MAR) cleanup, if requested.
         self.cleanup_mar_region()
