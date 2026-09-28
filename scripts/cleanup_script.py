@@ -166,14 +166,29 @@ WORKSHOP_CA_CN_MARKERS = ("AnyCompany", "Root CA")
 class AdvancedProvisioningCleanup:
     """Pattern-scoped, confirmation-gated cleanup for the provisioning topic."""
 
-    def __init__(self, execute=False, mar_region=None, language="en", debug=False):
+    def __init__(self, execute=False, region=None, mar_region=None, language="en", debug=False):
         # Non-destructive by default: dry_run is the inverse of --execute.
         self.dry_run = not execute
         self.mar_region = mar_region
         self.language = language
         self.debug = debug
 
-        self.region = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
+        # Resolve the Region the same way every other script in this sample
+        # repo does: an explicit --region wins, otherwise fall back to boto3's
+        # own default resolution chain (AWS_DEFAULT_REGION / AWS_REGION, then
+        # the active profile's "region" in ~/.aws/config, then IMDS) rather
+        # than a hardcoded literal. A learner who set their Region only via
+        # 'aws configure' (which writes ~/.aws/config, not an env var) would
+        # otherwise have every hands-on 'aws iot ...' command target their
+        # real Region while this script silently pointed at us-east-1 instead
+        # — the dry run would then report "nothing found" for the wrong
+        # reason, and --execute could act on unrelated resources there.
+        self.region = region or boto3.session.Session().region_name
+        if not self.region:
+            raise SystemExit(
+                "No AWS Region resolved. Pass --region, or set it via 'aws configure' "
+                "or the AWS_DEFAULT_REGION environment variable."
+            )
         self.iot = boto3.client("iot", region_name=self.region)
         self.iot_mar = boto3.client("iot", region_name=mar_region) if mar_region else None
 
@@ -707,6 +722,15 @@ def parse_arguments():
         help="Actually delete resources (default is a dry run that deletes nothing).",
     )
     parser.add_argument(
+        "--region",
+        default=None,
+        help=(
+            "The Region where you ran this topic's hands-on sections. Defaults to "
+            "boto3's normal Region resolution (AWS_DEFAULT_REGION, then your AWS "
+            "CLI profile's configured Region) if omitted."
+        ),
+    )
+    parser.add_argument(
         "--mar-region",
         default=None,
         help=(
@@ -733,6 +757,7 @@ def main():
 
     cleanup = AdvancedProvisioningCleanup(
         execute=args.execute,
+        region=args.region,
         mar_region=args.mar_region,
         language=language,
         debug=args.debug,
