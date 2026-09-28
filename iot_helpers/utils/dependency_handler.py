@@ -147,6 +147,23 @@ class DependencyHandler:
         # Load i18n messages
         self.messages = load_messages("dependency_handler", language)
 
+    def _get_message(self, key):
+        """Resolve a nested dotted key against the loaded message catalog.
+
+        Mirrors the shared per-script convention documented in i18n/README.md:
+        dotted keys walk the nested catalog (this module's messages are
+        loaded as ``{"debug": {"listing_shadows": "...", ...}}``, not a flat
+        dict with literal dotted keys), and a missing key falls back to ''
+        so every ``if msg:`` call site below is unaffected.
+        """
+        node = self.messages
+        for part in key.split("."):
+            if isinstance(node, dict) and part in node:
+                node = node[part]
+            else:
+                return ""
+        return node if isinstance(node, str) else ""
+
     def get_deletion_order(self, choice):
         """
         Get the correct deletion order for resources based on cleanup choice.
@@ -183,7 +200,7 @@ class DependencyHandler:
 
         try:
             if self.debug_mode:
-                msg = self.messages.get("debug.listing_shadows", "")
+                msg = self._get_message("debug.listing_shadows")
                 if msg:
                     print(msg.format(thing_name))
 
@@ -193,7 +210,7 @@ class DependencyHandler:
                 named_shadows = response.get("results", [])
 
                 if self.debug_mode and named_shadows:
-                    msg = self.messages.get("debug.found_named_shadows", "")
+                    msg = self._get_message("debug.found_named_shadows")
                     if msg:
                         print(msg.format(len(named_shadows), thing_name))
 
@@ -204,20 +221,20 @@ class DependencyHandler:
                         deleted_shadows.append(f"{shadow_name} (named)")
 
                         if self.debug_mode:
-                            msg = self.messages.get("debug.deleted_named_shadow", "")
+                            msg = self._get_message("debug.deleted_named_shadow")
                             if msg:
                                 print(msg.format(shadow_name, thing_name))
 
                     except Exception as e:
                         if self.debug_mode:
-                            msg = self.messages.get("debug.shadow_delete_error", "")
+                            msg = self._get_message("debug.shadow_delete_error")
                             if msg:
                                 print(msg.format(shadow_name, thing_name, str(e)))
 
             except self.iot_client.exceptions.ResourceNotFoundException:
                 # No named shadows exist
                 if self.debug_mode:
-                    msg = self.messages.get("debug.no_named_shadows", "")
+                    msg = self._get_message("debug.no_named_shadows")
                     if msg:
                         print(msg.format(thing_name))
 
@@ -227,20 +244,20 @@ class DependencyHandler:
                 deleted_shadows.append("classic")
 
                 if self.debug_mode:
-                    msg = self.messages.get("debug.deleted_classic_shadow", "")
+                    msg = self._get_message("debug.deleted_classic_shadow")
                     if msg:
                         print(msg.format(thing_name))
 
             except self.iot_client.exceptions.ResourceNotFoundException:
                 # Classic shadow doesn't exist
                 if self.debug_mode:
-                    msg = self.messages.get("debug.no_classic_shadow", "")
+                    msg = self._get_message("debug.no_classic_shadow")
                     if msg:
                         print(msg.format(thing_name))
 
             except Exception as e:
                 if self.debug_mode:
-                    msg = self.messages.get("debug.shadow_delete_error", "")
+                    msg = self._get_message("debug.shadow_delete_error")
                     if msg:
                         print(msg.format("classic", thing_name, str(e)))
 
@@ -248,7 +265,7 @@ class DependencyHandler:
 
         except Exception as e:
             if self.debug_mode:
-                msg = self.messages.get("debug.shadow_list_error", "")
+                msg = self._get_message("debug.shadow_list_error")
                 if msg:
                     print(msg.format(thing_name, str(e)))
             return deleted_shadows
@@ -270,7 +287,7 @@ class DependencyHandler:
 
         try:
             if self.debug_mode:
-                msg = self.messages.get("debug.listing_principals", "")
+                msg = self._get_message("debug.listing_principals")
                 if msg:
                     print(msg.format(thing_name))
 
@@ -279,7 +296,7 @@ class DependencyHandler:
             principals = response.get("principals", [])
 
             if self.debug_mode and principals:
-                msg = self.messages.get("debug.found_principals", "")
+                msg = self._get_message("debug.found_principals")
                 if msg:
                     print(msg.format(len(principals), thing_name))
 
@@ -291,7 +308,7 @@ class DependencyHandler:
                     certificate_id = principal_arn.split("/")[-1]
 
                     if self.debug_mode:
-                        msg = self.messages.get("debug.processing_certificate", "")
+                        msg = self._get_message("debug.processing_certificate")
                         if msg:
                             print(msg.format(certificate_id, thing_name))
 
@@ -299,7 +316,7 @@ class DependencyHandler:
                     self.iot_client.detach_thing_principal(thingName=thing_name, principal=principal_arn)
 
                     if self.debug_mode:
-                        msg = self.messages.get("debug.detached_certificate", "")
+                        msg = self._get_message("debug.detached_certificate")
                         if msg:
                             print(msg.format(certificate_id, thing_name))
 
@@ -307,7 +324,7 @@ class DependencyHandler:
                     self.iot_client.update_certificate(certificateId=certificate_id, newStatus="INACTIVE")
 
                     if self.debug_mode:
-                        msg = self.messages.get("debug.inactivated_certificate", "")
+                        msg = self._get_message("debug.inactivated_certificate")
                         if msg:
                             print(msg.format(certificate_id))
 
@@ -316,14 +333,14 @@ class DependencyHandler:
                     deleted_certificates.append(certificate_id)
 
                     if self.debug_mode:
-                        msg = self.messages.get("debug.deleted_certificate", "")
+                        msg = self._get_message("debug.deleted_certificate")
                         if msg:
                             print(msg.format(certificate_id))
 
                 except Exception as e:
                     if self.debug_mode:
                         cert_id = principal_arn.split("/")[-1] if "/" in principal_arn else principal_arn
-                        msg = self.messages.get("debug.certificate_delete_error", "")
+                        msg = self._get_message("debug.certificate_delete_error")
                         if msg:
                             print(msg.format(cert_id, str(e)))
 
@@ -331,7 +348,7 @@ class DependencyHandler:
 
         except Exception as e:
             if self.debug_mode:
-                msg = self.messages.get("debug.principal_list_error", "")
+                msg = self._get_message("debug.principal_list_error")
                 if msg:
                     print(msg.format(thing_name, str(e)))
             return deleted_certificates
@@ -350,7 +367,7 @@ class DependencyHandler:
 
         try:
             if self.debug_mode:
-                msg = self.messages.get("debug.listing_package_versions", "")
+                msg = self._get_message("debug.listing_package_versions")
                 if msg:
                     print(msg.format(package_name))
 
@@ -359,7 +376,7 @@ class DependencyHandler:
             versions = response.get("packageVersionSummaries", [])
 
             if self.debug_mode and versions:
-                msg = self.messages.get("debug.found_package_versions", "")
+                msg = self._get_message("debug.found_package_versions")
                 if msg:
                     print(msg.format(len(versions), package_name))
 
@@ -372,13 +389,13 @@ class DependencyHandler:
                     deleted_versions.append(version_name)
 
                     if self.debug_mode:
-                        msg = self.messages.get("debug.deleted_package_version", "")
+                        msg = self._get_message("debug.deleted_package_version")
                         if msg:
                             print(msg.format(version_name, package_name))
 
                 except Exception as e:
                     if self.debug_mode:
-                        msg = self.messages.get("debug.package_version_delete_error", "")
+                        msg = self._get_message("debug.package_version_delete_error")
                         if msg:
                             print(msg.format(version_name, package_name, str(e)))
 
@@ -386,7 +403,7 @@ class DependencyHandler:
 
         except Exception as e:
             if self.debug_mode:
-                msg = self.messages.get("debug.package_version_list_error", "")
+                msg = self._get_message("debug.package_version_list_error")
                 if msg:
                     print(msg.format(package_name, str(e)))
             return deleted_versions
@@ -408,7 +425,7 @@ class DependencyHandler:
 
         try:
             if self.debug_mode:
-                msg = self.messages.get("debug.listing_s3_objects", "")
+                msg = self._get_message("debug.listing_s3_objects")
                 if msg:
                     print(msg.format(bucket_name))
 
@@ -431,7 +448,7 @@ class DependencyHandler:
                 # Delete objects in batches (max 1000 per request)
                 if objects_to_delete:
                     if self.debug_mode:
-                        msg = self.messages.get("debug.deleting_s3_batch", "")
+                        msg = self._get_message("debug.deleting_s3_batch")
                         if msg:
                             print(msg.format(len(objects_to_delete), bucket_name))
 
@@ -441,7 +458,7 @@ class DependencyHandler:
                     deleted_count += len(deleted)
 
                     if self.debug_mode:
-                        msg = self.messages.get("debug.deleted_s3_batch", "")
+                        msg = self._get_message("debug.deleted_s3_batch")
                         if msg:
                             print(msg.format(len(deleted), bucket_name))
 
@@ -449,12 +466,12 @@ class DependencyHandler:
                     errors = response.get("Errors", [])
                     if errors and self.debug_mode:
                         for error in errors:
-                            msg = self.messages.get("debug.s3_delete_error", "")
+                            msg = self._get_message("debug.s3_delete_error")
                             if msg:
                                 print(msg.format(error.get("Key"), error.get("Message")))
 
             if self.debug_mode:
-                msg = self.messages.get("debug.s3_objects_deleted", "")
+                msg = self._get_message("debug.s3_objects_deleted")
                 if msg:
                     print(msg.format(deleted_count, bucket_name))
 
@@ -462,7 +479,7 @@ class DependencyHandler:
 
         except Exception as e:
             if self.debug_mode:
-                msg = self.messages.get("debug.s3_object_list_error", "")
+                msg = self._get_message("debug.s3_object_list_error")
                 if msg:
                     print(msg.format(bucket_name, str(e)))
             return deleted_count
@@ -481,7 +498,7 @@ class DependencyHandler:
 
         try:
             if self.debug_mode:
-                msg = self.messages.get("debug.listing_iam_policies", "")
+                msg = self._get_message("debug.listing_iam_policies")
                 if msg:
                     print(msg.format(role_name))
 
@@ -490,7 +507,7 @@ class DependencyHandler:
             policy_names = response.get("PolicyNames", [])
 
             if self.debug_mode and policy_names:
-                msg = self.messages.get("debug.found_iam_policies", "")
+                msg = self._get_message("debug.found_iam_policies")
                 if msg:
                     print(msg.format(len(policy_names), role_name))
 
@@ -501,13 +518,13 @@ class DependencyHandler:
                     deleted_policies.append(policy_name)
 
                     if self.debug_mode:
-                        msg = self.messages.get("debug.deleted_iam_policy", "")
+                        msg = self._get_message("debug.deleted_iam_policy")
                         if msg:
                             print(msg.format(policy_name, role_name))
 
                 except Exception as e:
                     if self.debug_mode:
-                        msg = self.messages.get("debug.iam_policy_delete_error", "")
+                        msg = self._get_message("debug.iam_policy_delete_error")
                         if msg:
                             print(msg.format(policy_name, role_name, str(e)))
 
@@ -515,7 +532,7 @@ class DependencyHandler:
 
         except Exception as e:
             if self.debug_mode:
-                msg = self.messages.get("debug.iam_policy_list_error", "")
+                msg = self._get_message("debug.iam_policy_list_error")
                 if msg:
                     print(msg.format(role_name, str(e)))
             return deleted_policies
@@ -532,7 +549,7 @@ class DependencyHandler:
         """
         try:
             if self.debug_mode:
-                msg = self.messages.get("debug.checking_job_status", "")
+                msg = self._get_message("debug.checking_job_status")
                 if msg:
                     print(msg.format(job_id))
 
@@ -541,14 +558,14 @@ class DependencyHandler:
             job_status = response.get("job", {}).get("status")
 
             if self.debug_mode:
-                msg = self.messages.get("debug.job_status", "")
+                msg = self._get_message("debug.job_status")
                 if msg:
                     print(msg.format(job_id, job_status))
 
             # If job is in progress, cancel it
             if job_status == "IN_PROGRESS":
                 if self.debug_mode:
-                    msg = self.messages.get("debug.cancelling_job", "")
+                    msg = self._get_message("debug.cancelling_job")
                     if msg:
                         print(msg.format(job_id))
 
@@ -568,19 +585,19 @@ class DependencyHandler:
 
                     if current_status == "CANCELED":
                         if self.debug_mode:
-                            msg = self.messages.get("debug.job_cancelled", "")
+                            msg = self._get_message("debug.job_cancelled")
                             if msg:
                                 print(msg.format(job_id))
                         return True
 
                     if self.debug_mode:
-                        msg = self.messages.get("debug.waiting_for_cancellation", "")
+                        msg = self._get_message("debug.waiting_for_cancellation")
                         if msg:
                             print(msg.format(job_id, current_status))
 
                 # Timeout reached
                 if self.debug_mode:
-                    msg = self.messages.get("debug.job_cancel_timeout", "")
+                    msg = self._get_message("debug.job_cancel_timeout")
                     if msg:
                         print(msg.format(job_id))
                 return False
@@ -588,14 +605,14 @@ class DependencyHandler:
             else:
                 # Job is not in progress, no need to cancel
                 if self.debug_mode:
-                    msg = self.messages.get("debug.job_not_in_progress", "")
+                    msg = self._get_message("debug.job_not_in_progress")
                     if msg:
                         print(msg.format(job_id, job_status))
                 return True
 
         except Exception as e:
             if self.debug_mode:
-                msg = self.messages.get("debug.job_cancel_error", "")
+                msg = self._get_message("debug.job_cancel_error")
                 if msg:
                     print(msg.format(job_id, str(e)))
             return False
@@ -616,21 +633,21 @@ class DependencyHandler:
         """
         if dry_run:
             if self.debug_mode:
-                msg = self.messages.get("debug.dry_run_delete_rule", "")
+                msg = self._get_message("debug.dry_run_delete_rule")
                 if msg:
                     print(msg.format(rule_name))
             return True
 
         try:
             if self.debug_mode:
-                msg = self.messages.get("debug.deleting_rule", "")
+                msg = self._get_message("debug.deleting_rule")
                 if msg:
                     print(msg.format(rule_name))
 
             self.iot_client.delete_topic_rule(ruleName=rule_name)
 
             if self.debug_mode:
-                msg = self.messages.get("debug.deleted_rule", "")
+                msg = self._get_message("debug.deleted_rule")
                 if msg:
                     print(msg.format(rule_name))
 
@@ -638,7 +655,7 @@ class DependencyHandler:
 
         except Exception as e:
             if self.debug_mode:
-                msg = self.messages.get("debug.rule_delete_error", "")
+                msg = self._get_message("debug.rule_delete_error")
                 if msg:
                     print(msg.format(rule_name, str(e)))
             return False
@@ -664,11 +681,11 @@ class DependencyHandler:
 
             if self.debug_mode:
                 group_type = "dynamic" if is_dynamic else "static"
-                msg = self.messages.get("debug.thing_group_type", "")
+                msg = self._get_message("debug.thing_group_type")
                 if msg:
                     print(msg.format(group_name, group_type))
                 if is_dynamic:
-                    msg = self.messages.get("debug.query_string", "")
+                    msg = self._get_message("debug.query_string")
                     if msg:
                         print(msg.format(query_string))
 
@@ -676,7 +693,7 @@ class DependencyHandler:
 
         except Exception as e:
             if self.debug_mode:
-                msg = self.messages.get("debug.error_checking_dynamic", "")
+                msg = self._get_message("debug.error_checking_dynamic")
                 if msg:
                     print(msg.format(str(e)))
             # If we can't determine, assume static to be safe
@@ -701,13 +718,13 @@ class DependencyHandler:
             # Check if this is a dynamic group
             if self.is_dynamic_thing_group(group_name):
                 if self.debug_mode:
-                    msg = self.messages.get("debug.skipping_dynamic_group", "")
+                    msg = self._get_message("debug.skipping_dynamic_group")
                     if msg:
                         print(msg.format(group_name))
                 return removed_things
 
             if self.debug_mode:
-                msg = self.messages.get("debug.listing_things_in_group", "")
+                msg = self._get_message("debug.listing_things_in_group")
                 if msg:
                     print(msg.format(group_name))
 
@@ -717,7 +734,7 @@ class DependencyHandler:
                 things = page.get("things", [])
 
                 if self.debug_mode and things:
-                    msg = self.messages.get("debug.found_things_in_group", "")
+                    msg = self._get_message("debug.found_things_in_group")
                     if msg:
                         print(msg.format(len(things), group_name))
 
@@ -728,13 +745,13 @@ class DependencyHandler:
                         removed_things.append(thing_name)
 
                         if self.debug_mode:
-                            msg = self.messages.get("debug.removed_thing_from_group", "")
+                            msg = self._get_message("debug.removed_thing_from_group")
                             if msg:
                                 print(msg.format(thing_name, group_name))
 
                     except Exception as e:
                         if self.debug_mode:
-                            msg = self.messages.get("debug.error_removing_thing", "")
+                            msg = self._get_message("debug.error_removing_thing")
                             if msg:
                                 print(msg.format(thing_name, group_name, str(e)))
 
@@ -742,7 +759,7 @@ class DependencyHandler:
 
         except Exception as e:
             if self.debug_mode:
-                msg = self.messages.get("debug.error_listing_things", "")
+                msg = self._get_message("debug.error_listing_things")
                 if msg:
                     print(msg.format(group_name, str(e)))
             return removed_things
@@ -788,13 +805,13 @@ class DependencyHandler:
 
             if dry_run:
                 if self.debug_mode:
-                    msg = self.messages.get("debug.dry_run_delete", "")
+                    msg = self._get_message("debug.dry_run_delete")
                     if msg:
                         print(msg.format(resource_name, resource_type))
                 return (True, [f"{resource_name} (dry-run)"])
 
             if self.debug_mode:
-                msg = self.messages.get("debug.deleting_with_dependencies", "")
+                msg = self._get_message("debug.deleting_with_dependencies")
                 if msg:
                     print(msg.format(resource_name, resource_type))
 
@@ -817,7 +834,7 @@ class DependencyHandler:
                 deleted_resources.append(f"thing:{thing_name}")
 
                 if self.debug_mode:
-                    msg = self.messages.get("debug.deleted_thing", "")
+                    msg = self._get_message("debug.deleted_thing")
                     if msg:
                         print(msg.format(thing_name))
 
@@ -834,7 +851,7 @@ class DependencyHandler:
                 deleted_resources.append(f"package:{package_name}")
 
                 if self.debug_mode:
-                    msg = self.messages.get("debug.deleted_package", "")
+                    msg = self._get_message("debug.deleted_package")
                     if msg:
                         print(msg.format(package_name))
 
@@ -852,7 +869,7 @@ class DependencyHandler:
                 deleted_resources.append(f"bucket:{bucket_name}")
 
                 if self.debug_mode:
-                    msg = self.messages.get("debug.deleted_bucket", "")
+                    msg = self._get_message("debug.deleted_bucket")
                     if msg:
                         print(msg.format(bucket_name))
 
@@ -870,7 +887,7 @@ class DependencyHandler:
                 deleted_resources.append(f"role:{role_name}")
 
                 if self.debug_mode:
-                    msg = self.messages.get("debug.deleted_role", "")
+                    msg = self._get_message("debug.deleted_role")
                     if msg:
                         print(msg.format(role_name))
 
@@ -887,7 +904,7 @@ class DependencyHandler:
                 deleted_resources.append(f"job:{job_id}")
 
                 if self.debug_mode:
-                    msg = self.messages.get("debug.deleted_job", "")
+                    msg = self._get_message("debug.deleted_job")
                     if msg:
                         print(msg.format(job_id))
 
@@ -901,7 +918,7 @@ class DependencyHandler:
                     # Dynamic groups: use delete_dynamic_thing_group API
                     # No need to remove things - membership is managed automatically
                     if self.debug_mode:
-                        msg = self.messages.get("debug.deleting_dynamic_group", "")
+                        msg = self._get_message("debug.deleting_dynamic_group")
                         if msg:
                             print(msg.format(group_name))
 
@@ -909,13 +926,13 @@ class DependencyHandler:
                     deleted_resources.append(f"dynamic-thing-group:{group_name}")
 
                     if self.debug_mode:
-                        msg = self.messages.get("debug.deleted_thing_group", "")
+                        msg = self._get_message("debug.deleted_thing_group")
                         if msg:
                             print(msg.format(group_name))
                 else:
                     # Static groups: remove things first, then use delete_thing_group API
                     if self.debug_mode:
-                        msg = self.messages.get("debug.deleting_static_group", "")
+                        msg = self._get_message("debug.deleting_static_group")
                         if msg:
                             print(msg.format(group_name))
 
@@ -927,7 +944,7 @@ class DependencyHandler:
                     deleted_resources.append(f"thing-group:{group_name}")
 
                     if self.debug_mode:
-                        msg = self.messages.get("debug.deleted_thing_group", "")
+                        msg = self._get_message("debug.deleted_thing_group")
                         if msg:
                             print(msg.format(group_name))
 
@@ -936,7 +953,7 @@ class DependencyHandler:
                 command_id = resource.get("commandId") or resource.get("commandName")
 
                 if self.debug_mode:
-                    msg = self.messages.get("debug.deleting_command", "")
+                    msg = self._get_message("debug.deleting_command")
                     if msg:
                         print(msg.format(command_id))
 
@@ -945,7 +962,7 @@ class DependencyHandler:
                 deleted_resources.append(f"command:{command_id}")
 
                 if self.debug_mode:
-                    msg = self.messages.get("debug.deleted_command", "")
+                    msg = self._get_message("debug.deleted_command")
                     if msg:
                         print(msg.format(command_id))
 
@@ -954,7 +971,7 @@ class DependencyHandler:
                 rule_name = resource.get("ruleName")
 
                 if self.debug_mode:
-                    msg = self.messages.get("debug.deleting_rule", "")
+                    msg = self._get_message("debug.deleting_rule")
                     if msg:
                         print(msg.format(rule_name))
 
@@ -963,7 +980,7 @@ class DependencyHandler:
                 deleted_resources.append(f"iot-rule:{rule_name}")
 
                 if self.debug_mode:
-                    msg = self.messages.get("debug.deleted_rule", "")
+                    msg = self._get_message("debug.deleted_rule")
                     if msg:
                         print(msg.format(rule_name))
 
@@ -975,7 +992,7 @@ class DependencyHandler:
                 deleted_resources.append(f"thing-type:{type_name}")
 
                 if self.debug_mode:
-                    msg = self.messages.get("debug.deleted_thing_type", "")
+                    msg = self._get_message("debug.deleted_thing_type")
                     if msg:
                         print(msg.format(type_name))
 
@@ -983,7 +1000,7 @@ class DependencyHandler:
                 # For other resource types without special dependencies, just note them
                 # This should rarely be reached now
                 if self.debug_mode:
-                    msg = self.messages.get("debug.unhandled_resource_type", "")
+                    msg = self._get_message("debug.unhandled_resource_type")
                     if msg:
                         print(msg.format(resource_type))
                 deleted_resources.append(f"{resource_type}:{resource_name}")
@@ -992,13 +1009,13 @@ class DependencyHandler:
 
         except Exception as e:
             if self.debug_mode:
-                msg = self.messages.get("debug.exception_in_delete", "")
+                msg = self._get_message("debug.exception_in_delete")
                 if msg:
                     print(msg.format(str(e)))
                 import traceback
 
                 traceback.print_exc()
-                msg = self.messages.get("debug.delete_with_dependencies_error", "")
+                msg = self._get_message("debug.delete_with_dependencies_error")
                 if msg:
                     print(msg.format(resource_name, resource_type, str(e)))
             return (False, deleted_resources)
