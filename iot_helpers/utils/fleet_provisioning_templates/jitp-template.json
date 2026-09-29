@@ -21,7 +21,8 @@
           "country": {
             "Ref": "AWS::IoT::Certificate::Country"
           }
-        }
+        },
+        "ThingGroups": ["JITP-Onboarded"]
       },
       "OverrideSettings": {
         "AttributePayload": "MERGE"

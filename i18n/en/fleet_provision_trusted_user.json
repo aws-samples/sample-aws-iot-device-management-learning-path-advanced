@@ -1,6 +1,7 @@
 {
   "errors": {
-    "claim_create_failed": "❌ Could not create the provisioning claim — is your IAM identity scoped to iot:CreateProvisioningClaim on this template?"
+    "claim_create_failed": "❌ Could not create the provisioning claim — is your IAM identity scoped to iot:CreateProvisioningClaim on this template?",
+    "provisioning_failed": "❌ Fleet provisioning did not complete: {}"
   },
   "status": {
     "template_created": "✅ Provisioning template '{}' created (enabled)",

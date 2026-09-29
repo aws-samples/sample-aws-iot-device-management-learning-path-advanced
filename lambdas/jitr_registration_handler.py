@@ -101,12 +101,12 @@ def _iot():
 # in the console. Created on first use if it does not already exist.
 JITR_DEVICE_POLICY_NAME = "JITRDevicePolicy"
 
-# Minimal least-privilege device policy. Scoped exactly like the JITP path's
-# ``JITPDevicePolicy`` so the two flows behave the same in the allowed-vs-denied
-# publish test: connect only as the thing the connecting certificate is
-# attached to, and publish only under the ``anycompany/telemetry/*`` topic
-# namespace. If the learner already created ``JITRDevicePolicy`` by hand,
-# ``_ensure_device_policy`` finds it and does not overwrite it.
+# Minimal least-privilege device policy, matching the JITRDevicePolicy shown
+# in 2-jit-provisioning's Step 2 exactly (same topic, same actions) so a
+# standalone run of this handler (no Step 2 policy created by hand first)
+# behaves identically to the documented flow instead of silently refusing the
+# device's own publish. If the learner already created ``JITRDevicePolicy``
+# by hand, ``_ensure_device_policy`` finds it and does not overwrite it.
 #
 # ``${iot:Connection.Thing.ThingName}`` resolves at connection time to the
 # thing the connecting certificate is attached to - a real registry lookup -
@@ -126,8 +126,13 @@ JITR_DEVICE_POLICY_DOCUMENT = {
         },
         {
             "Effect": "Allow",
-            "Action": "iot:Publish",
-            "Resource": "arn:aws:iot:*:*:topic/anycompany/telemetry/*",
+            "Action": ["iot:Publish", "iot:Receive"],
+            "Resource": "arn:aws:iot:*:*:topic/anycompany/telemetry",
+        },
+        {
+            "Effect": "Allow",
+            "Action": "iot:Subscribe",
+            "Resource": "arn:aws:iot:*:*:topicfilter/anycompany/telemetry",
         },
     ],
 }

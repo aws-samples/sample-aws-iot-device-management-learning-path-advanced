@@ -394,7 +394,13 @@ def issue_new_certificate(event):
             f"malformed certificate signing request: {type(error).__name__}",
             execution_number=execution_number,
         )
-    if f"CN={thing}" not in subject:
+    # Exact match, not substring containment: `subject` is an RFC 4514 string
+    # (see csr_subject_and_key) built from a CN-only Name, so "in" would let a
+    # thing whose name is a PREFIX of the CSR's CN pass this check — e.g. a
+    # thing named AnyCompany-Sensor-9001 would satisfy "CN=AnyCompany-Sensor-9001"
+    # in "CN=AnyCompany-Sensor-90011", a false-positive authorization for a
+    # different device's identity.
+    if subject != f"CN={thing}":
         return deny(
             thing,
             job_id,

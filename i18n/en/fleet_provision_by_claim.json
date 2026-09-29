@@ -1,6 +1,7 @@
 {
   "errors": {
-    "claim_create_failed": "❌ Could not create the claim certificate"
+    "claim_create_failed": "❌ Could not create the claim certificate",
+    "provisioning_failed": "❌ Fleet provisioning did not complete: {}"
   },
   "status": {
     "claim_cert_id": "ℹ️  Claim certificate id: {}",

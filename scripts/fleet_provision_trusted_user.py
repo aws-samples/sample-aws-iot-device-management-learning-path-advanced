@@ -389,41 +389,49 @@ def provision(
         debug=debug,
     )
 
-    # 1) Obtain a permanent certificate + certificateOwnershipToken. The CSR path
-    #    keeps the private key on the device; the keys path has AWS IoT Core mint
-    #    both. Both return the same certificateOwnershipToken for step 2.
-    if csr_file:
-        ownership_token, cert_out = _create_certificate_from_csr(device, out_prefix, csr_file)
-    else:
-        ownership_token, cert_out = _create_keys_and_certificate(device, out_prefix)
+    # A rejected RegisterThing raises RuntimeError from _wait_for. Without
+    # this try/finally, that exception skipped device.disconnect() below and
+    # surfaced as a raw traceback instead of a clean failure message.
+    try:
+        # 1) Obtain a permanent certificate + certificateOwnershipToken. The CSR
+        #    path keeps the private key on the device; the keys path has AWS IoT
+        #    Core mint both. Both return the same certificateOwnershipToken.
+        if csr_file:
+            ownership_token, cert_out = _create_certificate_from_csr(device, out_prefix, csr_file)
+        else:
+            ownership_token, cert_out = _create_keys_and_certificate(device, out_prefix)
 
-    # 2) RegisterThing — prove ownership with the token; pass template parameters.
-    provision_topic, provision_accepted, provision_rejected = _provision_topics(template_name)
-    print(f"\n{get_message('mqtt.subscribe', provision_accepted)}")
-    print(get_message("mqtt.subscribe", provision_rejected))
-    device.subscribe(provision_accepted, qos=1)
-    device.subscribe(provision_rejected, qos=1)
-    register_payload = {
-        "certificateOwnershipToken": ownership_token,
-        "parameters": {
-            "SerialNumber": serial_number,
-            "DeviceType": device_type,
-        },
-    }
-    print(f"\n{get_message('mqtt.publish', provision_topic)}")
-    print(_indent(_fmt_payload(register_payload)))
-    device.publish(provision_topic, register_payload, qos=1)
-    registered = _wait_for(device, provision_accepted, provision_rejected)
-    print(get_message("mqtt.received", provision_accepted))
-    print(_indent(_fmt_payload(registered)))
+        # 2) RegisterThing — prove ownership with the token; pass template parameters.
+        provision_topic, provision_accepted, provision_rejected = _provision_topics(template_name)
+        print(f"\n{get_message('mqtt.subscribe', provision_accepted)}")
+        print(get_message("mqtt.subscribe", provision_rejected))
+        device.subscribe(provision_accepted, qos=1)
+        device.subscribe(provision_rejected, qos=1)
+        register_payload = {
+            "certificateOwnershipToken": ownership_token,
+            "parameters": {
+                "SerialNumber": serial_number,
+                "DeviceType": device_type,
+            },
+        }
+        print(f"\n{get_message('mqtt.publish', provision_topic)}")
+        print(_indent(_fmt_payload(register_payload)))
+        device.publish(provision_topic, register_payload, qos=1)
+        registered = _wait_for(device, provision_accepted, provision_rejected)
+        print(get_message("mqtt.received", provision_accepted))
+        print(_indent(_fmt_payload(registered)))
 
-    print(f"\n{get_message('status.provisioned')}")
-    print(get_message("status.provisioned_thing_name", registered.get("thingName")))
-    print(get_message("status.provisioned_device_config", json.dumps(registered.get("deviceConfiguration", {}))))
-    print(get_message("status.provisioned_reconnect", cert_out))
+        print(f"\n{get_message('status.provisioned')}")
+        print(get_message("status.provisioned_thing_name", registered.get("thingName")))
+        print(get_message("status.provisioned_device_config", json.dumps(registered.get("deviceConfiguration", {}))))
+        print(get_message("status.provisioned_reconnect", cert_out))
 
-    device.disconnect()
-    return registered
+        return registered
+    except (RuntimeError, TimeoutError) as error:
+        print(get_message("errors.provisioning_failed", str(error)))
+        sys.exit(1)
+    finally:
+        device.disconnect()
 
 
 def parse_arguments():
