@@ -1,0 +1,122 @@
+{
+  "header": {
+    "mode_dry_run": "SIMULACIÓN (no se eliminará nada)",
+    "mode_execute": "EJECUCIÓN",
+    "title": "Advanced Device Provisioning: limpieza por tema [{}]"
+  },
+  "status": {
+    "region_workshop": "Región (taller): {}",
+    "region_mar": "Región (MAR / Sección 5): {}",
+    "scope_note": "Esta limpieza se limita al tema de aprovisionamiento. La configuración compartida (repositorio, dependencias, idioma, OpenSSL) nunca se toca.",
+    "dry_run_hint": "Simulación: revisando lo que se eliminaría. Vuelve a ejecutar con --execute para eliminar (se te pedirá confirmación antes de las eliminaciones destructivas).",
+    "dry_run_complete": "Simulación completada. No se modificó ningún recurso.",
+    "execute_complete": "Limpieza completada. Se conservó todo lo que decidiste no eliminar.",
+    "discovering_cas": "🔎 Buscando las autoridades de certificación personalizadas creadas por este tema...",
+    "none_found": "  (no se encontró nada)",
+    "discovering_certificates": "🔎 Buscando los certificados creados por este tema ({})...",
+    "discovering_things": "🔎 Buscando los things creados por este tema ({})...",
+    "discovering_templates": "🔎 Plantillas de aprovisionamiento creadas por este tema...",
+    "discovering_topic_rules": "🔎 Reglas de tema (topic rules) creadas por este tema...",
+    "discovering_thing_groups": "🔎 Thing groups creados por este tema...",
+    "discovering_thing_types": "🔎 Thing types creados por este tema...",
+    "waiting_thing_types": "⏳ Esperando 5 minutos tras marcar el thing type como obsoleto, antes de que AWS IoT permita eliminarlo...",
+    "discovering_policies": "🔎 Políticas de dispositivo / de reclamación creadas por este tema ({})...",
+    "cleaning_mar_region": "=== Limpiando la segunda Región ({}): Sección 5 (MAR) ===",
+    "discovering_rotation_resources": "🔎 Recursos de la Sección 6 (Rotación de certificados): job, reglas de tema, pertenencia a la cola, temporizadores...",
+    "discovering_certificate_provider": "🔎 El certificate provider opcional de la Sección 3...",
+    "reverting_event_configurations": "🔎 Configuración de eventos JOB / JOB_EXECUTION de toda la cuenta que habilitó la Sección 6..."
+  },
+  "plan": {
+    "prefix_dry_run": "SIMULACIÓN: se eliminaría",
+    "prefix_execute": "Eliminando",
+    "ca": "Autoridad de certificación '{}' ({})",
+    "certificate": "certificado {}",
+    "thing": "thing {}",
+    "provisioning_template": "plantilla de aprovisionamiento {}",
+    "topic_rule": "regla de tema {}",
+    "thing_group": "thing group {}",
+    "thing_type": "thing type {}",
+    "policy": "política {}",
+    "rotation_job": "job de rotación {}",
+    "rotation_thing_group_member": "thing {} (se saca de la cola de rotación)",
+    "schedule": "programación de eliminación aplazada {}",
+    "certificate_provider": "certificate provider {}",
+    "event_configurations": "configuración de eventos JOB / JOB_EXECUTION de toda la cuenta (se revierte a deshabilitada)"
+  },
+  "prompts": {
+    "confirm_warning": "⚠️  Vas a eliminar {} {}. Es una acción destructiva y no se puede deshacer.",
+    "confirm_question": "¿Eliminar estos recursos: {}? [s/N]: ",
+    "retained": "Se conserva: {}, tal como pediste."
+  },
+  "categories": {
+    "certificate_authorities": "autoridades de certificación",
+    "provisioning_templates": "plantillas de aprovisionamiento",
+    "certificates_region": "certificados ({})",
+    "things_region": "things ({})"
+  },
+  "labels": {
+    "region": "Región {}",
+    "mar_region": "Región de MAR {}"
+  },
+  "notice": {
+    "header": "🧱 Infraestructura base (funciones de AWS Lambda, roles de IAM): NO se elimina aquí",
+    "stack_named": "  • Las funciones Lambda del pre-provisioning hook y del handler de JITR pertenecen al stack de CloudFormation '{}'.",
+    "stack_named_detail": "    Evento dirigido por AWS: se elimina automáticamente al terminar el evento. Tu propia cuenta: elimina ese stack cuando termines con el tema.",
+    "stack_unknown": "  • Las funciones Lambda del handler de JITR y del pre-provisioning hook las gestiona un stack. Elimina el stack base de CloudFormation para quitarlas (tu propia cuenta), o deja que el evento dirigido por AWS lo elimine."
+  },
+  "cli": {
+    "description": "Limpieza por tema para el tema Advanced Device Provisioning End-to-End. Limitada por patrones y no destructiva por defecto (simulación); pasa --execute para eliminar.",
+    "execute": "Eliminar de verdad los recursos (por defecto se hace una simulación que no elimina nada).",
+    "region": "Región donde ejecutaste las secciones prácticas de este tema. Si se omite, se usa la resolución de Región habitual de boto3 (AWS_DEFAULT_REGION y luego la Región configurada en tu perfil de AWS CLI).",
+    "mar_region": "Segunda Región usada en la Sección 5 (Multi-Account Registration), p. ej. us-west-2. Limpia allí el certificado y el thing trasladados sin tocar la Región principal.",
+    "debug": "Mostrar el detalle de solicitud/respuesta de la API para cada llamada al plano de control."
+  },
+  "errors": {
+    "no_region": "No se resolvió ninguna Región de AWS. Pasa --region, o configúrala con 'aws configure' o con la variable de entorno AWS_DEFAULT_REGION."
+  },
+  "operations": {
+    "cancel_job": "Cancelar el job",
+    "deactivate_ca_certificate": "Desactivar el certificado de CA",
+    "deactivate_certificate": "Desactivar el certificado",
+    "delete_ca_certificate": "Eliminar el certificado de CA",
+    "delete_certificate": "Eliminar el certificado",
+    "delete_certificate_provider": "Eliminar el certificate provider",
+    "delete_job": "Eliminar el job",
+    "delete_policy": "Eliminar la política",
+    "delete_policy_version": "Eliminar una versión de la política",
+    "delete_provisioning_template": "Eliminar la plantilla de aprovisionamiento",
+    "delete_rotation_shadow": "Eliminar el shadow de rotación",
+    "delete_schedule": "Eliminar la programación",
+    "delete_thing": "Eliminar el thing",
+    "delete_thing_group": "Eliminar el thing group",
+    "delete_thing_type": "Eliminar el thing type",
+    "delete_topic_rule": "Eliminar la regla de tema",
+    "deprecate_thing_type": "Marcar el thing type como obsoleto",
+    "describe_ca_certificate": "Describir el certificado de CA",
+    "describe_certificate": "Describir el certificado",
+    "describe_certificate_provider": "Describir el certificate provider",
+    "describe_endpoint": "Describir el endpoint",
+    "describe_event_configurations": "Describir las configuraciones de eventos",
+    "describe_job": "Describir el job",
+    "describe_provisioning_template": "Describir la plantilla de aprovisionamiento",
+    "describe_thing_group": "Describir el thing group",
+    "describe_thing_type": "Describir el thing type",
+    "detach_policy": "Desasociar la política",
+    "detach_thing_principal": "Desasociar el principal del thing",
+    "get_policy": "Obtener la política",
+    "get_topic_rule": "Obtener la regla de tema",
+    "list_attached_policies": "Listar las políticas asociadas",
+    "list_ca_certificates": "Listar los certificados de CA",
+    "list_certificates_by_ca": "Listar los certificados por CA",
+    "list_policy_versions": "Listar las versiones de la política",
+    "list_principal_things": "Listar los things del principal",
+    "list_schedules": "Listar las programaciones",
+    "list_targets_for_policy": "Listar los destinos de la política",
+    "list_thing_principals": "Listar los principals del thing",
+    "remove_thing_from_rotation_group": "Quitar el thing del grupo de rotación",
+    "revert_event_configurations": "Revertir las configuraciones de eventos"
+  },
+  "operation_resources": {
+    "iot_data_endpoint": "Endpoint de datos de IoT ({})"
+  }
+}

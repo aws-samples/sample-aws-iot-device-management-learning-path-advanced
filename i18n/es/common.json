@@ -1,0 +1,33 @@
+{
+  "account_id": "ID de cuenta",
+  "region": "Región",
+  "press_enter": "Pulsa Enter para continuar...",
+  "goodbye": "¡Hasta luego!",
+  "cancelled_by_user": "👋 Cancelado por el usuario. ¡Hasta luego!",
+  "tagging": {
+    "workshop_tag_key": "workshop",
+    "workshop_tag_value": "learning-aws-iot-dm-basics",
+    "applying": "Aplicando etiquetas...",
+    "success": "✅ Etiquetas aplicadas",
+    "failed": "⚠️  Falló el etiquetado"
+  },
+  "naming": {
+    "validation": {
+      "prefix_empty": "❌ Error: el prefijo del thing no puede estar vacío",
+      "prefix_too_long": "❌ Error: el prefijo del thing debe tener 20 caracteres o menos (se recibieron {length} caracteres)",
+      "prefix_invalid_chars": "❌ Error: el prefijo del thing contiene caracteres no válidos. Solo se permiten caracteres alfanuméricos, guiones (-), guiones bajos (_) y dos puntos (:)",
+      "prefix_valid": "✅ El prefijo del thing es válido: {prefix}",
+      "sequential_number_invalid": "❌ Error: el número secuencial debe estar entre 1 y 999 (se recibió {number})"
+    },
+    "pattern_matching": {
+      "checking": "🔍 Comprobando si '{name}' coincide con el patrón del taller para {type}...",
+      "matched": "✅ Coincide con el patrón del taller: {pattern}",
+      "no_match": "❌ No se encontró ninguna coincidencia con un patrón del taller",
+      "custom_prefix_match": "✅ Coincide con el patrón de prefijo personalizado: {prefix}"
+    },
+    "generation": {
+      "generating": "🔧 Generando el nombre del thing con el prefijo '{prefix}' y el número {number}...",
+      "generated": "✅ Nombre del thing generado: {name}"
+    }
+  }
+}

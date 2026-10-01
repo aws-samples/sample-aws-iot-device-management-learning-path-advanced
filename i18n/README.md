@@ -6,27 +6,35 @@ drop in without code changes.
 
 The convention mirrors the fully-realized sibling repo
 [`sample-aws-iot-device-management-learning-path-basics`](../../sample-aws-iot-device-management-learning-path-basics)
-(all 9 languages shipped). The only intentional difference here: **English-only catalogs ship now**.
+(all 9 languages shipped). The difference here: languages are added **one at a time**, and the
+loader falls back to English **per key**, so a partial catalog never prints raw keys.
 
 ## 🗂️ What's in here
 
 ```
 i18n/
-├── loader.py            # load_messages(script_name, language) -> dict (merges common.json + <lang>/<script>.json)
-├── language_selector.py # get_language(): AWS_IOT_LANG env var (9 locales) or interactive menu
+├── loader.py            # load_messages(script_name, language) -> dict (English base + per-key <lang> overlay)
+├── language_selector.py # get_language(): AWS_IOT_LANG env var (9 locales) or interactive menu;
+│                        # peek_language(): same env lookup, never prompts (used for --help text)
 ├── confirm_input.py     # is_yes(text, language)        (certificate_manager lineage)
 ├── confirmation.py      # is_affirmative(text, language) (cleanup_script lineage)
 ├── common.json          # shared keys (account_id, region, press_enter, tagging.*, naming.* ...)
-└── en/
-    ├── <script_name>.json   # one nested catalog per script (script-scoped)
-    └── ...
+├── en/
+│   ├── <script_name>.json   # one nested catalog per script (script-scoped)
+│   └── ...
+└── <lang>/                  # translated catalogs (es today), same key tree as en/
+    ├── common.json          # optional translation of the shared keys
+    └── <script_name>.json
 ```
 
 `load_messages` resolves paths relative to `loader.py`, so it is CWD-independent. It loads
-`i18n/en/<script>.json` unconditionally first, then overlays the requested language's catalog on
-top if one exists — so a language with no catalog yet still gets real English text, not raw keys.
-A missing *key* inside a loaded catalog is still **silent** — `get_message` returns the raw key —
-but that only happens for a genuinely absent key, not for an unshipped language.
+`common.json` and `i18n/en/<script>.json` first, then deep-merges `i18n/<lang>/common.json` and
+`i18n/<lang>/<script>.json` on top, **key by key at every nesting level**. Any key a translation does
+not provide keeps its English text, so an unshipped language or a partially translated catalog
+still prints real English, not raw keys. A key missing from the English catalog too is still
+**silent** (`get_message` returns the raw key). Translated catalogs must keep the English key tree,
+`{}` placeholders, emoji and code tokens; check them with a key-tree/placeholder diff against
+`en/` before shipping.
 
 ## 📐 Catalog convention
 
@@ -114,7 +122,9 @@ Only human-readable console output and `input()` prompts move into catalogs.
 ## 🌍 Languages
 
 The 9 workshop locales (`en`, `de`, `es`, `fr`, `it`, `ja`, `ko`, `pt`, `zh`) are all recognized by
-`language_selector.py`. **Only `i18n/en/*` ships today**; `load_messages` loads it first regardless
-of which locale is selected, so the other 8 locales run in real English today rather than raw
-message keys, and drop in later under `i18n/<lang>/` with the same nested structure — no code
-changes required, since a shipped catalog simply overlays the English base with translated values.
+`language_selector.py`. **`i18n/en/*` and `i18n/es/*` ship today**; the remaining locales run in
+English (per-key fallback) until their catalogs are added under `i18n/<lang>/` with the same nested
+structure. No code changes are required to add a language.
+
+Shared helpers (`iot_helpers/utils/api_helpers.py`, `device_simulator.py`) load their own catalogs
+and expose `set_language(code)`; scripts call it in `main()` after resolving the language.

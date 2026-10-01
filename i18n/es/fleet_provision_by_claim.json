@@ -1,0 +1,99 @@
+{
+  "errors": {
+    "claim_create_failed": "❌ No se pudo crear el certificado de reclamación",
+    "provisioning_failed": "❌ El aprovisionamiento de flota no se completó: {}",
+    "provisioning_rejected": "Aprovisionamiento de flota rechazado en {}: {}",
+    "reply_timeout": "Se agotó el tiempo de espera de una respuesta en {}"
+  },
+  "status": {
+    "claim_cert_id": "ℹ️  Id del certificado de reclamación: {}",
+    "saved_claim_files": "   Guardados {} / {} / {}",
+    "claim_ready": "🎉 Certificado de reclamación listo y limitado solo al aprovisionamiento de flota",
+    "claim_ready_detail": "   La CA, la Lambda y la plantilla están aparte — este certificado de reclamación SOLO puede hacer el arranque (bootstrap).",
+    "template_created": "✅ Plantilla de aprovisionamiento '{}' creada (habilitada)",
+    "hook_attached": "   Pre-provisioning hook asociado: {}",
+    "version_line": "   - versión {}{}",
+    "version_default_marker": " (predeterminada)",
+    "version_created": "✅ Versión {} creada{}",
+    "version_set_default_suffix": " y establecida como predeterminada",
+    "version_deleted": "✅ Versión {} eliminada (reversión)",
+    "thing_info": "ℹ️  Thing '{}' type={} attributes={}",
+    "principal_line": "   - principal: {}",
+    "extracted_cert": "🔑 Se extrajeron el certificado permanente ({}...) y el certificateOwnershipToken",
+    "saved_cert_key": "   Guardados {} / {}",
+    "extracted_cert_csr_note": "   (en la ruta CSR no se devuelve ninguna clave privada — el dispositivo conservó la suya)",
+    "saved_cert_csr": "   Guardado {} (reutiliza tu propia clave privada del paso de la CSR)",
+    "connecting_claim": "🔌 Conectando con el certificado de RECLAMACIÓN a {} ...",
+    "provisioned": "🎉 Dispositivo aprovisionado mediante reclamación",
+    "provisioned_thing_name": "   thingName: {}",
+    "provisioned_device_config": "   deviceConfiguration: {}",
+    "provisioned_reconnect": "   Ahora reconecta con el certificado PERMANENTE ({}) para publicar telemetría — el certificado de reclamación ya cumplió su función."
+  },
+  "mqtt": {
+    "subscribe": "📡 SUBSCRIBE {}",
+    "publish": "📨 PUBLISH → {}",
+    "received": "📥 RECIBIDO ← {}",
+    "publish_empty_payload": "   payload: {}   (cuerpo vacío — CreateKeysAndCertificate no recibe entrada)",
+    "publish_csr_payload": "   payload: {{ \"certificateSigningRequest\": <PEM de {}> }}"
+  },
+  "cli": {
+    "description": "Fleet Provisioning mediante reclamación: certificado de reclamación, plantilla, versiones, aprovisionamiento por MQTT.",
+    "create_claim": {
+      "help": "Crea el certificado de reclamación y su política limitada.",
+      "policy_name": "Nombre de la política de reclamación.",
+      "policy_file": "JSON de la política de reclamación.",
+      "claim_cert_out": "Ruta de salida del certificado de reclamación.",
+      "claim_key_out": "Salida de la clave de reclamación.",
+      "claim_pub_out": "Salida de la clave pública de reclamación.",
+      "debug": "Salida detallada."
+    },
+    "create_template": {
+      "help": "Crea la plantilla de aprovisionamiento de flota.",
+      "template_name": "Nombre de la plantilla.",
+      "provisioning_role_arn": "ARN del rol de aprovisionamiento de flota.",
+      "template_file": "Ruta del JSON de la plantilla.",
+      "hook_arn": "ARN de la Lambda del pre-provisioning hook.",
+      "debug": "Salida detallada."
+    },
+    "provision": {
+      "help": "Ejecuta el intercambio MQTT de aprovisionamiento mediante reclamación.",
+      "template_name": "Nombre de la plantilla.",
+      "claim_cert": "Ruta del certificado de reclamación.",
+      "claim_key": "Ruta de la clave privada de reclamación.",
+      "serial_number": "SerialNumber del dispositivo (nombre del thing).",
+      "model_type": "Parámetro ModelType del dispositivo.",
+      "endpoint": "Endpoint iot:Data-ATS (se detecta automáticamente si se omite).",
+      "out_prefix": "Prefijo de salida para el certificado y la clave permanentes.",
+      "csr_file": "PEM de la CSR para usar CreateCertificateFromCsr (el dispositivo conserva su propia clave). Omítelo para usar CreateKeysAndCertificate. Esta es la ruta que usa el laboratorio opcional de certificate provider.",
+      "debug": "Salida detallada."
+    },
+    "versions": {
+      "help": "Gestiona las versiones de la plantilla de aprovisionamiento.",
+      "template_name": "Nombre de la plantilla.",
+      "list": "Lista las versiones.",
+      "new_version_file": "JSON con el nuevo cuerpo de plantilla que se añadirá.",
+      "set_default": "Establece la nueva versión como predeterminada.",
+      "delete_version_id": "Id de la versión que se eliminará (reversión).",
+      "debug": "Salida detallada."
+    },
+    "observe": {
+      "help": "describe-thing / list-thing-principals.",
+      "thing_name": "Nombre del thing aprovisionado.",
+      "debug": "Salida detallada."
+    }
+  },
+  "operations": {
+    "attach_claim_policy_to_claim_certificate": "Asociar la política de reclamación al certificado de reclamación",
+    "create_claim_certificate": "Crear el certificado de reclamación",
+    "create_claim_policy": "Crear la política de reclamación",
+    "create_fleet_provisioning_template": "Crear la plantilla de aprovisionamiento de flota",
+    "create_provisioning_template_version": "Crear una versión de la plantilla de aprovisionamiento",
+    "delete_provisioning_template_version": "Eliminar una versión de la plantilla de aprovisionamiento",
+    "describe_thing": "Describir el thing",
+    "list_provisioning_template_versions": "Listar las versiones de la plantilla de aprovisionamiento",
+    "list_thing_principals": "Listar los principals del thing"
+  },
+  "operation_resources": {
+    "template_version": "{} v{}"
+  }
+}

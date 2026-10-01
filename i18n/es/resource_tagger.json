@@ -1,0 +1,28 @@
+{
+  "tagging": {
+    "success": "✅ Etiquetas aplicadas correctamente a {}",
+    "failed": "⚠️  No se pudieron aplicar etiquetas a {}: {}",
+    "warning_continue": "⚠️  El etiquetado no funcionó para {}, pero seguimos con la creación del recurso",
+    "invalid_schema": "⚠️  El esquema de etiquetas de {} no parece correcto",
+    "unsupported_type": "⚠️  Este tipo de recurso todavía no admite etiquetado: {}"
+  },
+  "debug": {
+    "applying_tags": "🔧 Agregando las etiquetas del taller a {} (tipo: {})",
+    "tags_applied": "✅ Etiquetas aplicadas: {}",
+    "tag_count": "📊 Se agregaron {} etiquetas a {}",
+    "using_api": "🔧 Usando la API {} para el etiquetado",
+    "tag_validation": "🔍 Comprobando el esquema de etiquetas...",
+    "tag_validation_passed": "✅ El esquema de etiquetas está bien",
+    "tag_validation_failed": "❌ La validación del esquema de etiquetas no se superó"
+  },
+  "summary": {
+    "resources_without_tags": "📊 Recursos creados sin etiquetas: {}",
+    "tag_failures": "⚠️  Problemas al aplicar etiquetas",
+    "total_failures": "Total de recursos sin etiquetas: {}",
+    "relying_on_naming": "ℹ️  No te preocupes: durante la limpieza estos recursos se identificarán por las convenciones de nomenclatura"
+  },
+  "module_info": {
+    "standalone_description": "Este módulo proporciona la funcionalidad de etiquetado de recursos.",
+    "standalone_usage": "Impórtalo en tus scripts para usar apply_workshop_tags()."
+  }
+}

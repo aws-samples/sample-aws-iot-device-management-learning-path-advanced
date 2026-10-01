@@ -1,0 +1,49 @@
+{
+  "warnings": {
+    "topic_rule_not_created": "⚠️  No se creó la regla de tema (consulta el error anterior)."
+  },
+  "errors": {
+    "handler_source_not_found": "❌ No se encontró el código fuente del handler: {}",
+    "dependency_install_failed": "❌ No se pudo empaquetar la dependencia cryptography: {}"
+  },
+  "status": {
+    "topic_rule_created": "✅ La regla de tema '{}' enruta {} al handler de JITR",
+    "handler_code_deployed": "✅ Código del handler de JITR desplegado en '{}'",
+    "certs_registered_header": "ℹ️  {} certificado(s) registrado(s) bajo la CA {}:",
+    "cert_line": "   - {}  status={}",
+    "thing_attributes": "ℹ️  Atributos del thing '{}': {}"
+  },
+  "cli": {
+    "description": "Gestiona los recursos de Just-in-Time Provisioning (JITP) y JITR.",
+    "register_ca": {
+      "help": "Registra la CA personalizada con la configuración de JITP.",
+      "role_arn": "ARN del rol de registro de JITP.",
+      "template_file": "Ruta del JSON de la plantilla de JITP.",
+      "ca_common_name": "Common name de la CA raíz.",
+      "debug": "Salida detallada."
+    },
+    "deploy_jitr_rule": {
+      "help": "Crea la regla de tema de JITR (create-topic-rule).",
+      "rule_name": "Nombre de la regla de tema.",
+      "function_arn": "ARN de la Lambda del handler de JITR.",
+      "debug": "Salida detallada."
+    },
+    "deploy_jitr_code": {
+      "help": "Despliega el código del handler de JITR (update-function-code).",
+      "function_name": "Nombre de la función del handler de JITR.",
+      "debug": "Salida detallada."
+    },
+    "observe": {
+      "help": "Observa los resultados del registro (list-certificates-by-ca / describe-thing).",
+      "ca_cert_id": "Id del certificado de CA.",
+      "thing_name": "Thing que se describirá.",
+      "debug": "Salida detallada."
+    }
+  },
+  "operations": {
+    "create_jitr_topic_rule": "Crear la regla de tema de JITR",
+    "deploy_jitr_handler_code": "Desplegar el código del handler de JITR",
+    "describe_thing": "Describir el thing",
+    "list_certificates_by_ca": "Listar los certificados por CA"
+  }
+}

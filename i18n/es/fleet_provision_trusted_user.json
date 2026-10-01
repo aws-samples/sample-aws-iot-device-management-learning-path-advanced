@@ -1,0 +1,75 @@
+{
+  "errors": {
+    "claim_create_failed": "❌ No se pudo crear la reclamación de aprovisionamiento — ¿tu identidad de IAM tiene iot:CreateProvisioningClaim limitado a esta plantilla?",
+    "provisioning_failed": "❌ El aprovisionamiento de flota no se completó: {}",
+    "provisioning_rejected": "Aprovisionamiento de flota rechazado en {}: {}",
+    "reply_timeout": "Se agotó el tiempo de espera de una respuesta en {}"
+  },
+  "status": {
+    "template_created": "✅ Plantilla de aprovisionamiento '{}' creada (habilitada)",
+    "template_no_hook": "   Sin pre-provisioning hook — el control lo ejerce la identidad de IAM limitada del usuario de confianza.",
+    "claim_minted": "🎟️  Reclamación de aprovisionamiento temporal emitida para la plantilla '{}'",
+    "saved_claim_files": "   Guardados {} / {}",
+    "claim_expires": "   Vence: {} (unos cinco minutos — aprovisiona ahora)",
+    "claim_note": "   Nota: este certificado de reclamación temporal NO aparece en list-certificates.",
+    "thing_info": "ℹ️  Thing '{}' type={} attributes={}",
+    "principal_line": "   - principal: {}",
+    "connecting_claim": "🔌 Conectando con el certificado de reclamación TEMPORAL a {} ...",
+    "extracted_cert": "🔑 Se extrajeron el certificado permanente ({}...) y el certificateOwnershipToken",
+    "saved_cert_key": "   Guardados {} / {}",
+    "extracted_cert_csr_note": "   (en la ruta CSR no se devuelve ninguna clave privada — el dispositivo conservó la suya)",
+    "saved_cert_csr": "   Guardado {} (reutiliza tu propia clave privada del paso de la CSR)",
+    "provisioned": "🎉 Dispositivo aprovisionado mediante usuario de confianza",
+    "provisioned_thing_name": "   thingName: {}",
+    "provisioned_device_config": "   deviceConfiguration: {}",
+    "provisioned_reconnect": "   Ahora reconecta con el certificado PERMANENTE ({}) para publicar telemetría — la reclamación temporal ya cumplió su función."
+  },
+  "mqtt": {
+    "subscribe": "📡 SUBSCRIBE {}",
+    "publish": "📨 PUBLISH → {}",
+    "received": "📥 RECIBIDO ← {}",
+    "publish_empty_payload": "   payload: {}   (cuerpo vacío — CreateKeysAndCertificate no recibe entrada)",
+    "publish_csr_payload": "   payload: {{ \"certificateSigningRequest\": <PEM de {}> }}"
+  },
+  "cli": {
+    "description": "Fleet Provisioning mediante usuario de confianza: plantilla, CreateProvisioningClaim, aprovisionamiento por MQTT.",
+    "create_template": {
+      "help": "Crea la plantilla de aprovisionamiento para usuario de confianza.",
+      "template_name": "Nombre de la plantilla.",
+      "provisioning_role_arn": "ARN del rol de aprovisionamiento de flota.",
+      "template_file": "Ruta del JSON de la plantilla.",
+      "debug": "Salida detallada."
+    },
+    "create_claim": {
+      "help": "Ejecuta CreateProvisioningClaim como usuario de confianza.",
+      "template_name": "Nombre de la plantilla.",
+      "claim_cert_out": "Ruta de salida del certificado de reclamación temporal.",
+      "claim_key_out": "Salida de la clave de reclamación temporal.",
+      "claim_pub_out": "Salida de la clave pública de reclamación temporal (opcional).",
+      "debug": "Salida detallada."
+    },
+    "provision": {
+      "help": "Ejecuta el intercambio MQTT de aprovisionamiento mediante usuario de confianza.",
+      "template_name": "Nombre de la plantilla.",
+      "claim_cert": "Ruta del certificado de reclamación temporal.",
+      "claim_key": "Ruta de la clave privada de reclamación temporal.",
+      "serial_number": "SerialNumber del dispositivo (nombre del thing).",
+      "device_type": "Parámetro DeviceType del dispositivo.",
+      "endpoint": "Endpoint iot:Data-ATS (se detecta automáticamente si se omite).",
+      "out_prefix": "Prefijo de salida para el certificado y la clave permanentes.",
+      "csr_file": "PEM de la CSR para usar CreateCertificateFromCsr (el dispositivo conserva su propia clave). Omítelo para usar CreateKeysAndCertificate.",
+      "debug": "Salida detallada."
+    },
+    "observe": {
+      "help": "describe-thing / list-thing-principals.",
+      "thing_name": "Nombre del thing aprovisionado.",
+      "debug": "Salida detallada."
+    }
+  },
+  "operations": {
+    "create_provisioning_claim_trusted_user": "Crear la reclamación de aprovisionamiento (usuario de confianza)",
+    "create_trusted_user_provisioning_template": "Crear la plantilla de aprovisionamiento para usuario de confianza",
+    "describe_thing": "Describir el thing",
+    "list_thing_principals": "Listar los principals del thing"
+  }
+}
