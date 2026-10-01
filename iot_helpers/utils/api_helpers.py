@@ -18,10 +18,51 @@ Multi-Account Registration) wraps AWS control-plane calls consistently.
 """
 
 import json
+import os
+import sys
 import time
 from typing import Any, Callable, Optional
 
 from botocore.exceptions import ClientError
+
+# Add the repository root to sys.path for the i18n imports (3 levels up from
+# iot_helpers/utils/api_helpers.py), the same way dependency_handler.py does.
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
+from i18n.language_selector import peek_language  # noqa: E402
+from i18n.loader import load_messages  # noqa: E402
+
+# --- i18n message catalog (i18n/en/api_helpers.json) -----------------------
+# Loaded lazily: scripts call set_language() from main() once the runtime
+# language is resolved (so a language picked from the interactive menu applies
+# here too). If set_language() is never called, the first message lookup loads
+# the catalog for peek_language(), which never shows the language menu.
+_messages = None
+
+
+def set_language(code=None):
+    """(Re)load this helper's message catalog for ``code`` (default: peek_language())."""
+    global _messages
+    _messages = load_messages("api_helpers", code or peek_language())
+
+
+def _get_message(key, *args):
+    """Resolve a nested dotted key with positional {} formatting; fall back to the key."""
+    if _messages is None:
+        set_language()
+    msg = _messages
+    for part in key.split("."):
+        if isinstance(msg, dict) and part in msg:
+            msg = msg[part]
+        else:
+            msg = key  # fall back to the raw key
+            break
+    if args and isinstance(msg, str):
+        return msg.format(*args)
+    return msg
+
 
 # Error codes that indicate the resource already exists and can be treated as a
 # non-fatal, idempotent outcome by workshop scripts.
@@ -62,7 +103,7 @@ def _redact(value):
         for key, val in value.items():
             if isinstance(key, str) and key.lower() in _SENSITIVE_FIELD_NAMES and isinstance(val, str):
                 first_line = val.strip().splitlines()[0] if val.strip() else ""
-                redacted[key] = f"{first_line} …(truncated, {len(val)} chars total)"
+                redacted[key] = _get_message("debug.truncated_value", first_line, len(val))
             else:
                 redacted[key] = _redact(val)
         return redacted
@@ -88,7 +129,8 @@ def safe_api_call(
     Args:
         func: The bound boto3 client method to invoke (e.g. ``iot_client.create_thing``).
         operation_name: Human-readable operation label used in log output
-            (e.g. "Create Thing").
+            (e.g. "Create Thing"). Callers pass an already-localized label
+            from their own catalog's "operations" category.
         resource_name: Human-readable resource label used in log output
             (e.g. the thing name).
         debug: When True, print the request parameters and the API response.
@@ -108,42 +150,43 @@ def safe_api_call(
     """
     try:
         if debug:
-            print(f"\n🔍 DEBUG: {operation_name} -> {resource_name}")
-            print(f"   API call: {func.__name__}")
-            print("   Input parameters:")
+            print(_get_message("debug.header", operation_name, resource_name))
+            print(_get_message("debug.api_call", func.__name__))
+            print(_get_message("debug.input_parameters"))
             print(json.dumps(_redact(kwargs), indent=2, default=str))
         else:
-            print(f"⚙️  {operation_name}: creating {resource_name}...")
+            print(_get_message("status.in_progress", operation_name, resource_name))
 
         response = func(**kwargs)
 
         if debug:
-            print("   API response:")
+            print(_get_message("debug.api_response"))
             print(json.dumps(_redact(response), indent=2, default=str))
 
-        print(f"✅ {operation_name}: {resource_name} ready")
+        print(_get_message("status.ready", operation_name, resource_name))
         time.sleep(RATE_LIMIT_SECONDS)  # Rate limiting  # nosemgrep: arbitrary-sleep
         return response
 
     except ClientError as e:
         error_code = e.response["Error"]["Code"]
         if error_code in ALREADY_EXISTS_ERROR_CODES:
-            print(f"ℹ️  {operation_name}: {resource_name} already exists, continuing")
+            print(_get_message("status.already_exists", operation_name, resource_name))
         else:
+            # The AWS error message itself is passed through untranslated.
             error_message = e.response["Error"]["Message"]
-            print(f"❌ {operation_name}: error creating {resource_name}: {error_message}")
+            print(_get_message("errors.api_error", operation_name, resource_name, error_message))
             if debug:
-                print("   Full error:")
+                print(_get_message("debug.full_error"))
                 print(json.dumps(_redact(e.response), indent=2, default=str))
         time.sleep(RATE_LIMIT_SECONDS)  # nosemgrep: arbitrary-sleep
         return None
 
     except Exception as e:  # noqa: BLE001 - workshop scripts degrade gracefully
-        print(f"❌ Error: {str(e)}")
+        print(_get_message("errors.unexpected", str(e)))
         if debug:
             import traceback
 
-            print("   Full traceback:")
+            print(_get_message("debug.full_traceback"))
             traceback.print_exc()
         time.sleep(RATE_LIMIT_SECONDS)  # nosemgrep: arbitrary-sleep
         return None

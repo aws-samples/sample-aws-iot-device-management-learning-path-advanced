@@ -1,7 +1,9 @@
 {
   "errors": {
     "claim_create_failed": "❌ Could not create the provisioning claim — is your IAM identity scoped to iot:CreateProvisioningClaim on this template?",
-    "provisioning_failed": "❌ Fleet provisioning did not complete: {}"
+    "provisioning_failed": "❌ Fleet provisioning did not complete: {}",
+    "provisioning_rejected": "Fleet provisioning rejected on {}: {}",
+    "reply_timeout": "Timed out waiting for a reply on {}"
   },
   "status": {
     "template_created": "✅ Provisioning template '{}' created (enabled)",
@@ -28,5 +30,46 @@
     "received": "📥 RECEIVED ← {}",
     "publish_empty_payload": "   payload: {}   (empty body — CreateKeysAndCertificate takes no input)",
     "publish_csr_payload": "   payload: {{ \"certificateSigningRequest\": <PEM from {}> }}"
+  },
+  "cli": {
+    "description": "Fleet Provisioning by Trusted User: template, CreateProvisioningClaim, MQTT provision.",
+    "create_template": {
+      "help": "Create trusted-user provisioning template.",
+      "template_name": "Template name.",
+      "provisioning_role_arn": "Fleet provisioning role ARN.",
+      "template_file": "Template JSON path.",
+      "debug": "Verbose output."
+    },
+    "create_claim": {
+      "help": "CreateProvisioningClaim as the trusted user.",
+      "template_name": "Template name.",
+      "claim_cert_out": "Temporary claim cert output path.",
+      "claim_key_out": "Temporary claim key output.",
+      "claim_pub_out": "Temporary claim public key output (optional).",
+      "debug": "Verbose output."
+    },
+    "provision": {
+      "help": "Run the trusted-user MQTT provisioning exchange.",
+      "template_name": "Template name.",
+      "claim_cert": "Temporary claim certificate path.",
+      "claim_key": "Temporary claim private key path.",
+      "serial_number": "Device SerialNumber (thing name).",
+      "device_type": "Device DeviceType parameter.",
+      "endpoint": "iot:Data-ATS endpoint (auto-discovered if omitted).",
+      "out_prefix": "Output prefix for the permanent cert/key.",
+      "csr_file": "CSR PEM to use CreateCertificateFromCsr (device keeps its own key). Omit to use CreateKeysAndCertificate.",
+      "debug": "Verbose output."
+    },
+    "observe": {
+      "help": "describe-thing / list-thing-principals.",
+      "thing_name": "Provisioned thing name.",
+      "debug": "Verbose output."
+    }
+  },
+  "operations": {
+    "create_provisioning_claim_trusted_user": "Create provisioning claim (trusted user)",
+    "create_trusted_user_provisioning_template": "Create trusted-user provisioning template",
+    "describe_thing": "Describe thing",
+    "list_thing_principals": "List thing principals"
   }
 }

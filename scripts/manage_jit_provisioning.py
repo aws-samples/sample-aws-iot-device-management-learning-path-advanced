@@ -63,7 +63,8 @@ sys.path.append(os.path.join(REPO_ROOT, "i18n"))
 import boto3  # noqa: E402
 
 from iot_helpers.utils.api_helpers import safe_api_call  # noqa: E402
-from language_selector import get_language  # noqa: E402
+from iot_helpers.utils.api_helpers import set_language as set_api_helpers_language  # noqa: E402
+from language_selector import get_language, peek_language  # noqa: E402
 from loader import load_messages  # noqa: E402
 
 # --- i18n message catalog + resolver -------------------------------------
@@ -73,6 +74,8 @@ from loader import load_messages  # noqa: E402
 # positional {} placeholders are filled via str.format(*args). It is defined
 # per-script on purpose (NOT centralized in loader.py).
 messages = {}
+# Runtime language resolved once in main(); reused so register-ca never prompts twice.
+language = None
 
 
 def get_message(key, *args):
@@ -115,7 +118,7 @@ def deploy_jitr_rule(rule_name, function_arn, debug=False):
 
     response = safe_api_call(
         iot.create_topic_rule,
-        "Create JITR topic rule",
+        get_message("operations.create_jitr_topic_rule"),
         rule_name,
         debug=debug,
         ruleName=rule_name,
@@ -164,7 +167,8 @@ def deploy_jitr_code(function_name, debug=False):
         sys.exit(1)
 
     with tempfile.TemporaryDirectory() as build_dir:
-        result = subprocess.run(  # nosec B603 B607 -- list args, no shell, fixed executable, presence assumed (pip ships with Python)
+        # sys.executable -m pip: fixed executable, list args, no shell (pip ships with Python).
+        result = subprocess.run(  # nosec B603 B607 -- list args, no shell, fixed executable
             [sys.executable, "-m", "pip", "install", "--quiet", "--target", build_dir] + CRYPTOGRAPHY_PIP_ARGS,
             capture_output=True,
             text=True,
@@ -190,7 +194,7 @@ def deploy_jitr_code(function_name, debug=False):
     lambda_client = boto3.client("lambda")
     response = safe_api_call(
         lambda_client.update_function_code,
-        "Deploy JITR handler code",
+        get_message("operations.deploy_jitr_handler_code"),
         function_name,
         debug=debug,
         FunctionName=function_name,
@@ -206,7 +210,7 @@ def observe(ca_cert_id, thing_name=None, debug=False):
 
     certs = safe_api_call(
         iot.list_certificates_by_ca,
-        "List certificates by CA",
+        get_message("operations.list_certificates_by_ca"),
         ca_cert_id,
         debug=debug,
         caCertificateId=ca_cert_id,
@@ -220,7 +224,7 @@ def observe(ca_cert_id, thing_name=None, debug=False):
     if thing_name:
         thing = safe_api_call(
             iot.describe_thing,
-            "Describe thing",
+            get_message("operations.describe_thing"),
             thing_name,
             debug=debug,
             thingName=thing_name,
@@ -241,41 +245,58 @@ def register_ca(args):
     """
     import register_custom_ca as register_custom_ca_module
 
-    register_custom_ca_module.messages = load_messages("register_custom_ca", get_language())
+    register_custom_ca_module.messages = load_messages("register_custom_ca", language)
     register_custom_ca_module.register_custom_ca(
         role_arn=args.role_arn,
         template_file=args.template_file or register_custom_ca_module.DEFAULT_TEMPLATE_FILE,
         ca_common_name=args.ca_common_name,
         debug=args.debug,
+        language=language,
     )
 
 
 def parse_arguments():
     """Parse command-line arguments."""
-    parser = argparse.ArgumentParser(description="Manage Just-in-Time Provisioning (JITP) and JITR resources.")
+
+    # Help text comes from the "cli" category of this script's catalog. It is
+    # loaded with peek_language() -- which never prompts -- because the parser is
+    # built before the runtime language is chosen, so --help never shows the
+    # interactive language menu. The runtime ``messages`` catalog is still
+    # loaded in main() exactly as before.
+    help_messages = load_messages("manage_jit_provisioning", peek_language())
+
+    def cli(key):
+        """Resolve a nested ``cli.*`` help string; fall back to the raw key."""
+        msg = help_messages.get("cli", {})
+        for part in key.split("."):
+            if isinstance(msg, dict) and part in msg:
+                msg = msg[part]
+            else:
+                return "cli." + key
+        return msg
+
+    parser = argparse.ArgumentParser(description=cli("description"))
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    ca_parser = subparsers.add_parser("register-ca", help="Register the custom CA with JITP config.")
-    ca_parser.add_argument("--role-arn", required=True, help="JITP registration role ARN.")
-    ca_parser.add_argument("--template-file", default=None, help="JITP template JSON path.")
-    ca_parser.add_argument("--ca-common-name", default="AnyCompany Device Root CA", help="Root CA common name.")
-    ca_parser.add_argument("--debug", action="store_true", help="Verbose output.")
+    ca_parser = subparsers.add_parser("register-ca", help=cli("register_ca.help"))
+    ca_parser.add_argument("--role-arn", required=True, help=cli("register_ca.role_arn"))
+    ca_parser.add_argument("--template-file", default=None, help=cli("register_ca.template_file"))
+    ca_parser.add_argument("--ca-common-name", default="AnyCompany Device Root CA", help=cli("register_ca.ca_common_name"))
+    ca_parser.add_argument("--debug", action="store_true", help=cli("register_ca.debug"))
 
-    rule_parser = subparsers.add_parser("deploy-jitr-rule", help="Create the JITR topic rule (create-topic-rule).")
-    rule_parser.add_argument("--rule-name", default="JITRRegistrationRule", help="Topic rule name.")
-    rule_parser.add_argument("--function-arn", required=True, help="JITR handler Lambda ARN.")
-    rule_parser.add_argument("--debug", action="store_true", help="Verbose output.")
+    rule_parser = subparsers.add_parser("deploy-jitr-rule", help=cli("deploy_jitr_rule.help"))
+    rule_parser.add_argument("--rule-name", default="JITRRegistrationRule", help=cli("deploy_jitr_rule.rule_name"))
+    rule_parser.add_argument("--function-arn", required=True, help=cli("deploy_jitr_rule.function_arn"))
+    rule_parser.add_argument("--debug", action="store_true", help=cli("deploy_jitr_rule.debug"))
 
-    code_parser = subparsers.add_parser("deploy-jitr-code", help="Deploy the JITR handler code (update-function-code).")
-    code_parser.add_argument("--function-name", required=True, help="JITR handler function name.")
-    code_parser.add_argument("--debug", action="store_true", help="Verbose output.")
+    code_parser = subparsers.add_parser("deploy-jitr-code", help=cli("deploy_jitr_code.help"))
+    code_parser.add_argument("--function-name", required=True, help=cli("deploy_jitr_code.function_name"))
+    code_parser.add_argument("--debug", action="store_true", help=cli("deploy_jitr_code.debug"))
 
-    observe_parser = subparsers.add_parser(
-        "observe", help="Observe registration results (list-certificates-by-ca / describe-thing)."
-    )
-    observe_parser.add_argument("--ca-cert-id", required=True, help="CA certificate id.")
-    observe_parser.add_argument("--thing-name", default=None, help="Thing to describe.")
-    observe_parser.add_argument("--debug", action="store_true", help="Verbose output.")
+    observe_parser = subparsers.add_parser("observe", help=cli("observe.help"))
+    observe_parser.add_argument("--ca-cert-id", required=True, help=cli("observe.ca_cert_id"))
+    observe_parser.add_argument("--thing-name", default=None, help=cli("observe.thing_name"))
+    observe_parser.add_argument("--debug", action="store_true", help=cli("observe.debug"))
 
     return parser.parse_args()
 
@@ -285,8 +306,11 @@ def main():
 
     # Load the localized message catalog once, before any user-facing print.
     # (Placed after argument parsing so --help stays free of the language menu.)
-    global messages
-    messages = load_messages("manage_jit_provisioning", get_language())
+    global messages, language
+    language = get_language()
+    messages = load_messages("manage_jit_provisioning", language)
+    # Apply the same runtime language to the shared helpers' own catalogs.
+    set_api_helpers_language(language)
 
     if args.command == "register-ca":
         register_ca(args)

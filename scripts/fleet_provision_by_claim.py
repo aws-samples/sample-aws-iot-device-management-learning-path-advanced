@@ -71,11 +71,13 @@ sys.path.append(os.path.join(REPO_ROOT, "i18n"))
 import boto3  # noqa: E402
 
 from iot_helpers.utils.api_helpers import safe_api_call  # noqa: E402
+from iot_helpers.utils.api_helpers import set_language as set_api_helpers_language  # noqa: E402
 from iot_helpers.utils.device_simulator import (  # noqa: E402
     DeviceConnection,
     get_iot_endpoint,
 )
-from language_selector import get_language  # noqa: E402
+from iot_helpers.utils.device_simulator import set_language as set_device_simulator_language  # noqa: E402
+from language_selector import get_language, peek_language  # noqa: E402
 from loader import load_messages  # noqa: E402
 
 # --- i18n message catalog + resolver -------------------------------------
@@ -177,7 +179,7 @@ def create_claim(policy_name, policy_file, claim_cert_out, claim_key_out, claim_
     # 1) Create the claim key pair + certificate (the shared bootstrap identity).
     created = safe_api_call(
         iot.create_keys_and_certificate,
-        "Create claim certificate",
+        get_message("operations.create_claim_certificate"),
         "claim-certificate",
         debug=debug,
         setAsActive=True,
@@ -202,7 +204,7 @@ def create_claim(policy_name, policy_file, claim_cert_out, claim_key_out, claim_
         policy_document = handle.read()
     safe_api_call(
         iot.create_policy,
-        "Create claim policy",
+        get_message("operations.create_claim_policy"),
         policy_name,
         debug=debug,
         policyName=policy_name,
@@ -212,7 +214,7 @@ def create_claim(policy_name, policy_file, claim_cert_out, claim_key_out, claim_
     # 3) Attach the claim policy to the claim certificate.
     safe_api_call(
         iot.attach_policy,
-        "Attach claim policy to claim certificate",
+        get_message("operations.attach_claim_policy_to_claim_certificate"),
         policy_name,
         debug=debug,
         policyName=policy_name,
@@ -253,7 +255,7 @@ def create_template(template_name, provisioning_role_arn, template_file, hook_ar
 
     response = safe_api_call(
         iot.create_provisioning_template,
-        "Create fleet provisioning template",
+        get_message("operations.create_fleet_provisioning_template"),
         template_name,
         debug=debug,
         **kwargs,
@@ -274,7 +276,7 @@ def manage_versions(
     if list_versions:
         response = safe_api_call(
             iot.list_provisioning_template_versions,
-            "List provisioning template versions",
+            get_message("operations.list_provisioning_template_versions"),
             template_name,
             debug=debug,
             templateName=template_name,
@@ -287,7 +289,7 @@ def manage_versions(
     if new_version_file:
         response = safe_api_call(
             iot.create_provisioning_template_version,
-            "Create provisioning template version",
+            get_message("operations.create_provisioning_template_version"),
             template_name,
             debug=debug,
             templateName=template_name,
@@ -301,8 +303,8 @@ def manage_versions(
     if delete_version_id is not None:
         safe_api_call(
             iot.delete_provisioning_template_version,
-            "Delete provisioning template version",
-            f"{template_name} v{delete_version_id}",
+            get_message("operations.delete_provisioning_template_version"),
+            get_message("operation_resources.template_version", template_name, delete_version_id),
             debug=debug,
             templateName=template_name,
             versionId=int(delete_version_id),
@@ -316,7 +318,7 @@ def observe(thing_name, debug=False):
 
     thing = safe_api_call(
         iot.describe_thing,
-        "Describe thing",
+        get_message("operations.describe_thing"),
         thing_name,
         debug=debug,
         thingName=thing_name,
@@ -328,7 +330,7 @@ def observe(thing_name, debug=False):
 
     principals = safe_api_call(
         iot.list_thing_principals,
-        "List thing principals",
+        get_message("operations.list_thing_principals"),
         thing_name,
         debug=debug,
         thingName=thing_name,
@@ -353,10 +355,10 @@ def _wait_for(device, accepted_topic, rejected_topic, timeout=20):
                     return message["payload"]
                 if message["topic"] == rejected_topic:
                     raise RuntimeError(
-                        f"Fleet provisioning rejected on {rejected_topic}: " f"{json.dumps(message['payload'])}"
+                        get_message("errors.provisioning_rejected", rejected_topic, json.dumps(message["payload"]))
                     )
         time.sleep(0.25)  # nosemgrep: arbitrary-sleep
-    raise TimeoutError(f"Timed out waiting for a reply on {accepted_topic}")
+    raise TimeoutError(get_message("errors.reply_timeout", accepted_topic))
 
 
 def _create_keys_and_certificate(device, out_prefix):
@@ -492,54 +494,68 @@ def provision(
 
 def parse_arguments():
     """Parse command-line arguments."""
-    parser = argparse.ArgumentParser(
-        description="Fleet Provisioning by Claim: claim cert, template, versioning, MQTT provision."
-    )
+
+    # Help text comes from the "cli" category of this script's catalog. It is
+    # loaded with peek_language() -- which never prompts -- because the parser is
+    # built before the runtime language is chosen, so --help never shows the
+    # interactive language menu. The runtime ``messages`` catalog is still
+    # loaded in main() exactly as before.
+    help_messages = load_messages("fleet_provision_by_claim", peek_language())
+
+    def cli(key):
+        """Resolve a nested ``cli.*`` help string; fall back to the raw key."""
+        msg = help_messages.get("cli", {})
+        for part in key.split("."):
+            if isinstance(msg, dict) and part in msg:
+                msg = msg[part]
+            else:
+                return "cli." + key
+        return msg
+
+    parser = argparse.ArgumentParser(description=cli("description"))
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    claim = subparsers.add_parser("create-claim", help="Create claim cert + scoped policy.")
-    claim.add_argument("--policy-name", default="FleetClaimPolicy", help="Claim policy name.")
-    claim.add_argument("--policy-file", default=DEFAULT_CLAIM_POLICY_FILE, help="Claim policy JSON.")
-    claim.add_argument("--claim-cert-out", default="claim.pem", help="Claim cert output path.")
-    claim.add_argument("--claim-key-out", default="claim.private.key", help="Claim key output.")
-    claim.add_argument("--claim-pub-out", default="claim.public.key", help="Claim public key output.")
-    claim.add_argument("--debug", action="store_true", help="Verbose output.")
+    claim = subparsers.add_parser("create-claim", help=cli("create_claim.help"))
+    claim.add_argument("--policy-name", default="FleetClaimPolicy", help=cli("create_claim.policy_name"))
+    claim.add_argument("--policy-file", default=DEFAULT_CLAIM_POLICY_FILE, help=cli("create_claim.policy_file"))
+    claim.add_argument("--claim-cert-out", default="claim.pem", help=cli("create_claim.claim_cert_out"))
+    claim.add_argument("--claim-key-out", default="claim.private.key", help=cli("create_claim.claim_key_out"))
+    claim.add_argument("--claim-pub-out", default="claim.public.key", help=cli("create_claim.claim_pub_out"))
+    claim.add_argument("--debug", action="store_true", help=cli("create_claim.debug"))
 
-    template = subparsers.add_parser("create-template", help="Create fleet provisioning template.")
-    template.add_argument("--template-name", default="FleetClaimTemplate", help="Template name.")
-    template.add_argument("--provisioning-role-arn", required=True, help="Fleet provisioning role ARN.")
-    template.add_argument("--template-file", default=DEFAULT_TEMPLATE_FILE, help="Template JSON path.")
-    template.add_argument("--hook-arn", default=None, help="Pre-provisioning hook Lambda ARN.")
-    template.add_argument("--debug", action="store_true", help="Verbose output.")
+    template = subparsers.add_parser("create-template", help=cli("create_template.help"))
+    template.add_argument("--template-name", default="FleetClaimTemplate", help=cli("create_template.template_name"))
+    template.add_argument("--provisioning-role-arn", required=True, help=cli("create_template.provisioning_role_arn"))
+    template.add_argument("--template-file", default=DEFAULT_TEMPLATE_FILE, help=cli("create_template.template_file"))
+    template.add_argument("--hook-arn", default=None, help=cli("create_template.hook_arn"))
+    template.add_argument("--debug", action="store_true", help=cli("create_template.debug"))
 
-    prov = subparsers.add_parser("provision", help="Run the claim-based MQTT provisioning exchange.")
-    prov.add_argument("--template-name", default="FleetClaimTemplate", help="Template name.")
-    prov.add_argument("--claim-cert", default="claim.pem", help="Claim certificate path.")
-    prov.add_argument("--claim-key", default="claim.private.key", help="Claim private key path.")
-    prov.add_argument("--serial-number", required=True, help="Device SerialNumber (thing name).")
-    prov.add_argument("--model-type", default="SedanVehicle", help="Device ModelType parameter.")
-    prov.add_argument("--endpoint", default=None, help="iot:Data-ATS endpoint (auto-discovered if omitted).")
-    prov.add_argument("--out-prefix", default=None, help="Output prefix for the permanent cert/key.")
+    prov = subparsers.add_parser("provision", help=cli("provision.help"))
+    prov.add_argument("--template-name", default="FleetClaimTemplate", help=cli("provision.template_name"))
+    prov.add_argument("--claim-cert", default="claim.pem", help=cli("provision.claim_cert"))
+    prov.add_argument("--claim-key", default="claim.private.key", help=cli("provision.claim_key"))
+    prov.add_argument("--serial-number", required=True, help=cli("provision.serial_number"))
+    prov.add_argument("--model-type", default="SedanVehicle", help=cli("provision.model_type"))
+    prov.add_argument("--endpoint", default=None, help=cli("provision.endpoint"))
+    prov.add_argument("--out-prefix", default=None, help=cli("provision.out_prefix"))
     prov.add_argument(
         "--csr-file",
         default=None,
-        help="CSR PEM to use CreateCertificateFromCsr (device keeps its own key). "
-        "Omit to use CreateKeysAndCertificate. This is the path the "
-        "optional certificate-provider lab exercises.",
+        help=cli("provision.csr_file"),
     )
-    prov.add_argument("--debug", action="store_true", help="Verbose output.")
+    prov.add_argument("--debug", action="store_true", help=cli("provision.debug"))
 
-    versions = subparsers.add_parser("versions", help="Manage provisioning template versions.")
-    versions.add_argument("--template-name", default="FleetClaimTemplate", help="Template name.")
-    versions.add_argument("--list", action="store_true", help="List versions.")
-    versions.add_argument("--new-version-file", default=None, help="New template body JSON to add.")
-    versions.add_argument("--set-default", action="store_true", help="Set the new version as default.")
-    versions.add_argument("--delete-version-id", default=None, help="Version id to delete (rollback).")
-    versions.add_argument("--debug", action="store_true", help="Verbose output.")
+    versions = subparsers.add_parser("versions", help=cli("versions.help"))
+    versions.add_argument("--template-name", default="FleetClaimTemplate", help=cli("versions.template_name"))
+    versions.add_argument("--list", action="store_true", help=cli("versions.list"))
+    versions.add_argument("--new-version-file", default=None, help=cli("versions.new_version_file"))
+    versions.add_argument("--set-default", action="store_true", help=cli("versions.set_default"))
+    versions.add_argument("--delete-version-id", default=None, help=cli("versions.delete_version_id"))
+    versions.add_argument("--debug", action="store_true", help=cli("versions.debug"))
 
-    observe_parser = subparsers.add_parser("observe", help="describe-thing / list-thing-principals.")
-    observe_parser.add_argument("--thing-name", required=True, help="Provisioned thing name.")
-    observe_parser.add_argument("--debug", action="store_true", help="Verbose output.")
+    observe_parser = subparsers.add_parser("observe", help=cli("observe.help"))
+    observe_parser.add_argument("--thing-name", required=True, help=cli("observe.thing_name"))
+    observe_parser.add_argument("--debug", action="store_true", help=cli("observe.debug"))
 
     return parser.parse_args()
 
@@ -550,7 +566,11 @@ def main():
     # Load the localized message catalog once, before any user-facing print.
     # (Placed after argument parsing so --help stays free of the language menu.)
     global messages
-    messages = load_messages("fleet_provision_by_claim", get_language())
+    language = get_language()
+    messages = load_messages("fleet_provision_by_claim", language)
+    # Apply the same runtime language to the shared helpers' own catalogs.
+    set_api_helpers_language(language)
+    set_device_simulator_language(language)
 
     if args.command == "create-claim":
         create_claim(

@@ -6,7 +6,8 @@
     "openssl_failed": "❌ OpenSSL failed: {}",
     "no_registration_code": "❌ Could not obtain a registration code",
     "registration_failed": "❌ CA registration failed",
-    "ca_common_name_invalid_chars": "❌ --ca-common-name can only contain letters, numbers, spaces, hyphens, underscores, and periods"
+    "ca_common_name_invalid_chars": "❌ --ca-common-name can only contain letters, numbers, spaces, hyphens, underscores, and periods",
+    "openssl_command_failed": "OpenSSL command failed"
   },
   "status": {
     "reusing_root_ca": "ℹ️  Reusing existing root CA ({})",
@@ -19,5 +20,16 @@
     "registered_title": "🎉 Custom CA registered with Just-in-Time Provisioning enabled",
     "ca_certificate_id": "   CA certificate id: {}",
     "verify_hint": "   Verify with: aws iot describe-ca-certificate --certificate-id {}"
+  },
+  "cli": {
+    "description": "Register a custom Certificate Authority with AWS IoT Core and enable Just-in-Time Provisioning (JITP).",
+    "role_arn": "ARN of the JITP registration role (the base stack output 'JitpRegistrationRoleArn').",
+    "template_file": "Path to the JITP provisioning template JSON (default: bundled jitp-template.json).",
+    "ca_common_name": "Common name for the self-signed root CA (workshop only).",
+    "debug": "Print API request/response detail and OpenSSL commands."
+  },
+  "operations": {
+    "get_ca_registration_code": "Get CA registration code",
+    "register_custom_ca_jitp": "Register custom CA (JITP)"
   }
 }

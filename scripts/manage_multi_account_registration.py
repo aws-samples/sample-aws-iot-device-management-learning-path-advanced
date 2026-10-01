@@ -95,8 +95,10 @@ sys.path.append(os.path.join(REPO_ROOT, "i18n"))
 import boto3  # noqa: E402
 
 from iot_helpers.utils.api_helpers import safe_api_call  # noqa: E402
+from iot_helpers.utils.api_helpers import set_language as set_api_helpers_language  # noqa: E402
 from iot_helpers.utils.device_simulator import DeviceConnection  # noqa: E402
-from language_selector import get_language  # noqa: E402
+from iot_helpers.utils.device_simulator import set_language as set_device_simulator_language  # noqa: E402
+from language_selector import get_language, peek_language  # noqa: E402
 from loader import load_messages  # noqa: E402
 
 # --- i18n message catalog + resolver -------------------------------------
@@ -177,8 +179,8 @@ def register_without_ca(certificate_pem, region, policy_name=None, policy_docume
 
     response = safe_api_call(
         iot.register_certificate_without_ca,
-        "Register certificate without CA (MAR)",
-        f"certificate in {region}",
+        get_message("operations.register_certificate_without_ca_mar"),
+        get_message("operation_resources.certificate_in_region", region),
         debug=debug,
         certificatePem=_read_pem(certificate_pem),
         status="ACTIVE",
@@ -204,7 +206,7 @@ def register_without_ca(certificate_pem, region, policy_name=None, policy_docume
         if policy_document:
             safe_api_call(
                 iot.create_policy,
-                "Create destination device policy",
+                get_message("operations.create_destination_device_policy"),
                 policy_name,
                 debug=debug,
                 policyName=policy_name,
@@ -212,7 +214,7 @@ def register_without_ca(certificate_pem, region, policy_name=None, policy_docume
             )
         safe_api_call(
             iot.attach_policy,
-            "Attach device policy to moved certificate",
+            get_message("operations.attach_device_policy_to_moved_certificate"),
             policy_name,
             debug=debug,
             policyName=policy_name,
@@ -222,14 +224,14 @@ def register_without_ca(certificate_pem, region, policy_name=None, policy_docume
     if thing_name:
         safe_api_call(
             iot.create_thing,
-            "Create thing in destination Region",
+            get_message("operations.create_thing_in_destination_region"),
             thing_name,
             debug=debug,
             thingName=thing_name,
         )
         safe_api_call(
             iot.attach_thing_principal,
-            "Attach moved certificate to thing",
+            get_message("operations.attach_moved_certificate_to_thing"),
             thing_name,
             debug=debug,
             thingName=thing_name,
@@ -257,8 +259,8 @@ def register_ca_sni(ca_certificate, region, debug=False):
 
     response = safe_api_call(
         iot.register_ca_certificate,
-        "Register CA in SNI_ONLY (multi-account) mode",
-        f"CA in {region}",
+        get_message("operations.register_ca_in_sni_only_multi_account_mode"),
+        get_message("operation_resources.ca_in_region", region),
         debug=debug,
         caCertificate=_read_pem(ca_certificate),
         certificateMode="SNI_ONLY",
@@ -288,7 +290,7 @@ def get_endpoint(region, debug=False):
     iot = _iot_client(region)
     response = safe_api_call(
         iot.describe_endpoint,
-        "Describe iot:Data-ATS endpoint",
+        get_message("operations.describe_iot_data_ats_endpoint"),
         region,
         debug=debug,
         endpointType="iot:Data-ATS",
@@ -345,45 +347,58 @@ def move(region, cert, key, thing_name, endpoint=None, message_count=5, debug=Fa
 
 def parse_arguments():
     """Parse command-line arguments."""
-    parser = argparse.ArgumentParser(
-        description=(
-            "Multi-Account Registration (MAR): register an existing certificate in a "
-            "destination Region and reconnect the same certificate to that Region's endpoint."
-        )
-    )
+
+    # Help text comes from the "cli" category of this script's catalog. It is
+    # loaded with peek_language() -- which never prompts -- because the parser is
+    # built before the runtime language is chosen, so --help never shows the
+    # interactive language menu. The runtime ``messages`` catalog is still
+    # loaded in main() exactly as before.
+    help_messages = load_messages("manage_multi_account_registration", peek_language())
+
+    def cli(key):
+        """Resolve a nested ``cli.*`` help string; fall back to the raw key."""
+        msg = help_messages.get("cli", {})
+        for part in key.split("."):
+            if isinstance(msg, dict) and part in msg:
+                msg = msg[part]
+            else:
+                return "cli." + key
+        return msg
+
+    parser = argparse.ArgumentParser(description=cli("description"))
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     reg = subparsers.add_parser(
         "register-without-ca",
-        help="Register an existing device certificate in the destination Region (no CA).",
+        help=cli("register_without_ca.help"),
     )
-    reg.add_argument("--region", required=True, help="Destination (production stand-in) Region.")
-    reg.add_argument("--certificate-pem", required=True, help="Path to the device certificate PEM.")
-    reg.add_argument("--policy-name", default=None, help="Device policy to create/attach in the destination.")
-    reg.add_argument("--policy-document", default=None, help="Policy JSON to create (if --policy-name is new).")
-    reg.add_argument("--thing-name", default=None, help="Optional thing to create + attach in the destination.")
-    reg.add_argument("--debug", action="store_true", help="Verbose output.")
+    reg.add_argument("--region", required=True, help=cli("register_without_ca.region"))
+    reg.add_argument("--certificate-pem", required=True, help=cli("register_without_ca.certificate_pem"))
+    reg.add_argument("--policy-name", default=None, help=cli("register_without_ca.policy_name"))
+    reg.add_argument("--policy-document", default=None, help=cli("register_without_ca.policy_document"))
+    reg.add_argument("--thing-name", default=None, help=cli("register_without_ca.thing_name"))
+    reg.add_argument("--debug", action="store_true", help=cli("register_without_ca.debug"))
 
     ca = subparsers.add_parser(
         "register-ca-sni",
-        help="Register a CA in SNI_ONLY (multi-account) mode in the destination Region.",
+        help=cli("register_ca_sni.help"),
     )
-    ca.add_argument("--region", required=True, help="Destination (production stand-in) Region.")
-    ca.add_argument("--ca-certificate", required=True, help="Path to the CA certificate PEM.")
-    ca.add_argument("--debug", action="store_true", help="Verbose output.")
+    ca.add_argument("--region", required=True, help=cli("register_ca_sni.region"))
+    ca.add_argument("--ca-certificate", required=True, help=cli("register_ca_sni.ca_certificate"))
+    ca.add_argument("--debug", action="store_true", help=cli("register_ca_sni.debug"))
 
-    ep = subparsers.add_parser("endpoint", help="describe-endpoint --endpoint-type iot:Data-ATS for a Region.")
-    ep.add_argument("--region", required=True, help="Region to describe the data endpoint for.")
-    ep.add_argument("--debug", action="store_true", help="Verbose output.")
+    ep = subparsers.add_parser("endpoint", help=cli("endpoint.help"))
+    ep.add_argument("--region", required=True, help=cli("endpoint.region"))
+    ep.add_argument("--debug", action="store_true", help=cli("endpoint.debug"))
 
-    mv = subparsers.add_parser("move", help="Reconnect the same certificate to the destination endpoint.")
-    mv.add_argument("--region", required=True, help="Destination (production stand-in) Region.")
-    mv.add_argument("--thing-name", required=True, help="Device/thing name (used as the MQTT client id).")
-    mv.add_argument("--cert", required=True, help="Path to the SAME device certificate PEM.")
-    mv.add_argument("--key", required=True, help="Path to the SAME device private key.")
-    mv.add_argument("--endpoint", default=None, help="Destination endpoint (auto-discovered if omitted).")
-    mv.add_argument("--message-count", type=int, default=5, help="Telemetry messages to publish.")
-    mv.add_argument("--debug", action="store_true", help="Verbose output.")
+    mv = subparsers.add_parser("move", help=cli("move.help"))
+    mv.add_argument("--region", required=True, help=cli("move.region"))
+    mv.add_argument("--thing-name", required=True, help=cli("move.thing_name"))
+    mv.add_argument("--cert", required=True, help=cli("move.cert"))
+    mv.add_argument("--key", required=True, help=cli("move.key"))
+    mv.add_argument("--endpoint", default=None, help=cli("move.endpoint"))
+    mv.add_argument("--message-count", type=int, default=5, help=cli("move.message_count"))
+    mv.add_argument("--debug", action="store_true", help=cli("move.debug"))
 
     return parser.parse_args()
 
@@ -394,7 +409,11 @@ def main():
     # Load the localized message catalog once, before any user-facing print.
     # (Placed after argument parsing so --help stays free of the language menu.)
     global messages
-    messages = load_messages("manage_multi_account_registration", get_language())
+    language = get_language()
+    messages = load_messages("manage_multi_account_registration", language)
+    # Apply the same runtime language to the shared helpers' own catalogs.
+    set_api_helpers_language(language)
+    set_device_simulator_language(language)
 
     if args.command == "register-without-ca":
         register_without_ca(

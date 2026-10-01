@@ -10,7 +10,8 @@
     "failed": "Could not connect with the {} certificate: {}",
     "refused_terminal": "The {} certificate was REFUSED by the broker: reason_code={}. This is an authorization failure, so retrying cannot help - giving up immediately.",
     "refused_retry": "  the {} certificate could not connect (reason_code={}), attempt {}/{} - retrying in {}s ...",
-    "refused_exhausted": "The {} certificate could not connect after {} attempts."
+    "refused_exhausted": "The {} certificate could not connect after {} attempts.",
+    "no_connack": "no CONNACK within 30s"
   },
   "wire": {
     "sub": "     SUB      {}",
@@ -97,5 +98,23 @@
       "cli": "  CLI:     Use the OTHER certificate id you saw at OBSERVE 2 - the one that is not the new certificate:\n             aws iot describe-certificate --certificate-id <thatId> \\\n               --query \"certificateDescription.status\"   (expect: INACTIVE)",
       "scheduler": "  CLI:     aws scheduler list-schedules --name-prefix ws-aws-iot-dm-adv-prov-revoke- \\\n               --query \"Schedules[].[Name,State]\"\n             The one-time deletion timer. Its name ends with the first 16 characters of the retired certificate id."
     }
+  },
+  "cli": {
+    "description": "Run the device half of a backend-driven certificate rotation.",
+    "endpoint": "iot:Data-ATS endpoint",
+    "thing_name": "Thing being rotated",
+    "cert": "Current certificate PEM",
+    "key": "Current private key",
+    "ca": "Amazon root CA file",
+    "telemetry_topic": "Topic used to prove the new certificate is authorized",
+    "request_rule": "Name of the topic rule that receives the certificate signing request. The request is published over Basic Ingest ($aws/rules/<rule>/devices/<thing>/certificate/rotation/request) so it reaches the rules engine without a messaging charge. Must match the rule you created, or the publish is dropped and RuleNotFound is emitted",
+    "job_timeout": "Seconds to wait for a pending job execution",
+    "cert_timeout": "Seconds to wait for the signed certificate",
+    "no_rollback": "Do not fall back to the current certificate when the cutover fails",
+    "connect_retries": "Attempts to connect with the new certificate before giving up. An authorization failure (CONNACK NOT_AUTHORIZED) is never retried, because retrying cannot change it",
+    "connect_backoff": "Base seconds between connect attempts; doubles after each attempt",
+    "pause": "Pause at each observable step so you can inspect the job execution, the certificate overlap and the deferred retirement before continuing",
+    "break_after_csr": "Exit immediately after sending the certificate signing request, before waiting for the signed reply — a deterministic stand-in for a device that restarts in that gap. Re-run WITHOUT this flag afterwards: a fresh process generates a new key pair and asks again, which is what makes the handler sign a second certificate (`resigning`) instead of re-delivering the first one",
+    "in_progress_timeout": "Minutes the job allows an execution to stay IN_PROGRESS; used to warn how long you may pause before the execution is marked TIMED_OUT"
   }
 }

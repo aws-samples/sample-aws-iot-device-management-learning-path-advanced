@@ -48,6 +48,8 @@ Runs on top of the ``aws-iot-device-sdk-python-v2`` package (declared in
 """
 
 import json
+import os
+import sys
 import threading
 import uuid
 import concurrent.futures
@@ -57,6 +59,45 @@ from datetime import datetime
 import boto3
 from awscrt import mqtt5
 from awsiot import mqtt5_client_builder
+
+# Add the repository root to sys.path for the i18n imports (3 levels up from
+# iot_helpers/utils/device_simulator.py), the same way dependency_handler.py does.
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
+from i18n.language_selector import peek_language  # noqa: E402
+from i18n.loader import load_messages  # noqa: E402
+
+# --- i18n message catalog (i18n/en/device_simulator.json) ------------------
+# Loaded lazily: scripts call set_language() from main() once the runtime
+# language is resolved (so a language picked from the interactive menu applies
+# here too). If set_language() is never called, the first message lookup loads
+# the catalog for peek_language(), which never shows the language menu.
+_messages = None
+
+
+def set_language(code=None):
+    """(Re)load this helper's message catalog for ``code`` (default: peek_language())."""
+    global _messages
+    _messages = load_messages("device_simulator", code or peek_language())
+
+
+def _get_message(key, *args):
+    """Resolve a nested dotted key with positional {} formatting; fall back to the key."""
+    if _messages is None:
+        set_language()
+    msg = _messages
+    for part in key.split("."):
+        if isinstance(msg, dict) and part in msg:
+            msg = msg[part]
+        else:
+            msg = key  # fall back to the raw key
+            break
+    if args and isinstance(msg, str):
+        return msg.format(*args)
+    return msg
+
 
 # How long to wait for a CONNACK / SUBACK / PUBACK before giving up. The MQTT 5
 # client signals connection outcome through lifecycle callbacks rather than a
@@ -126,11 +167,11 @@ def get_iot_endpoint(debug=False):
     """
     iot = boto3.client("iot")
     if debug:
-        print("🔄 describe_endpoint(endpointType='iot:Data-ATS')")
+        print(_get_message("debug.describe_endpoint", "iot:Data-ATS"))
     response = iot.describe_endpoint(endpointType="iot:Data-ATS")
     endpoint = response["endpointAddress"]
     if debug:
-        print(f"📤 endpoint: {endpoint}")
+        print(_get_message("debug.endpoint_resolved", endpoint))
     return endpoint
 
 
@@ -183,9 +224,11 @@ class DeviceConnection:
         # "connection resumed" moment. If the session was not rejoined, the
         # broker has no record of our subscriptions and they must be replaced.
         print(
-            f"\n🔄 MQTT connection resumed "
-            f"(reason_code={reason_code_name(self.connect_reason_code)}, "
-            f"rejoined_session={self.rejoined_session})"
+            _get_message(
+                "callbacks.resumed",
+                reason_code_name(self.connect_reason_code),
+                self.rejoined_session,
+            )
         )
         if not self.rejoined_session and self.subscriptions:
             # _subscribe_once() blocks on .result() waiting for the SUBACK
@@ -210,7 +253,7 @@ class DeviceConnection:
             try:
                 self._subscribe_once(topic, info["qos"])
             except Exception as error:  # noqa: BLE001 - keep the others
-                print(f"❌ Failed to re-subscribe to {topic}: {error}")
+                print(_get_message("errors.resubscribe_failed", topic, error))
                 self.subscriptions.pop(topic, None)
 
     def _on_lifecycle_connection_failure(self, data):
@@ -223,7 +266,7 @@ class DeviceConnection:
         if self._connect_result is not None and not self._connect_result.done():
             self._connect_result.set_exception(
                 ConnectFailed(
-                    f"connection refused: reason_code={reason_code_name(reason_code)}" f" exception={data.exception}",
+                    _get_message("errors.connection_refused", reason_code_name(reason_code), data.exception),
                     reason_code=reason_code,
                     cause=data.exception,
                 )
@@ -234,9 +277,7 @@ class DeviceConnection:
         self.connected = False
         packet = data.disconnect_packet
         reason_code = getattr(packet, "reason_code", None)
-        print(
-            f"\n⚠️  MQTT connection interrupted " f"(reason_code={reason_code_name(reason_code)}, exception={data.exception})"
-        )
+        print(_get_message("callbacks.interrupted", reason_code_name(reason_code), data.exception))
 
     def _on_lifecycle_stopped(self, data):  # noqa: ARG002 - dataclass is unused
         """Lifecycle: the client has fully stopped. Unblocks :meth:`disconnect`."""
@@ -275,7 +316,7 @@ class DeviceConnection:
             with self.message_lock:
                 self.received_messages.append(message_info)
         except Exception as error:  # noqa: BLE001 - never kill the callback thread
-            print(f"❌ Error processing received message: {error}")
+            print(_get_message("errors.message_processing_failed", error))
 
     # -- Connect / subscribe / publish / disconnect ------------------------
 
@@ -326,14 +367,14 @@ class DeviceConnection:
             expiry = session_expiry_interval_sec
 
         if debug:
-            print("🔧 MQTT connection setup")
-            print(f"   Client ID: {client_id}")
-            print(f"   Endpoint: {endpoint}")
-            print(f"   Port: {port}")
-            print(f"   Certificate: {cert_filepath}")
-            print(f"   Private key: {pri_key_filepath}")
-            print("   Protocol: MQTT 5 over TLS")
-            print(f"   Session: {session_behavior.name}")
+            print(_get_message("debug.setup_header"))
+            print(_get_message("debug.setup_client_id", client_id))
+            print(_get_message("debug.setup_endpoint", endpoint))
+            print(_get_message("debug.setup_port", port))
+            print(_get_message("debug.setup_certificate", cert_filepath))
+            print(_get_message("debug.setup_private_key", pri_key_filepath))
+            print(_get_message("debug.setup_protocol"))
+            print(_get_message("debug.setup_session", session_behavior.name))
 
         self._connect_result = Future()
         self._stopped.clear()
@@ -383,14 +424,14 @@ class DeviceConnection:
             raise
         except (TimeoutError, concurrent.futures.TimeoutError) as error:
             self._stop_client()
-            raise ConnectFailed(f"no CONNACK within {timeout}s", cause=error) from error
+            raise ConnectFailed(_get_message("errors.no_connack", timeout), cause=error) from error
         finally:
             self._connect_result = None
 
         self.connected = True
         if debug:
-            print("✅ MQTT connection established")
-            print(f"   CONNACK: {reason_code_name(self.connect_reason_code)}")
+            print(_get_message("debug.connected"))
+            print(_get_message("debug.connack", reason_code_name(self.connect_reason_code)))
 
         return self.connection
 
@@ -408,7 +449,7 @@ class DeviceConnection:
         }
         for code in suback.reason_codes:
             if code not in granted:
-                raise RuntimeError(f"subscription to {topic} refused: {reason_code_name(code)}")
+                raise RuntimeError(_get_message("errors.subscribe_refused", topic, reason_code_name(code)))
         return suback
 
     def subscribe(self, topic, qos=0):
@@ -418,7 +459,7 @@ class DeviceConnection:
         a refused subscription looked identical to a granted one.
         """
         if not self.connected or not self.connection:
-            raise RuntimeError("Not connected to AWS IoT Core")
+            raise RuntimeError(_get_message("errors.not_connected"))
 
         self._subscribe_once(topic, qos)
         self.subscriptions[topic] = {
@@ -434,7 +475,7 @@ class DeviceConnection:
         publish raises :class:`PublishRefused` instead of silently succeeding.
         """
         if not self.connected or not self.connection:
-            raise RuntimeError("Not connected to AWS IoT Core")
+            raise RuntimeError(_get_message("errors.not_connected"))
 
         payload = json.dumps(message) if isinstance(message, dict) else str(message)
         mqtt_qos = mqtt5.QoS.AT_MOST_ONCE if qos == 0 else mqtt5.QoS.AT_LEAST_ONCE
@@ -448,8 +489,12 @@ class DeviceConnection:
             return None
         if puback.reason_code != mqtt5.PubackReasonCode.SUCCESS:
             raise PublishRefused(
-                f"publish to {topic} refused: {reason_code_name(puback.reason_code)}"
-                f" {puback.reason_string or ''}".rstrip(),
+                _get_message(
+                    "errors.publish_refused",
+                    topic,
+                    reason_code_name(puback.reason_code),
+                    puback.reason_string or "",
+                ).rstrip(),
                 reason_code=puback.reason_code,
             )
         return puback.reason_code

@@ -566,7 +566,8 @@
     "openssl_error": "❌ OpenSSL error: {}",
     "generating_certificate": "❌ Error generating certificate: {}",
     "unexpected_reading_cert_file": "❌ Unexpected error reading certificate file: {}",
-    "unexpected_registering_cert": "❌ Unexpected error registering certificate: {}"
+    "unexpected_registering_cert": "❌ Unexpected error registering certificate: {}",
+    "invalid_thing_name_value": "Invalid thing_name: {}. Only alphanumeric characters, hyphens, and underscores allowed."
   },
   "ui": {
     "thing_list_item": "   {}. {} (Type: {})",
@@ -600,5 +601,14 @@
     "list_targets_for_policy": "Lists all targets (certificates) that have the specified policy attached",
     "detach_policy": "Detaches an IoT policy from a certificate target",
     "register_certificate_without_ca": "Registers a self-signed X.509 certificate without requiring CA registration"
+  },
+  "api_input_policy_name_json_doc": "policyName: {}, policyDocument: JSON policy document",
+  "api_output_principal_arns_array": "Array of principal ARNs (certificate ARNs)",
+  "cert_subject": "• Subject: {}",
+  "debug": {
+    "input": "📥 Input: {}",
+    "client_region": "Region: {}",
+    "client_service": "Service: {}",
+    "client_api_version": "API Version: {}"
   }
 }

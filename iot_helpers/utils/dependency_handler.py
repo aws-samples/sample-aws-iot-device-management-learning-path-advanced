@@ -27,6 +27,7 @@ repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fi
 if repo_root not in sys.path:
     sys.path.insert(0, repo_root)
 
+from i18n.language_selector import peek_language
 from i18n.loader import load_messages
 
 # Tool/dependency availability checks
@@ -35,18 +36,23 @@ from i18n.loader import load_messages
 # exercises in Module 3 (Just-in-Time Provisioning). The environment setup
 # (module1-setup) must confirm OpenSSL is installed and runnable on PATH before
 # those hands-on steps begin, so this check is surfaced as a reusable helper.
-OPENSSL_REMEDIATION = (
-    "OpenSSL was not found on your PATH. The advanced device provisioning "
-    "exercises (custom Certificate Authority registration, Certificate Signing "
-    "Request generation) require the 'openssl' command-line tool.\n"
-    "  - macOS:          brew install openssl\n"
-    "  - Amazon Linux/RHEL: sudo yum install -y openssl\n"
-    "  - Ubuntu/Debian:  sudo apt-get install -y openssl\n"
-    "After installing, confirm it is runnable with: openssl version"
-)
+# The remediation text lives in i18n/en/dependency_handler.json
+# ("errors.openssl_remediation") so it can be translated.
 
 
-def check_openssl_available():
+def _openssl_remediation(language=None):
+    """Return the OpenSSL install/remediation guidance from the dependency_handler catalog.
+
+    ``language`` defaults to peek_language() (the AWS_IOT_LANG value, or "en"),
+    which never shows the interactive language menu.
+    """
+    if language is None:
+        language = peek_language()
+    errors = load_messages("dependency_handler", language).get("errors", {})
+    return errors.get("openssl_remediation", "errors.openssl_remediation")
+
+
+def check_openssl_available(language=None):
     """
     Check that the OpenSSL command-line tool is installed and runnable on PATH.
 
@@ -71,7 +77,7 @@ def check_openssl_available():
     """
     # Step 1: Is the openssl binary on PATH at all?
     if shutil.which("openssl") is None:
-        return False, OPENSSL_REMEDIATION
+        return False, _openssl_remediation(language)
 
     # Step 2: Is it actually runnable? Run `openssl version` and capture output.
     try:
@@ -87,10 +93,10 @@ def check_openssl_available():
         )
     except (OSError, subprocess.SubprocessError):
         # openssl resolved on PATH but could not be executed.
-        return False, OPENSSL_REMEDIATION
+        return False, _openssl_remediation(language)
 
     if result.returncode != 0:
-        return False, OPENSSL_REMEDIATION
+        return False, _openssl_remediation(language)
 
     version_detail = (result.stdout or "").strip() or (result.stderr or "").strip()
     return True, version_detail
@@ -184,7 +190,7 @@ class DependencyHandler:
         elif choice == 3:
             return DELETION_ORDER["groups_only"]
         else:
-            raise ValueError(f"Invalid cleanup choice: {choice}. Must be 1, 2, or 3.")
+            raise ValueError(self._get_message("errors.invalid_cleanup_choice").format(choice))
 
     def delete_thing_shadows(self, thing_name):
         """

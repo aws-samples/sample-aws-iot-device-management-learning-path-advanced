@@ -21,9 +21,8 @@ LANGUAGE_SELECTION = {
 LANGUAGE_CODES = {"1": "en", "2": "es", "3": "ja", "4": "zh", "5": "pt", "6": "ko", "7": "de", "8": "it", "9": "fr"}
 
 
-def get_language():
-    """Get language from environment or user selection"""
-    # Check environment variable first
+def _normalize_env_language():
+    """Return the normalized language code for AWS_IOT_LANG, or None if unset/unknown."""
     env_lang = os.getenv("AWS_IOT_LANG", "").lower()
     if env_lang in ["es", "spanish", "español"]:
         return "es"
@@ -43,6 +42,26 @@ def get_language():
         return "it"
     elif env_lang in ["fr", "french", "français", "francais"]:
         return "fr"
+    return None
+
+
+def peek_language():
+    """Return the language for AWS_IOT_LANG without ever prompting.
+
+    Returns the same normalized code get_language() would return for the
+    AWS_IOT_LANG environment variable, or "en" when it is unset or unknown.
+    Used to localize argparse help text, which is built before the language
+    is chosen, so ``--help`` never shows the interactive language menu.
+    """
+    return _normalize_env_language() or "en"
+
+
+def get_language():
+    """Get language from environment or user selection"""
+    # Check environment variable first
+    env_code = _normalize_env_language()
+    if env_code:
+        return env_code
 
     # Interactive selection
     print(LANGUAGE_SELECTION["header"])

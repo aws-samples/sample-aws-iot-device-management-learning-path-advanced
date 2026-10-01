@@ -160,6 +160,14 @@ def apply_workshop_tags(
 
 
 if __name__ == "__main__":
-    # Module can be imported but not run directly
-    print("This module provides resource tagging functionality.")
-    print("Import it in your scripts to use apply_workshop_tags().")
+    # Module can be imported but not run directly. The hint text comes from the
+    # resource_tagger catalog; peek_language() never shows the language menu.
+    _repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    if _repo_root not in sys.path:
+        sys.path.insert(0, _repo_root)
+    from i18n.language_selector import peek_language
+    from i18n.loader import load_messages
+
+    _module_info = load_messages("resource_tagger", peek_language()).get("module_info", {})
+    print(_module_info.get("standalone_description", "module_info.standalone_description"))
+    print(_module_info.get("standalone_usage", "module_info.standalone_usage"))

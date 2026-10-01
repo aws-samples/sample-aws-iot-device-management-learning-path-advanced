@@ -82,11 +82,13 @@ sys.path.append(os.path.join(REPO_ROOT, "i18n"))
 import boto3  # noqa: E402
 
 from iot_helpers.utils.api_helpers import safe_api_call  # noqa: E402
+from iot_helpers.utils.api_helpers import set_language as set_api_helpers_language  # noqa: E402
 from iot_helpers.utils.device_simulator import (  # noqa: E402
     DeviceConnection,
     get_iot_endpoint,
 )
-from language_selector import get_language  # noqa: E402
+from iot_helpers.utils.device_simulator import set_language as set_device_simulator_language  # noqa: E402
+from language_selector import get_language, peek_language  # noqa: E402
 from loader import load_messages  # noqa: E402
 
 # --- i18n message catalog + resolver -------------------------------------
@@ -198,7 +200,7 @@ def create_template(template_name, provisioning_role_arn, template_file, debug=F
 
     response = safe_api_call(
         iot.create_provisioning_template,
-        "Create trusted-user provisioning template",
+        get_message("operations.create_trusted_user_provisioning_template"),
         template_name,
         debug=debug,
         templateName=template_name,
@@ -225,7 +227,7 @@ def create_claim(template_name, claim_cert_out, claim_key_out, claim_pub_out=Non
 
     claim = safe_api_call(
         iot.create_provisioning_claim,
-        "Create provisioning claim (trusted user)",
+        get_message("operations.create_provisioning_claim_trusted_user"),
         template_name,
         debug=debug,
         templateName=template_name,
@@ -255,7 +257,7 @@ def observe(thing_name, debug=False):
 
     thing = safe_api_call(
         iot.describe_thing,
-        "Describe thing",
+        get_message("operations.describe_thing"),
         thing_name,
         debug=debug,
         thingName=thing_name,
@@ -267,7 +269,7 @@ def observe(thing_name, debug=False):
 
     principals = safe_api_call(
         iot.list_thing_principals,
-        "List thing principals",
+        get_message("operations.list_thing_principals"),
         thing_name,
         debug=debug,
         thingName=thing_name,
@@ -292,10 +294,10 @@ def _wait_for(device, accepted_topic, rejected_topic, timeout=20):
                     return message["payload"]
                 if message["topic"] == rejected_topic:
                     raise RuntimeError(
-                        f"Fleet provisioning rejected on {rejected_topic}: " f"{json.dumps(message['payload'])}"
+                        get_message("errors.provisioning_rejected", rejected_topic, json.dumps(message["payload"]))
                     )
         time.sleep(0.25)  # nosemgrep: arbitrary-sleep
-    raise TimeoutError(f"Timed out waiting for a reply on {accepted_topic}")
+    raise TimeoutError(get_message("errors.reply_timeout", accepted_topic))
 
 
 def _create_keys_and_certificate(device, out_prefix):
@@ -436,42 +438,58 @@ def provision(
 
 def parse_arguments():
     """Parse command-line arguments."""
-    parser = argparse.ArgumentParser(
-        description="Fleet Provisioning by Trusted User: template, CreateProvisioningClaim, MQTT provision."
-    )
+
+    # Help text comes from the "cli" category of this script's catalog. It is
+    # loaded with peek_language() -- which never prompts -- because the parser is
+    # built before the runtime language is chosen, so --help never shows the
+    # interactive language menu. The runtime ``messages`` catalog is still
+    # loaded in main() exactly as before.
+    help_messages = load_messages("fleet_provision_trusted_user", peek_language())
+
+    def cli(key):
+        """Resolve a nested ``cli.*`` help string; fall back to the raw key."""
+        msg = help_messages.get("cli", {})
+        for part in key.split("."):
+            if isinstance(msg, dict) and part in msg:
+                msg = msg[part]
+            else:
+                return "cli." + key
+        return msg
+
+    parser = argparse.ArgumentParser(description=cli("description"))
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    template = subparsers.add_parser("create-template", help="Create trusted-user provisioning template.")
-    template.add_argument("--template-name", default="TrustedUserTemplate", help="Template name.")
-    template.add_argument("--provisioning-role-arn", required=True, help="Fleet provisioning role ARN.")
-    template.add_argument("--template-file", default=DEFAULT_TEMPLATE_FILE, help="Template JSON path.")
-    template.add_argument("--debug", action="store_true", help="Verbose output.")
+    template = subparsers.add_parser("create-template", help=cli("create_template.help"))
+    template.add_argument("--template-name", default="TrustedUserTemplate", help=cli("create_template.template_name"))
+    template.add_argument("--provisioning-role-arn", required=True, help=cli("create_template.provisioning_role_arn"))
+    template.add_argument("--template-file", default=DEFAULT_TEMPLATE_FILE, help=cli("create_template.template_file"))
+    template.add_argument("--debug", action="store_true", help=cli("create_template.debug"))
 
-    claim = subparsers.add_parser("create-claim", help="CreateProvisioningClaim as the trusted user.")
-    claim.add_argument("--template-name", default="TrustedUserTemplate", help="Template name.")
-    claim.add_argument("--claim-cert-out", default="claim.pem", help="Temporary claim cert output path.")
-    claim.add_argument("--claim-key-out", default="claim.private.key", help="Temporary claim key output.")
-    claim.add_argument("--claim-pub-out", default=None, help="Temporary claim public key output (optional).")
-    claim.add_argument("--debug", action="store_true", help="Verbose output.")
+    claim = subparsers.add_parser("create-claim", help=cli("create_claim.help"))
+    claim.add_argument("--template-name", default="TrustedUserTemplate", help=cli("create_claim.template_name"))
+    claim.add_argument("--claim-cert-out", default="claim.pem", help=cli("create_claim.claim_cert_out"))
+    claim.add_argument("--claim-key-out", default="claim.private.key", help=cli("create_claim.claim_key_out"))
+    claim.add_argument("--claim-pub-out", default=None, help=cli("create_claim.claim_pub_out"))
+    claim.add_argument("--debug", action="store_true", help=cli("create_claim.debug"))
 
-    prov = subparsers.add_parser("provision", help="Run the trusted-user MQTT provisioning exchange.")
-    prov.add_argument("--template-name", default="TrustedUserTemplate", help="Template name.")
-    prov.add_argument("--claim-cert", default="claim.pem", help="Temporary claim certificate path.")
-    prov.add_argument("--claim-key", default="claim.private.key", help="Temporary claim private key path.")
-    prov.add_argument("--serial-number", required=True, help="Device SerialNumber (thing name).")
-    prov.add_argument("--device-type", default="SmartHomeSensor", help="Device DeviceType parameter.")
-    prov.add_argument("--endpoint", default=None, help="iot:Data-ATS endpoint (auto-discovered if omitted).")
-    prov.add_argument("--out-prefix", default=None, help="Output prefix for the permanent cert/key.")
+    prov = subparsers.add_parser("provision", help=cli("provision.help"))
+    prov.add_argument("--template-name", default="TrustedUserTemplate", help=cli("provision.template_name"))
+    prov.add_argument("--claim-cert", default="claim.pem", help=cli("provision.claim_cert"))
+    prov.add_argument("--claim-key", default="claim.private.key", help=cli("provision.claim_key"))
+    prov.add_argument("--serial-number", required=True, help=cli("provision.serial_number"))
+    prov.add_argument("--device-type", default="SmartHomeSensor", help=cli("provision.device_type"))
+    prov.add_argument("--endpoint", default=None, help=cli("provision.endpoint"))
+    prov.add_argument("--out-prefix", default=None, help=cli("provision.out_prefix"))
     prov.add_argument(
         "--csr-file",
         default=None,
-        help="CSR PEM to use CreateCertificateFromCsr (device keeps its own key). " "Omit to use CreateKeysAndCertificate.",
+        help=cli("provision.csr_file"),
     )
-    prov.add_argument("--debug", action="store_true", help="Verbose output.")
+    prov.add_argument("--debug", action="store_true", help=cli("provision.debug"))
 
-    observe_parser = subparsers.add_parser("observe", help="describe-thing / list-thing-principals.")
-    observe_parser.add_argument("--thing-name", required=True, help="Provisioned thing name.")
-    observe_parser.add_argument("--debug", action="store_true", help="Verbose output.")
+    observe_parser = subparsers.add_parser("observe", help=cli("observe.help"))
+    observe_parser.add_argument("--thing-name", required=True, help=cli("observe.thing_name"))
+    observe_parser.add_argument("--debug", action="store_true", help=cli("observe.debug"))
 
     return parser.parse_args()
 
@@ -482,7 +500,11 @@ def main():
     # Load the localized message catalog once, before any user-facing print.
     # (Placed after argument parsing so --help stays free of the language menu.)
     global messages
-    messages = load_messages("fleet_provision_trusted_user", get_language())
+    language = get_language()
+    messages = load_messages("fleet_provision_trusted_user", language)
+    # Apply the same runtime language to the shared helpers' own catalogs.
+    set_api_helpers_language(language)
+    set_device_simulator_language(language)
 
     if args.command == "create-template":
         create_template(

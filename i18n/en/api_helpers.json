@@ -1,0 +1,20 @@
+{
+  "status": {
+    "in_progress": "⚙️  {}: creating {}...",
+    "ready": "✅ {}: {} ready",
+    "already_exists": "ℹ️  {}: {} already exists, continuing"
+  },
+  "errors": {
+    "api_error": "❌ {}: error creating {}: {}",
+    "unexpected": "❌ Error: {}"
+  },
+  "debug": {
+    "header": "\n🔍 DEBUG: {} -> {}",
+    "api_call": "   API call: {}",
+    "input_parameters": "   Input parameters:",
+    "api_response": "   API response:",
+    "full_error": "   Full error:",
+    "full_traceback": "   Full traceback:",
+    "truncated_value": "{} …(truncated, {} chars total)"
+  }
+}

@@ -210,7 +210,7 @@ def safe_operation(func, operation_name, api_details=None, debug=None, **kwargs)
     try:
         if debug:
             print(f"🔄 {operation_name}...")
-            print(f"📥 Input: {json.dumps(redact_sensitive(kwargs), indent=2, default=str)}")
+            print(get_message("debug.input", json.dumps(redact_sensitive(kwargs), indent=2, default=str)))
         else:
             print(f"🔄 {operation_name}...")
 
@@ -232,7 +232,7 @@ def safe_operation(func, operation_name, api_details=None, debug=None, **kwargs)
         error_message = e.response.get("Error", {}).get("Message", "Unknown error")
         print(get_message("errors.api_error_detail", operation_name, error_code, error_message))
         if debug:
-            print("🔍 DEBUG: Full error response:")
+            print(get_message("debug_full_error"))
             print(json.dumps(e.response, indent=2, default=str))
         time.sleep(0.5)  # nosemgrep: arbitrary-sleep
         return None
@@ -241,7 +241,7 @@ def safe_operation(func, operation_name, api_details=None, debug=None, **kwargs)
         if debug:
             import traceback
 
-            print("🔍 DEBUG: Full traceback:")
+            print(get_message("debug_full_traceback"))
             traceback.print_exc()
         time.sleep(0.5)  # nosemgrep: arbitrary-sleep
         return None
@@ -265,7 +265,7 @@ def save_certificate_files(thing_name, cert_id, cert_pem, private_key, public_ke
     """Save certificate files to local folder structure"""
     # Validate thing_name to prevent path traversal
     if not re.match(r"^[a-zA-Z0-9_-]+$", thing_name):
-        raise ValueError(f"Invalid thing_name: {thing_name}. Only alphanumeric characters, hyphens, and underscores allowed.")
+        raise ValueError(get_message("errors.invalid_thing_name_value", thing_name))
 
     # Create certificates directory structure
     base_dir = os.path.join(os.getcwd(), "certificates", thing_name)
@@ -739,7 +739,7 @@ def create_policy_interactive(iot):
         "PUT",
         f"/policies/{policy_name}",
         get_message("api_descriptions.create_policy"),
-        f"policyName: {policy_name}, policyDocument: JSON policy document",
+        get_message("api_input_policy_name_json_doc", policy_name),
         get_message("api_output_policy_details"),
     )
 
@@ -844,7 +844,7 @@ def get_thing_certificates(iot, thing_name):
         f"/things/{thing_name}/principals",
         get_message("api_descriptions.list_thing_principals"),
         f"thingName: {thing_name}",
-        "Array of principal ARNs (certificate ARNs)",
+        get_message("api_output_principal_arns_array"),
     )
 
     try:
@@ -1341,7 +1341,7 @@ def generate_sample_certificate():
             print(f"   {get_message('cert_type_self_signed')}")
             print(f"   {get_message('cert_algorithm')}")
             print(f"   {get_message('cert_validity')}")
-            print(f"   • Subject: CN={cert_name}, O=AWS IoT Learning, C=US")
+            print(f"   {get_message('cert_subject', f'CN={cert_name}, O=AWS IoT Learning, C=US')}")
 
             # Show certificate info
             info_cmd = ["openssl", "x509", "-in", cert_file, "-text", "-noout"]
@@ -1728,10 +1728,10 @@ def main():
             print(get_message("client_initialized"))
 
             if debug_mode:
-                print("🔍 DEBUG: Client configuration:")
-                print(f"   Region: {iot.meta.region_name}")
-                print(f"   Service: {iot.meta.service_model.service_name}")
-                print(f"   API Version: {iot.meta.service_model.api_version}")
+                print(get_message("debug_client_config"))
+                print(f"   {get_message('debug.client_region', iot.meta.region_name)}")
+                print(f"   {get_message('debug.client_service', iot.meta.service_model.service_name)}")
+                print(f"   {get_message('debug.client_api_version', iot.meta.service_model.api_version)}")
         except NoCredentialsError:
             print(get_message("invalid_credentials"))
             sys.exit(1)

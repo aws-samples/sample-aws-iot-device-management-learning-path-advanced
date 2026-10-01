@@ -71,11 +71,12 @@ from botocore.exceptions import ClientError  # noqa: E402
 from colorama import Fore, Style, init  # noqa: E402
 
 from iot_helpers.utils.api_helpers import safe_api_call  # noqa: E402
+from iot_helpers.utils.api_helpers import set_language as set_api_helpers_language  # noqa: E402
 from iot_helpers.utils.naming_conventions import matches_workshop_pattern  # noqa: E402
 
 # i18n: reuse the shared language selector + localized yes/no confirmation so a
 # German 'j' or French 'o' works like the rest of the sample scripts.
-from language_selector import get_language  # noqa: E402
+from language_selector import get_language, peek_language  # noqa: E402
 from loader import load_messages  # noqa: E402
 from confirmation import is_affirmative  # noqa: E402
 
@@ -228,10 +229,7 @@ class AdvancedProvisioningCleanup:
         # reason, and --execute could act on unrelated resources there.
         self.region = region or boto3.session.Session().region_name
         if not self.region:
-            raise SystemExit(
-                "No AWS Region resolved. Pass --region, or set it via 'aws configure' "
-                "or the AWS_DEFAULT_REGION environment variable."
-            )
+            raise SystemExit(get_message("errors.no_region"))
         self.iot = boto3.client("iot", region_name=self.region)
         self.iot_mar = boto3.client("iot", region_name=mar_region) if mar_region else None
 
@@ -296,8 +294,8 @@ class AdvancedProvisioningCleanup:
         if region_name not in self._iot_data_clients:
             described = safe_api_call(
                 iot_client.describe_endpoint,
-                "Describe endpoint",
-                f"IoT data endpoint ({region_name})",
+                get_message("operations.describe_endpoint"),
+                get_message("operation_resources.iot_data_endpoint", region_name),
                 debug=self.debug,
                 endpointType="iot:Data-ATS",
             )
@@ -325,7 +323,7 @@ class AdvancedProvisioningCleanup:
             return
         safe_api_call(
             data_client.delete_thing_shadow,
-            "Delete rotation shadow",
+            get_message("operations.delete_rotation_shadow"),
             thing_name,
             debug=self.debug,
             thingName=thing_name,
@@ -339,7 +337,7 @@ class AdvancedProvisioningCleanup:
         cert_arn = None
         described = safe_api_call(
             iot_client.describe_certificate,
-            "Describe certificate",
+            get_message("operations.describe_certificate"),
             certificate_id,
             debug=self.debug,
             certificateId=certificate_id,
@@ -350,7 +348,7 @@ class AdvancedProvisioningCleanup:
         if cert_arn:
             attached = safe_api_call(
                 iot_client.list_attached_policies,
-                "List attached policies",
+                get_message("operations.list_attached_policies"),
                 certificate_id,
                 debug=self.debug,
                 target=cert_arn,
@@ -358,7 +356,7 @@ class AdvancedProvisioningCleanup:
             for policy in (attached or {}).get("policies", []):
                 safe_api_call(
                     iot_client.detach_policy,
-                    "Detach policy",
+                    get_message("operations.detach_policy"),
                     policy["policyName"],
                     debug=self.debug,
                     policyName=policy["policyName"],
@@ -366,7 +364,7 @@ class AdvancedProvisioningCleanup:
                 )
             principal_things = safe_api_call(
                 iot_client.list_principal_things,
-                "List principal things",
+                get_message("operations.list_principal_things"),
                 certificate_id,
                 debug=self.debug,
                 principal=cert_arn,
@@ -374,7 +372,7 @@ class AdvancedProvisioningCleanup:
             for thing_name in (principal_things or {}).get("things", []):
                 safe_api_call(
                     iot_client.detach_thing_principal,
-                    "Detach thing principal",
+                    get_message("operations.detach_thing_principal"),
                     thing_name,
                     debug=self.debug,
                     thingName=thing_name,
@@ -383,7 +381,7 @@ class AdvancedProvisioningCleanup:
 
         safe_api_call(
             iot_client.update_certificate,
-            "Deactivate certificate",
+            get_message("operations.deactivate_certificate"),
             certificate_id,
             debug=self.debug,
             certificateId=certificate_id,
@@ -391,7 +389,7 @@ class AdvancedProvisioningCleanup:
         )
         safe_api_call(
             iot_client.delete_certificate,
-            "Delete certificate",
+            get_message("operations.delete_certificate"),
             certificate_id,
             debug=self.debug,
             certificateId=certificate_id,
@@ -411,7 +409,7 @@ class AdvancedProvisioningCleanup:
         for ca_id in self.workshop_ca_ids:
             signed = safe_api_call(
                 iot_client.list_certificates_by_ca,
-                "List certificates by CA",
+                get_message("operations.list_certificates_by_ca"),
                 ca_id,
                 debug=self.debug,
                 caCertificateId=ca_id,
@@ -422,7 +420,7 @@ class AdvancedProvisioningCleanup:
         for thing_name in thing_names:
             principals = safe_api_call(
                 iot_client.list_thing_principals,
-                "List thing principals",
+                get_message("operations.list_thing_principals"),
                 thing_name,
                 debug=self.debug,
                 thingName=thing_name,
@@ -434,7 +432,7 @@ class AdvancedProvisioningCleanup:
         for policy_name in policy_names:
             targets = safe_api_call(
                 iot_client.list_targets_for_policy,
-                "List targets for policy",
+                get_message("operations.list_targets_for_policy"),
                 policy_name,
                 debug=self.debug,
                 policyName=policy_name,
@@ -470,7 +468,7 @@ class AdvancedProvisioningCleanup:
         found = []
         listed = safe_api_call(
             self.iot.list_ca_certificates,
-            "List CA certificates",
+            get_message("operations.list_ca_certificates"),
             "ca-certificates",
             debug=self.debug,
         )
@@ -478,7 +476,7 @@ class AdvancedProvisioningCleanup:
             ca_id = ca.get("certificateId")
             described = safe_api_call(
                 self.iot.describe_ca_certificate,
-                "Describe CA certificate",
+                get_message("operations.describe_ca_certificate"),
                 ca_id,
                 debug=self.debug,
                 certificateId=ca_id,
@@ -504,7 +502,7 @@ class AdvancedProvisioningCleanup:
         for ca_id, common_name in cas:
             safe_api_call(
                 self.iot.update_ca_certificate,
-                "Deactivate CA certificate",
+                get_message("operations.deactivate_ca_certificate"),
                 common_name,
                 debug=self.debug,
                 certificateId=ca_id,
@@ -512,7 +510,7 @@ class AdvancedProvisioningCleanup:
             )
             safe_api_call(
                 self.iot.delete_ca_certificate,
-                "Delete CA certificate",
+                get_message("operations.delete_ca_certificate"),
                 common_name,
                 debug=self.debug,
                 certificateId=ca_id,
@@ -560,7 +558,7 @@ class AdvancedProvisioningCleanup:
                 self._delete_rotation_shadow(iot_client, region_name or self.region, thing_name)
             safe_api_call(
                 iot_client.delete_thing,
-                "Delete thing",
+                get_message("operations.delete_thing"),
                 thing_name,
                 debug=self.debug,
                 thingName=thing_name,
@@ -573,7 +571,7 @@ class AdvancedProvisioningCleanup:
         for name in WORKSHOP_PROVISIONING_TEMPLATES:
             described = safe_api_call(
                 self.iot.describe_provisioning_template,
-                "Describe provisioning template",
+                get_message("operations.describe_provisioning_template"),
                 name,
                 debug=self.debug,
                 templateName=name,
@@ -585,7 +583,7 @@ class AdvancedProvisioningCleanup:
             for name in existing:
                 safe_api_call(
                     self.iot.delete_provisioning_template,
-                    "Delete provisioning template",
+                    get_message("operations.delete_provisioning_template"),
                     name,
                     debug=self.debug,
                     templateName=name,
@@ -601,7 +599,7 @@ class AdvancedProvisioningCleanup:
             if not self.dry_run:
                 safe_api_call(
                     self.iot.delete_topic_rule,
-                    "Delete topic rule",
+                    get_message("operations.delete_topic_rule"),
                     rule_name,
                     debug=self.debug,
                     ruleName=rule_name,
@@ -613,7 +611,7 @@ class AdvancedProvisioningCleanup:
         for group_name in WORKSHOP_THING_GROUPS:
             described = safe_api_call(
                 self.iot.describe_thing_group,
-                "Describe thing group",
+                get_message("operations.describe_thing_group"),
                 group_name,
                 debug=self.debug,
                 thingGroupName=group_name,
@@ -624,7 +622,7 @@ class AdvancedProvisioningCleanup:
             if not self.dry_run:
                 safe_api_call(
                     self.iot.delete_thing_group,
-                    "Delete thing group",
+                    get_message("operations.delete_thing_group"),
                     group_name,
                     debug=self.debug,
                     thingGroupName=group_name,
@@ -646,7 +644,7 @@ class AdvancedProvisioningCleanup:
         for type_name in WORKSHOP_THING_TYPES:
             described = safe_api_call(
                 self.iot.describe_thing_type,
-                "Describe thing type",
+                get_message("operations.describe_thing_type"),
                 type_name,
                 debug=self.debug,
                 thingTypeName=type_name,
@@ -661,7 +659,7 @@ class AdvancedProvisioningCleanup:
         for type_name in existing:
             safe_api_call(
                 self.iot.deprecate_thing_type,
-                "Deprecate thing type",
+                get_message("operations.deprecate_thing_type"),
                 type_name,
                 debug=self.debug,
                 thingTypeName=type_name,
@@ -673,7 +671,7 @@ class AdvancedProvisioningCleanup:
         for type_name in existing:
             safe_api_call(
                 self.iot.delete_thing_type,
-                "Delete thing type",
+                get_message("operations.delete_thing_type"),
                 type_name,
                 debug=self.debug,
                 thingTypeName=type_name,
@@ -685,7 +683,7 @@ class AdvancedProvisioningCleanup:
         for policy_name in policy_names:
             described = safe_api_call(
                 iot_client.get_policy,
-                "Get policy",
+                get_message("operations.get_policy"),
                 policy_name,
                 debug=self.debug,
                 policyName=policy_name,
@@ -698,7 +696,7 @@ class AdvancedProvisioningCleanup:
             # Delete non-default policy versions before the policy itself.
             versions = safe_api_call(
                 iot_client.list_policy_versions,
-                "List policy versions",
+                get_message("operations.list_policy_versions"),
                 policy_name,
                 debug=self.debug,
                 policyName=policy_name,
@@ -707,7 +705,7 @@ class AdvancedProvisioningCleanup:
                 if not version.get("isDefaultVersion"):
                     safe_api_call(
                         iot_client.delete_policy_version,
-                        "Delete policy version",
+                        get_message("operations.delete_policy_version"),
                         policy_name,
                         debug=self.debug,
                         policyName=policy_name,
@@ -715,7 +713,7 @@ class AdvancedProvisioningCleanup:
                     )
             safe_api_call(
                 iot_client.delete_policy,
-                "Delete policy",
+                get_message("operations.delete_policy"),
                 policy_name,
                 debug=self.debug,
                 policyName=policy_name,
@@ -727,7 +725,7 @@ class AdvancedProvisioningCleanup:
         """Cancel + delete the rotation campaign, if it exists."""
         described = safe_api_call(
             self.iot.describe_job,
-            "Describe job",
+            get_message("operations.describe_job"),
             WORKSHOP_ROTATION_JOB_ID,
             debug=self.debug,
             jobId=WORKSHOP_ROTATION_JOB_ID,
@@ -743,7 +741,7 @@ class AdvancedProvisioningCleanup:
         # topic content's own reset instructions).
         safe_api_call(
             self.iot.cancel_job,
-            "Cancel job",
+            get_message("operations.cancel_job"),
             WORKSHOP_ROTATION_JOB_ID,
             debug=self.debug,
             jobId=WORKSHOP_ROTATION_JOB_ID,
@@ -751,7 +749,7 @@ class AdvancedProvisioningCleanup:
         )
         safe_api_call(
             self.iot.delete_job,
-            "Delete job",
+            get_message("operations.delete_job"),
             WORKSHOP_ROTATION_JOB_ID,
             debug=self.debug,
             jobId=WORKSHOP_ROTATION_JOB_ID,
@@ -763,7 +761,7 @@ class AdvancedProvisioningCleanup:
         for rule_name in WORKSHOP_ROTATION_TOPIC_RULES:
             described = safe_api_call(
                 self.iot.get_topic_rule,
-                "Get topic rule",
+                get_message("operations.get_topic_rule"),
                 rule_name,
                 debug=self.debug,
                 ruleName=rule_name,
@@ -774,7 +772,7 @@ class AdvancedProvisioningCleanup:
             if not self.dry_run:
                 safe_api_call(
                     self.iot.delete_topic_rule,
-                    "Delete topic rule",
+                    get_message("operations.delete_topic_rule"),
                     rule_name,
                     debug=self.debug,
                     ruleName=rule_name,
@@ -790,7 +788,7 @@ class AdvancedProvisioningCleanup:
         """
         described = safe_api_call(
             self.iot.describe_thing_group,
-            "Describe thing group",
+            get_message("operations.describe_thing_group"),
             WORKSHOP_ROTATION_THING_GROUP,
             debug=self.debug,
             thingGroupName=WORKSHOP_ROTATION_THING_GROUP,
@@ -808,7 +806,7 @@ class AdvancedProvisioningCleanup:
         for thing_name in member_things:
             safe_api_call(
                 self.iot.remove_thing_from_thing_group,
-                "Remove thing from rotation group",
+                get_message("operations.remove_thing_from_rotation_group"),
                 thing_name,
                 debug=self.debug,
                 thingGroupName=WORKSHOP_ROTATION_THING_GROUP,
@@ -828,7 +826,7 @@ class AdvancedProvisioningCleanup:
         scheduler_client = boto3.client("scheduler", region_name=self.region)
         listed = safe_api_call(
             scheduler_client.list_schedules,
-            "List schedules",
+            get_message("operations.list_schedules"),
             WORKSHOP_REVOKE_SCHEDULE_PREFIX,
             debug=self.debug,
             NamePrefix=WORKSHOP_REVOKE_SCHEDULE_PREFIX,
@@ -841,7 +839,7 @@ class AdvancedProvisioningCleanup:
         for name in schedule_names:
             safe_api_call(
                 scheduler_client.delete_schedule,
-                "Delete schedule",
+                get_message("operations.delete_schedule"),
                 name,
                 debug=self.debug,
                 Name=name,
@@ -873,7 +871,7 @@ class AdvancedProvisioningCleanup:
         self._info(f"\n{get_message('status.discovering_certificate_provider')}")
         described = safe_api_call(
             self.iot.describe_certificate_provider,
-            "Describe certificate provider",
+            get_message("operations.describe_certificate_provider"),
             WORKSHOP_CERTIFICATE_PROVIDER_NAME,
             debug=self.debug,
             certificateProviderName=WORKSHOP_CERTIFICATE_PROVIDER_NAME,
@@ -885,7 +883,7 @@ class AdvancedProvisioningCleanup:
         if not self.dry_run:
             safe_api_call(
                 self.iot.delete_certificate_provider,
-                "Delete certificate provider",
+                get_message("operations.delete_certificate_provider"),
                 WORKSHOP_CERTIFICATE_PROVIDER_NAME,
                 debug=self.debug,
                 certificateProviderName=WORKSHOP_CERTIFICATE_PROVIDER_NAME,
@@ -907,7 +905,7 @@ class AdvancedProvisioningCleanup:
         """
         described = safe_api_call(
             self.iot.describe_event_configurations,
-            "Describe event configurations",
+            get_message("operations.describe_event_configurations"),
             "JOB / JOB_EXECUTION",
             debug=self.debug,
         )
@@ -922,7 +920,7 @@ class AdvancedProvisioningCleanup:
             return
         safe_api_call(
             self.iot.update_event_configurations,
-            "Revert event configurations",
+            get_message("operations.revert_event_configurations"),
             "JOB / JOB_EXECUTION",
             debug=self.debug,
             eventConfigurations={
@@ -1056,38 +1054,44 @@ class AdvancedProvisioningCleanup:
 
 def parse_arguments():
     """Parse command-line arguments."""
-    parser = argparse.ArgumentParser(
-        description=(
-            "Per-topic cleanup for the Advanced Device Provisioning End-to-End topic. "
-            "Pattern-scoped and non-destructive by default (dry run); pass --execute to delete."
-        )
-    )
+
+    # Help text comes from the "cli" category of this script's catalog. It is
+    # loaded with peek_language() -- which never prompts -- because the parser is
+    # built before the runtime language is chosen, so --help never shows the
+    # interactive language menu. The runtime ``messages`` catalog is still
+    # loaded in main() exactly as before.
+    help_messages = load_messages("cleanup_script", peek_language())
+
+    def cli(key):
+        """Resolve a nested ``cli.*`` help string; fall back to the raw key."""
+        msg = help_messages.get("cli", {})
+        for part in key.split("."):
+            if isinstance(msg, dict) and part in msg:
+                msg = msg[part]
+            else:
+                return "cli." + key
+        return msg
+
+    parser = argparse.ArgumentParser(description=cli("description"))
     parser.add_argument(
         "--execute",
         action="store_true",
-        help="Actually delete resources (default is a dry run that deletes nothing).",
+        help=cli("execute"),
     )
     parser.add_argument(
         "--region",
         default=None,
-        help=(
-            "The Region where you ran this topic's hands-on sections. Defaults to "
-            "boto3's normal Region resolution (AWS_DEFAULT_REGION, then your AWS "
-            "CLI profile's configured Region) if omitted."
-        ),
+        help=cli("region"),
     )
     parser.add_argument(
         "--mar-region",
         default=None,
-        help=(
-            "The second Region used in Section 5 (Multi-Account Registration), e.g. us-west-2. "
-            "Cleans the moved certificate and thing there without touching the main Region."
-        ),
+        help=cli("mar_region"),
     )
     parser.add_argument(
         "--debug",
         action="store_true",
-        help="Print API request/response detail for each control-plane call.",
+        help=cli("debug"),
     )
     return parser.parse_args()
 
@@ -1100,6 +1104,8 @@ def main():
     # (Placed after argument parsing so --help stays free of the language menu.)
     global messages
     messages = load_messages("cleanup_script", language)
+    # Apply the same runtime language to the shared helpers' own catalogs.
+    set_api_helpers_language(language)
 
     cleanup = AdvancedProvisioningCleanup(
         execute=args.execute,

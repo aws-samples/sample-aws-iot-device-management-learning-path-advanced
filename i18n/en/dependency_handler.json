@@ -76,5 +76,9 @@
     "rule_delete_error": "Couldn't delete IoT rule {}: {}",
     "unhandled_resource_type": "Haven't set up handling for this resource type yet: {}",
     "exception_in_delete": "Something went wrong in delete_with_dependencies: {}"
+  },
+  "errors": {
+    "openssl_remediation": "OpenSSL was not found on your PATH. The advanced device provisioning exercises (custom Certificate Authority registration, Certificate Signing Request generation) require the 'openssl' command-line tool.\n  - macOS:          brew install openssl\n  - Amazon Linux/RHEL: sudo yum install -y openssl\n  - Ubuntu/Debian:  sudo apt-get install -y openssl\nAfter installing, confirm it is runnable with: openssl version",
+    "invalid_cleanup_choice": "Invalid cleanup choice: {}. Must be 1, 2, or 3."
   }
 }

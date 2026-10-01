@@ -185,7 +185,7 @@ sys.path.append(os.path.join(REPO_ROOT, "i18n"))
 from awscrt import mqtt5  # noqa: E402
 from awsiot import mqtt5_client_builder  # noqa: E402
 
-from language_selector import get_language  # noqa: E402
+from language_selector import get_language, peek_language  # noqa: E402
 from loader import load_messages  # noqa: E402
 
 # --- MQTT 5 reason-code handling -----------------------------------------
@@ -560,7 +560,7 @@ class RotationAgent:
             raise
         except (TimeoutError, concurrent.futures.TimeoutError) as error:
             self._stop_client()
-            raise ConnectFailed("no CONNACK within 30s", cause=error) from error
+            raise ConnectFailed(get_message("connect.no_connack"), cause=error) from error
         finally:
             self._connect_result = None
         return data
@@ -1043,89 +1043,83 @@ class RotationAgent:
 
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description="Run the device half of a backend-driven certificate rotation.")
-    parser.add_argument("--endpoint", required=True, help="iot:Data-ATS endpoint")
-    parser.add_argument("--thing-name", required=True, help="Thing being rotated")
-    parser.add_argument("--cert", required=True, help="Current certificate PEM")
-    parser.add_argument("--key", required=True, help="Current private key")
-    parser.add_argument("--ca", required=True, help="Amazon root CA file")
+    # Help text comes from the "cli" category of this script's catalog. It is
+    # loaded with peek_language() -- which never prompts -- because the parser is
+    # built before the runtime language is chosen, so --help never shows the
+    # interactive language menu. The runtime ``messages`` catalog is still
+    # loaded in main() exactly as before.
+    help_messages = load_messages("rotate_certificate", peek_language())
+
+    def cli(key):
+        """Resolve a nested ``cli.*`` help string; fall back to the raw key."""
+        msg = help_messages.get("cli", {})
+        for part in key.split("."):
+            if isinstance(msg, dict) and part in msg:
+                msg = msg[part]
+            else:
+                return "cli." + key
+        return msg
+
+    parser = argparse.ArgumentParser(description=cli("description"))
+    parser.add_argument("--endpoint", required=True, help=cli("endpoint"))
+    parser.add_argument("--thing-name", required=True, help=cli("thing_name"))
+    parser.add_argument("--cert", required=True, help=cli("cert"))
+    parser.add_argument("--key", required=True, help=cli("key"))
+    parser.add_argument("--ca", required=True, help=cli("ca"))
     parser.add_argument(
         "--telemetry-topic",
         default="anycompany/telemetry",
-        help="Topic used to prove the new certificate is authorized",
+        help=cli("telemetry_topic"),
     )
     parser.add_argument(
         "--request-rule",
         default="ws_rotation_request",
-        help=(
-            "Name of the topic rule that receives the certificate signing request. "
-            "The request is published over Basic Ingest "
-            "($aws/rules/<rule>/devices/<thing>/certificate/rotation/request) so it "
-            "reaches the rules engine without a messaging charge. Must match the "
-            "rule you created, or the publish is dropped and RuleNotFound is emitted"
-        ),
+        help=cli("request_rule"),
     )
     parser.add_argument(
         "--job-timeout",
         type=int,
         default=30,
-        help="Seconds to wait for a pending job execution",
+        help=cli("job_timeout"),
     )
     parser.add_argument(
         "--cert-timeout",
         type=int,
         default=60,
-        help="Seconds to wait for the signed certificate",
+        help=cli("cert_timeout"),
     )
     parser.add_argument(
         "--no-rollback",
         action="store_true",
-        help="Do not fall back to the current certificate when the cutover fails",
+        help=cli("no_rollback"),
     )
     parser.add_argument(
         "--connect-retries",
         type=int,
         default=3,
-        help=(
-            "Attempts to connect with the new certificate before giving up. An "
-            "authorization failure (CONNACK NOT_AUTHORIZED) is never retried, "
-            "because retrying cannot change it"
-        ),
+        help=cli("connect_retries"),
     )
     parser.add_argument(
         "--connect-backoff",
         type=float,
         default=2.0,
-        help="Base seconds between connect attempts; doubles after each attempt",
+        help=cli("connect_backoff"),
     )
     parser.add_argument(
         "--pause",
         action="store_true",
-        help=(
-            "Pause at each observable step so you can inspect the job execution, "
-            "the certificate overlap and the deferred retirement before continuing"
-        ),
+        help=cli("pause"),
     )
     parser.add_argument(
         "--break-after-csr",
         action="store_true",
-        help=(
-            "Exit immediately after sending the certificate signing request, "
-            "before waiting for the signed reply — a deterministic stand-in for "
-            "a device that restarts in that gap. Re-run WITHOUT this flag "
-            "afterwards: a fresh process generates a new key pair and asks "
-            "again, which is what makes the handler sign a second certificate "
-            "(`resigning`) instead of re-delivering the first one"
-        ),
+        help=cli("break_after_csr"),
     )
     parser.add_argument(
         "--in-progress-timeout",
         type=int,
         default=15,
-        help=(
-            "Minutes the job allows an execution to stay IN_PROGRESS; used to warn "
-            "how long you may pause before the execution is marked TIMED_OUT"
-        ),
+        help=cli("in_progress_timeout"),
     )
     return parser.parse_args()
 

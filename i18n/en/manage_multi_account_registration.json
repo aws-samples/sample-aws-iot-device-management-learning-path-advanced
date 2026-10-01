@@ -21,5 +21,51 @@
     "published_seq": "   published seq={} to {}",
     "move_complete": "🎉 Move complete — the same certificate is now connected to the destination Region.",
     "move_complete_note": "   No new certificate was minted; only the endpoint changed."
+  },
+  "cli": {
+    "description": "Multi-Account Registration (MAR): register an existing certificate in a destination Region and reconnect the same certificate to that Region's endpoint.",
+    "register_without_ca": {
+      "help": "Register an existing device certificate in the destination Region (no CA).",
+      "region": "Destination (production stand-in) Region.",
+      "certificate_pem": "Path to the device certificate PEM.",
+      "policy_name": "Device policy to create/attach in the destination.",
+      "policy_document": "Policy JSON to create (if --policy-name is new).",
+      "thing_name": "Optional thing to create + attach in the destination.",
+      "debug": "Verbose output."
+    },
+    "register_ca_sni": {
+      "help": "Register a CA in SNI_ONLY (multi-account) mode in the destination Region.",
+      "region": "Destination (production stand-in) Region.",
+      "ca_certificate": "Path to the CA certificate PEM.",
+      "debug": "Verbose output."
+    },
+    "endpoint": {
+      "help": "describe-endpoint --endpoint-type iot:Data-ATS for a Region.",
+      "region": "Region to describe the data endpoint for.",
+      "debug": "Verbose output."
+    },
+    "move": {
+      "help": "Reconnect the same certificate to the destination endpoint.",
+      "region": "Destination (production stand-in) Region.",
+      "thing_name": "Device/thing name (used as the MQTT client id).",
+      "cert": "Path to the SAME device certificate PEM.",
+      "key": "Path to the SAME device private key.",
+      "endpoint": "Destination endpoint (auto-discovered if omitted).",
+      "message_count": "Telemetry messages to publish.",
+      "debug": "Verbose output."
+    }
+  },
+  "operations": {
+    "attach_device_policy_to_moved_certificate": "Attach device policy to moved certificate",
+    "attach_moved_certificate_to_thing": "Attach moved certificate to thing",
+    "create_destination_device_policy": "Create destination device policy",
+    "create_thing_in_destination_region": "Create thing in destination Region",
+    "describe_iot_data_ats_endpoint": "Describe iot:Data-ATS endpoint",
+    "register_ca_in_sni_only_multi_account_mode": "Register CA in SNI_ONLY (multi-account) mode",
+    "register_certificate_without_ca_mar": "Register certificate without CA (MAR)"
+  },
+  "operation_resources": {
+    "certificate_in_region": "certificate in {}",
+    "ca_in_region": "CA in {}"
   }
 }

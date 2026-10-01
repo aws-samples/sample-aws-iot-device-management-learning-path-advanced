@@ -55,8 +55,9 @@ sys.path.append(os.path.join(REPO_ROOT, "i18n"))
 import boto3  # noqa: E402
 
 from iot_helpers.utils.api_helpers import safe_api_call  # noqa: E402
+from iot_helpers.utils.api_helpers import set_language as set_api_helpers_language  # noqa: E402
 from iot_helpers.utils.dependency_handler import check_openssl_available  # noqa: E402
-from language_selector import get_language  # noqa: E402
+from language_selector import get_language, peek_language  # noqa: E402
 from loader import load_messages  # noqa: E402
 
 # --- i18n message catalog + resolver -------------------------------------
@@ -101,14 +102,15 @@ def run_openssl(args, debug=False):
     cmd = ["openssl"] + args
     if debug:
         print(get_message("debug.openssl_cmd", " ".join(cmd)))
-    # nosemgrep: dangerous-subprocess-use-audit -- list args, shell=False; --ca-common-name pre-validated against ^[a-zA-Z0-9 _.-]+$ in create_root_ca above
+    # --ca-common-name is pre-validated against ^[a-zA-Z0-9 _.-]+$ in create_root_ca above.
+    # nosemgrep: dangerous-subprocess-use-audit -- list args, shell=False, validated input
     result = subprocess.run(
         cmd, capture_output=True, text=True, check=False
     )  # nosec B603 -- list args, no shell, fixed "openssl" executable
     if result.returncode != 0:
         print(get_message("errors.openssl_failed", " ".join(cmd)))
         print(result.stderr.strip())
-        raise RuntimeError("OpenSSL command failed")
+        raise RuntimeError(get_message("errors.openssl_command_failed"))
     return result
 
 
@@ -197,12 +199,17 @@ def load_template_body(template_file):
     return json.dumps(template, separators=(",", ":"))
 
 
-def register_custom_ca(role_arn, template_file, ca_common_name, debug=False):
-    """Drive the full get-registration-code -> register-ca-certificate flow."""
+def register_custom_ca(role_arn, template_file, ca_common_name, debug=False, language=None):
+    """Drive the full get-registration-code -> register-ca-certificate flow.
+
+    ``language`` is the runtime language resolved in main(); it is passed to
+    check_openssl_available() so the OpenSSL remediation text matches the
+    rest of the output (None falls back to peek_language()).
+    """
     iot = boto3.client("iot")
 
     # Step 1 — confirm OpenSSL is available.
-    available, detail = check_openssl_available()
+    available, detail = check_openssl_available(language)
     if not available:
         print(detail)
         sys.exit(1)
@@ -214,7 +221,7 @@ def register_custom_ca(role_arn, template_file, ca_common_name, debug=False):
     # Step 3 — get the registration code.
     reg = safe_api_call(
         iot.get_registration_code,
-        "Get CA registration code",
+        get_message("operations.get_ca_registration_code"),
         "registration-code",
         debug=debug,
     )
@@ -237,7 +244,7 @@ def register_custom_ca(role_arn, template_file, ca_common_name, debug=False):
 
     response = safe_api_call(
         iot.register_ca_certificate,
-        "Register custom CA (JITP)",
+        get_message("operations.register_custom_ca_jitp"),
         "custom-ca",
         debug=debug,
         caCertificate=ca_certificate,
@@ -262,30 +269,44 @@ def register_custom_ca(role_arn, template_file, ca_common_name, debug=False):
 
 def parse_arguments():
     """Parse command-line arguments."""
-    parser = argparse.ArgumentParser(
-        description=(
-            "Register a custom Certificate Authority with AWS IoT Core and enable " "Just-in-Time Provisioning (JITP)."
-        )
-    )
+
+    # Help text comes from the "cli" category of this script's catalog. It is
+    # loaded with peek_language() -- which never prompts -- because the parser is
+    # built before the runtime language is chosen, so --help never shows the
+    # interactive language menu. The runtime ``messages`` catalog is still
+    # loaded in main() exactly as before.
+    help_messages = load_messages("register_custom_ca", peek_language())
+
+    def cli(key):
+        """Resolve a nested ``cli.*`` help string; fall back to the raw key."""
+        msg = help_messages.get("cli", {})
+        for part in key.split("."):
+            if isinstance(msg, dict) and part in msg:
+                msg = msg[part]
+            else:
+                return "cli." + key
+        return msg
+
+    parser = argparse.ArgumentParser(description=cli("description"))
     parser.add_argument(
         "--role-arn",
         required=True,
-        help=("ARN of the JITP registration role (the base stack output " "'JitpRegistrationRoleArn')."),
+        help=cli("role_arn"),
     )
     parser.add_argument(
         "--template-file",
         default=DEFAULT_TEMPLATE_FILE,
-        help="Path to the JITP provisioning template JSON (default: bundled jitp-template.json).",
+        help=cli("template_file"),
     )
     parser.add_argument(
         "--ca-common-name",
         default="AnyCompany Device Root CA",
-        help="Common name for the self-signed root CA (workshop only).",
+        help=cli("ca_common_name"),
     )
     parser.add_argument(
         "--debug",
         action="store_true",
-        help="Print API request/response detail and OpenSSL commands.",
+        help=cli("debug"),
     )
     return parser.parse_args()
 
@@ -296,13 +317,17 @@ def main():
     # Load the localized message catalog once, before any user-facing print.
     # (Placed after argument parsing so --help stays free of the language menu.)
     global messages
-    messages = load_messages("register_custom_ca", get_language())
+    language = get_language()
+    messages = load_messages("register_custom_ca", language)
+    # Apply the same runtime language to the shared helpers' own catalogs.
+    set_api_helpers_language(language)
 
     register_custom_ca(
         role_arn=args.role_arn,
         template_file=args.template_file,
         ca_common_name=args.ca_common_name,
         debug=args.debug,
+        language=language,
     )
 
 

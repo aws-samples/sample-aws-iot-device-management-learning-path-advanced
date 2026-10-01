@@ -12,5 +12,38 @@
     "certs_registered_header": "ℹ️  {} certificate(s) registered under CA {}:",
     "cert_line": "   - {}  status={}",
     "thing_attributes": "ℹ️  Thing '{}' attributes: {}"
+  },
+  "cli": {
+    "description": "Manage Just-in-Time Provisioning (JITP) and JITR resources.",
+    "register_ca": {
+      "help": "Register the custom CA with JITP config.",
+      "role_arn": "JITP registration role ARN.",
+      "template_file": "JITP template JSON path.",
+      "ca_common_name": "Root CA common name.",
+      "debug": "Verbose output."
+    },
+    "deploy_jitr_rule": {
+      "help": "Create the JITR topic rule (create-topic-rule).",
+      "rule_name": "Topic rule name.",
+      "function_arn": "JITR handler Lambda ARN.",
+      "debug": "Verbose output."
+    },
+    "deploy_jitr_code": {
+      "help": "Deploy the JITR handler code (update-function-code).",
+      "function_name": "JITR handler function name.",
+      "debug": "Verbose output."
+    },
+    "observe": {
+      "help": "Observe registration results (list-certificates-by-ca / describe-thing).",
+      "ca_cert_id": "CA certificate id.",
+      "thing_name": "Thing to describe.",
+      "debug": "Verbose output."
+    }
+  },
+  "operations": {
+    "create_jitr_topic_rule": "Create JITR topic rule",
+    "deploy_jitr_handler_code": "Deploy JITR handler code",
+    "describe_thing": "Describe thing",
+    "list_certificates_by_ca": "List certificates by CA"
   }
 }

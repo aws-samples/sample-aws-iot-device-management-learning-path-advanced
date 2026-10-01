@@ -1,7 +1,9 @@
 {
   "errors": {
     "claim_create_failed": "❌ Could not create the claim certificate",
-    "provisioning_failed": "❌ Fleet provisioning did not complete: {}"
+    "provisioning_failed": "❌ Fleet provisioning did not complete: {}",
+    "provisioning_rejected": "Fleet provisioning rejected on {}: {}",
+    "reply_timeout": "Timed out waiting for a reply on {}"
   },
   "status": {
     "claim_cert_id": "ℹ️  Claim certificate id: {}",
@@ -33,5 +35,65 @@
     "received": "📥 RECEIVED ← {}",
     "publish_empty_payload": "   payload: {}   (empty body — CreateKeysAndCertificate takes no input)",
     "publish_csr_payload": "   payload: {{ \"certificateSigningRequest\": <PEM from {}> }}"
+  },
+  "cli": {
+    "description": "Fleet Provisioning by Claim: claim cert, template, versioning, MQTT provision.",
+    "create_claim": {
+      "help": "Create claim cert + scoped policy.",
+      "policy_name": "Claim policy name.",
+      "policy_file": "Claim policy JSON.",
+      "claim_cert_out": "Claim cert output path.",
+      "claim_key_out": "Claim key output.",
+      "claim_pub_out": "Claim public key output.",
+      "debug": "Verbose output."
+    },
+    "create_template": {
+      "help": "Create fleet provisioning template.",
+      "template_name": "Template name.",
+      "provisioning_role_arn": "Fleet provisioning role ARN.",
+      "template_file": "Template JSON path.",
+      "hook_arn": "Pre-provisioning hook Lambda ARN.",
+      "debug": "Verbose output."
+    },
+    "provision": {
+      "help": "Run the claim-based MQTT provisioning exchange.",
+      "template_name": "Template name.",
+      "claim_cert": "Claim certificate path.",
+      "claim_key": "Claim private key path.",
+      "serial_number": "Device SerialNumber (thing name).",
+      "model_type": "Device ModelType parameter.",
+      "endpoint": "iot:Data-ATS endpoint (auto-discovered if omitted).",
+      "out_prefix": "Output prefix for the permanent cert/key.",
+      "csr_file": "CSR PEM to use CreateCertificateFromCsr (device keeps its own key). Omit to use CreateKeysAndCertificate. This is the path the optional certificate-provider lab exercises.",
+      "debug": "Verbose output."
+    },
+    "versions": {
+      "help": "Manage provisioning template versions.",
+      "template_name": "Template name.",
+      "list": "List versions.",
+      "new_version_file": "New template body JSON to add.",
+      "set_default": "Set the new version as default.",
+      "delete_version_id": "Version id to delete (rollback).",
+      "debug": "Verbose output."
+    },
+    "observe": {
+      "help": "describe-thing / list-thing-principals.",
+      "thing_name": "Provisioned thing name.",
+      "debug": "Verbose output."
+    }
+  },
+  "operations": {
+    "attach_claim_policy_to_claim_certificate": "Attach claim policy to claim certificate",
+    "create_claim_certificate": "Create claim certificate",
+    "create_claim_policy": "Create claim policy",
+    "create_fleet_provisioning_template": "Create fleet provisioning template",
+    "create_provisioning_template_version": "Create provisioning template version",
+    "delete_provisioning_template_version": "Delete provisioning template version",
+    "describe_thing": "Describe thing",
+    "list_provisioning_template_versions": "List provisioning template versions",
+    "list_thing_principals": "List thing principals"
+  },
+  "operation_resources": {
+    "template_version": "{} v{}"
   }
 }

@@ -20,5 +20,9 @@
     "tag_failures": "⚠️  Tag Application Issues",
     "total_failures": "Total resources without tags: {}",
     "relying_on_naming": "ℹ️  Don't worry - these resources will be identified by naming conventions during cleanup"
+  },
+  "module_info": {
+    "standalone_description": "This module provides resource tagging functionality.",
+    "standalone_usage": "Import it in your scripts to use apply_workshop_tags()."
   }
 }
