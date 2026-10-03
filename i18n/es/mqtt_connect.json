@@ -1,19 +1,19 @@
 {
   "usage": "Uso: python3 ../scripts/mqtt_connect.py <endpoint> <clientId> <certFile> <keyFile> <caFile> <topic>",
   "callbacks": {
-    "interrupted": "ADVERTENCIA  Conexión interrumpida: reason_code={} exception={} (el cliente MQTT 5 reintentará automáticamente)",
-    "resumed": "OK  Conexión reanudada (reason_code={}, rejoined_session={})"
+    "interrupted": "WARNING  Connection interrupted: reason_code={} exception={} (the MQTT 5 client will retry automatically)",
+    "resumed": "OK  Connection resumed (reason_code={}, rejoined_session={})"
   },
   "connect": {
     "waiting": "Conectando como {} por MQTT 5; el cliente reintenta por su cuenta hasta que el agente de mensajes lo acepte ...",
-    "connected": "Conectado.",
-    "refused_retry": "  conexión rechazada: reason_code={} exception={} - reintentando (es lo esperado mientras termina el aprovisionamiento) ...",
+    "connected": "Connected.",
+    "refused_retry": "  connect refused: reason_code={} exception={} - retrying (expected while provisioning finishes) ...",
     "failed": "No se pudo conectar dentro del tiempo previsto - revisa el certificado/la política y vuelve a intentarlo."
   },
   "publish": {
     "loop_start": "Publicando en bucle en {}; cada mensaje debería llegar al topic.",
     "sent": "  PUBLISH -> {}: {}",
-    "refused": "  PUBLISH -> {} RECHAZADO por el agente de mensajes: reason_code={} (MQTT 3.1.1 no podría informar de esto)",
+    "refused": "  PUBLISH -> {} REFUSED by the broker: reason_code={} (MQTT 3.1.1 could not report this)",
     "failed": "  publish seq={} falló (probablemente en plena reconexión): {}"
   },
   "disconnect": {

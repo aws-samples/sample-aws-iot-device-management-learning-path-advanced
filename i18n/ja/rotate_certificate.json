@@ -43,7 +43,7 @@
     "failed": "キーペアまたは証明書署名リクエストを生成できませんでした: {}"
   },
   "request": {
-    "sent": "{} で証明書署名リクエストを送信しました。ハンドラーが署名するのを待っています。",
+    "sent": "Certificate signing request sent on {}; waiting for the handler to sign it.",
     "received": "証明書 {} を受信しました。",
     "timeout": "{} 秒以内に証明書が届きませんでした。ハンドラーがリクエストを拒否した可能性があります。理由はジョブ実行の statusDetails で確認してください。"
   },
@@ -82,20 +82,20 @@
     "aborted": "  Ctrl-C を受け取りました。停止します。",
     "exit": "停止しました。ジョブ実行は一時停止した時点の状態のままです。続きを再開するには、このコマンドを再実行してください。",
     "job_taken": {
-      "what": "  観察 1/3 - ジョブ実行が IN_PROGRESS になりました。デバイスはキーペアを生成する前に、ここで待機しています。",
+      "what": "  OBSERVE 1/3 - ジョブ実行が IN_PROGRESS になりました。デバイスはキーペアを生成する前に、ここで待機しています。",
       "console": "  コンソール: AWS IoT コンソール -> Manage -> Remote actions -> Jobs -> 対象のジョブ -> Job executions\n           {}",
       "cli": "  CLI:     aws iot describe-job-execution --job-id {} --thing-name {} \\\n             --query \"execution.[status,statusDetails]\""
     },
     "overlap": {
-      "what": "  観察 2/3 - 重複期間です。新しい証明書は署名済みで ACTIVE になり、アタッチされています。現在の証明書もアタッチされたまま動作しています。今この thing には証明書が 2 つあります。だからこそ、ローテーションに失敗してもデバイスが締め出されることはありません。",
+      "what": "  OBSERVE 2/3 - 重複期間です。新しい証明書は署名済みで ACTIVE になり、アタッチされています。現在の証明書もアタッチされたまま動作しています。今この thing には証明書が 2 つあります。だからこそ、ローテーションに失敗してもデバイスが締め出されることはありません。",
       "console": "  コンソール: AWS IoT コンソール -> Manage -> Things -> 対象の thing -> Certificates\n           {}",
       "cli": "  CLI:     aws iot list-thing-principals --thing-name {} --query \"principals\"",
       "expect": "  期待される結果: プリンシパルが 2 つ表示されます。新しい方の末尾は {} です。"
     },
     "retired": {
-      "what": "  観察 3/3 - 切り替えに成功したので、古い証明書を INACTIVE に設定しています。廃止はイベント駆動なので、少し待ってから、まだ ACTIVE と表示される場合はコマンドを再実行してください。まだ削除はされません。遅れて再び現れたデバイスも復旧できるように、廃止は遅延させています。",
+      "what": "  OBSERVE 3/3 - 切り替えに成功したので、古い証明書を INACTIVE に設定しています。廃止はイベント駆動なので、少し待ってから、まだ ACTIVE と表示される場合はコマンドを再実行してください。まだ削除はされません。遅れて再び現れたデバイスも復旧できるように、廃止は遅延させています。",
       "console": "  コンソール: AWS IoT コンソール -> Security -> Certificates (古い証明書は Inactive と表示されます)\n           {}",
-      "cli": "  CLI:     観察 2 で見たもう一方の証明書 ID (新しい証明書ではない方) を使います:\n             aws iot describe-certificate --certificate-id <thatId> \\\n               --query \"certificateDescription.status\"   (期待される結果: INACTIVE)",
+      "cli": "  CLI:     OBSERVE 2 で見たもう一方の証明書 ID (新しい証明書ではない方) を使います:\n             aws iot describe-certificate --certificate-id <thatId> \\\n               --query \"certificateDescription.status\"   (期待される結果: INACTIVE)",
       "scheduler": "  CLI:     aws scheduler list-schedules --name-prefix ws-aws-iot-dm-adv-prov-revoke- \\\n               --query \"Schedules[].[Name,State]\"\n             1 回限りの削除タイマーです。名前の末尾は、廃止された証明書 ID の先頭 16 文字です。"
     }
   },

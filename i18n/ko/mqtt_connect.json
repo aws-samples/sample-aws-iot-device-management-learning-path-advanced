@@ -1,19 +1,19 @@
 {
   "usage": "사용법: python3 ../scripts/mqtt_connect.py <endpoint> <clientId> <certFile> <keyFile> <caFile> <topic>",
   "callbacks": {
-    "interrupted": "경고  연결이 중단됐어요: reason_code={} exception={} (MQTT 5 클라이언트가 자동으로 재시도해요)",
-    "resumed": "OK  연결이 재개됐어요(reason_code={}, rejoined_session={})"
+    "interrupted": "WARNING  Connection interrupted: reason_code={} exception={} (the MQTT 5 client will retry automatically)",
+    "resumed": "OK  Connection resumed (reason_code={}, rejoined_session={})"
   },
   "connect": {
     "waiting": "{} 이름으로 MQTT 5를 통해 연결하는 중이에요. 브로커가 수락할 때까지 클라이언트가 알아서 재시도해요 ...",
-    "connected": "연결됐어요.",
-    "refused_retry": "  연결 거부됨: reason_code={} exception={} - 재시도해요(프로비저닝이 끝나는 동안에는 예상된 동작이에요) ...",
+    "connected": "Connected.",
+    "refused_retry": "  connect refused: reason_code={} exception={} - retrying (expected while provisioning finishes) ...",
     "failed": "제한 시간 안에 연결하지 못했어요 - 인증서/정책을 확인하고 다시 시도하세요."
   },
   "publish": {
     "loop_start": "이제 {}에 반복해서 게시해요. 각 메시지가 토픽에 도착해야 해요.",
     "sent": "  PUBLISH -> {}: {}",
-    "refused": "  PUBLISH -> {} 브로커가 거부함: reason_code={} (MQTT 3.1.1에서는 이를 알려 줄 수 없어요)",
+    "refused": "  PUBLISH -> {} REFUSED by the broker: reason_code={} (MQTT 3.1.1 could not report this)",
     "failed": "  publish seq={} 실패(다시 연결하는 도중일 가능성이 높아요): {}"
   },
   "disconnect": {
