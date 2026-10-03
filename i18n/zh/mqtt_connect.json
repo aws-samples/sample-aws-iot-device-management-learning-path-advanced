@@ -1,0 +1,22 @@
+{
+  "usage": "用法: python3 ../scripts/mqtt_connect.py <endpoint> <clientId> <certFile> <keyFile> <caFile> <topic>",
+  "callbacks": {
+    "interrupted": "WARNING  Connection interrupted: reason_code={} exception={} (the MQTT 5 client will retry automatically)",
+    "resumed": "OK  Connection resumed (reason_code={}, rejoined_session={})"
+  },
+  "connect": {
+    "waiting": "正在通过 MQTT 5 以 {} 身份连接；在消息代理接受之前，客户端会自动重试 ...",
+    "connected": "Connected.",
+    "refused_retry": "  connect refused: reason_code={} exception={} - retrying (expected while provisioning finishes) ...",
+    "failed": "未能在时间限制内连接 - 请检查证书/策略后重试。"
+  },
+  "publish": {
+    "loop_start": "现在开始循环发布到 {}；每条消息都应该到达该主题。",
+    "sent": "  PUBLISH -> {}: {}",
+    "refused": "  PUBLISH -> {} REFUSED by the broker: reason_code={} (MQTT 3.1.1 could not report this)",
+    "failed": "  发布 seq={} 失败 (可能正在重新连接)：{}"
+  },
+  "disconnect": {
+    "clean": "已正常断开连接。"
+  }
+}

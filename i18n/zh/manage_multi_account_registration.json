@@ -1,0 +1,71 @@
+{
+  "errors": {
+    "register_without_ca_failed": "❌ register-certificate-without-ca 失败 — 证书 PEM 是否有效？",
+    "register_ca_sni_failed": "❌ register-ca-certificate (SNI_ONLY) 失败 — CA PEM 是否有效？",
+    "describe_endpoint_failed": "❌ describe-endpoint 失败"
+  },
+  "status": {
+    "cert_registered_header": "🪪 证书已在目标区域注册 (未生成新证书)",
+    "cert_registered_region": "   区域:           {}",
+    "cert_registered_id": "   certificateId:  {}",
+    "cert_id_derived_note": "   (此 ID 由证书本身派生，因此与该证书在大厅区域中的 ID 一致。)",
+    "same_cert_recognized": "✅ 目标区域现在可以识别同一个证书了。",
+    "next_get_endpoint": "   下一步：获取该区域的 iot:Data-ATS 端点，并将同一个 (SAME) 证书重新连接到该端点 ('move' 子命令)。",
+    "ca_registered_header": "🏛️  CA 已以 SNI_ONLY (多账户) 模式注册",
+    "ca_registered_region": "   区域:              {}",
+    "ca_registered_id": "   CA 证书 ID:        {}",
+    "ca_trusted_note": "   这个 CA 签名的每个设备证书现在都在此区域中受信任，",
+    "ca_sni_validated_note": "   并通过设备提供的 SNI 主机名进行验证。无需逐个注册证书。",
+    "endpoint_for_region": "🌐 {} 的 iot:Data-ATS 端点：{}",
+    "reconnecting_move": "🔌 正在使用同一个 (SAME) 证书将 '{}' 重新连接到目标端点 {} ...",
+    "published_seq": "   已发布 seq={} 到 {}",
+    "move_complete": "🎉 迁移完成 — 同一个证书现在已连接到目标区域。",
+    "move_complete_note": "   没有生成新证书；只是端点变了。"
+  },
+  "cli": {
+    "description": "Multi-Account Registration (MAR)：在目标区域中注册现有证书，并将同一个证书重新连接到该区域的端点。",
+    "register_without_ca": {
+      "help": "在目标区域中注册现有设备证书 (不使用 CA)。",
+      "region": "目标 (生产替代) 区域。",
+      "certificate_pem": "设备证书 PEM 的路径。",
+      "policy_name": "要在目标区域中创建/附加的设备策略。",
+      "policy_document": "要创建的策略 JSON (如果 --policy-name 是新的)。",
+      "thing_name": "可选：要在目标区域中创建并附加的 thing。",
+      "debug": "详细输出。"
+    },
+    "register_ca_sni": {
+      "help": "在目标区域中以 SNI_ONLY (多账户) 模式注册 CA。",
+      "region": "目标 (生产替代) 区域。",
+      "ca_certificate": "CA 证书 PEM 的路径。",
+      "debug": "详细输出。"
+    },
+    "endpoint": {
+      "help": "针对某个区域运行 describe-endpoint --endpoint-type iot:Data-ATS。",
+      "region": "要描述其数据端点的区域。",
+      "debug": "详细输出。"
+    },
+    "move": {
+      "help": "将同一个证书重新连接到目标端点。",
+      "region": "目标 (生产替代) 区域。",
+      "thing_name": "设备/thing 名称 (用作 MQTT 客户端 ID)。",
+      "cert": "同一个 (SAME) 设备证书 PEM 的路径。",
+      "key": "同一个 (SAME) 设备私钥的路径。",
+      "endpoint": "目标端点 (省略时自动发现)。",
+      "message_count": "要发布的遥测消息数。",
+      "debug": "详细输出。"
+    }
+  },
+  "operations": {
+    "attach_device_policy_to_moved_certificate": "将设备策略附加到迁移的证书",
+    "attach_moved_certificate_to_thing": "将迁移的证书附加到 thing",
+    "create_destination_device_policy": "创建目标区域设备策略",
+    "create_thing_in_destination_region": "在目标区域中创建 thing",
+    "describe_iot_data_ats_endpoint": "描述 iot:Data-ATS 端点",
+    "register_ca_in_sni_only_multi_account_mode": "以 SNI_ONLY (多账户) 模式注册 CA",
+    "register_certificate_without_ca_mar": "不使用 CA 注册证书 (MAR)"
+  },
+  "operation_resources": {
+    "certificate_in_region": "{} 中的证书",
+    "ca_in_region": "{} 中的 CA"
+  }
+}

@@ -1,0 +1,120 @@
+{
+  "usage": "用法: python3 scripts/rotate_certificate.py --endpoint <endpoint> --thing-name <thing> --cert <certFile> --key <keyFile> --ca <caFile>",
+  "connect": {
+    "attempt": "正在以 {} 身份使用{}证书连接 ...",
+    "old_certificate": "当前",
+    "new_certificate": "新",
+    "connected": "已连接 [{}]。",
+    "connack": "     CONNACK: {}",
+    "detail": "     endpoint={}  clientId={}  certificate={}",
+    "failed": "无法使用{}证书连接：{}",
+    "refused_terminal": "{}证书被消息代理拒绝 (REFUSED)：reason_code={}。这是授权失败，重试也无济于事，因此立即放弃。",
+    "refused_retry": "  {}证书无法连接 (reason_code={})，第 {}/{} 次尝试 - {} 秒后重试 ...",
+    "refused_exhausted": "{}证书尝试 {} 次后仍无法连接。",
+    "no_connack": "30 秒内未收到 CONNACK"
+  },
+  "wire": {
+    "sub": "     SUB      {}",
+    "pub": "     PUB  --> {}",
+    "recv": "     RECV <-- {}",
+    "payload": "              payload: {}",
+    "truncated": "{}... (共 {} 个字符)",
+    "job_meta": "              jobId={}  executionNumber={}  status={}",
+    "job_document": "              作业文档：{}",
+    "cert_detail": "              certificateId={}  certificatePem: {}",
+    "csr_payload": "              payload: jobId={}  csr: {}",
+    "key_not_sent": "              (此消息中不包含私钥 - 私钥永远不会离开设备)"
+  },
+  "job": {
+    "subscribing": "在领取作业之前，先订阅回复主题 ...",
+    "waiting": "正在 {} 上等待轮换作业执行 ...",
+    "taken": "已领取作业执行：{}",
+    "none": "此 thing 没有待处理的轮换作业执行。请先将它加入轮换 thing group，然后重新运行。",
+    "wrong_operation": "此作业执行请求的操作是 '{}'，而不是 '{}'。将报告 REJECTED 并停止：设备不得执行它没有实现的作业。",
+    "phase": "  作业执行 -> status={} phase={}",
+    "subscribe_refused": "消息代理拒绝了对 {} 的订阅：reason_code={}",
+    "update_failed": "  警告：无法向作业执行报告 status={}：{}"
+  },
+  "keypair": {
+    "generating": "正在本地生成新的密钥对和证书签名请求 ...",
+    "generated": "新密钥对已生成。私钥永远不会离开此设备：{}",
+    "detail": "     RSA {} 位密钥，证书签名请求使用者 CN={}，已写入 {}",
+    "openssl_missing": "在 PATH 中找不到 OpenSSL。通用设置章节会确认 OpenSSL 是否可用；请安装后重新运行。",
+    "failed": "无法生成密钥对或证书签名请求：{}"
+  },
+  "request": {
+    "sent": "Certificate signing request sent on {}; waiting for the handler to sign it.",
+    "received": "已收到证书 {}。",
+    "timeout": "{} 秒内没有收到证书。处理程序可能拒绝了该请求 — 请查看作业执行的 statusDetails 了解原因。"
+  },
+  "disconnect_choice": {
+    "menu": "  证书已到达。此设备接下来要做什么？\n    1) 继续 - 安装证书并继续轮换\n    2) 模拟断开连接 - 证书已到达，但从未写入磁盘 (恰好在此时发生崩溃或连接中断)",
+    "prompt": "  请选择 [1]: ",
+    "disconnecting": "正在模拟断开连接：刚到达的证书将被丢弃，不会安装。",
+    "reconnected": "已使用当前 (CURRENT) 证书重新连接 - 新证书从未安装，所以这是此设备仍持有的唯一证书。",
+    "reasking": "使用同一个 (SAME) 证书签名请求再次请求 - 相同的密钥，相同的作业。请在处理程序的日志中留意 `redelivering`，而不是第二次签名。",
+    "rediscovered": "  作业执行 -> status={} statusDetails={}"
+  },
+  "cutover": {
+    "installing": "正在将新证书安装到 {} ...",
+    "reconnecting": "正在使用新 (NEW) 证书重新连接 ...",
+    "proving": "正在发布到 {}，以证明新证书已获授权 ...",
+    "proved": "使用新证书的授权发布成功。",
+    "connect_failed": "新证书无法连接 (reason_code={})。证书已颁发，但无法使用 - 因此轮换到此停止。",
+    "publish_refused": "新证书已连接，但消息代理拒绝 (REFUSED) 了发布：reason_code={}。证书本身可用；只是它的策略没有授权此主题。",
+    "publish_failed": "新证书无法发布：{}",
+    "rolled_back": "已回滚到当前 (CURRENT) 证书 — 它从未被停用 — 并已报告 FAILED。设备保持在线。"
+  },
+  "result": {
+    "succeeded": "作业执行已报告 SUCCEEDED。后端现在可以停用旧证书。",
+    "failed": "作业执行已报告 FAILED。没有停用任何证书，设备继续使用当前证书。",
+    "summary": "{} 的轮换已完成：新证书 {} 正在使用中。"
+  },
+  "break_after_csr": {
+    "exit": "按照 --break-after-csr 的要求，在此处故意中断。已为作业执行 {} 发送证书签名请求，且不等待回复 - 该执行保持 IN_PROGRESS，phase=INITIATED。不带 --break-after-csr 重新运行同一命令即可继续：新进程会生成新的密钥对并再次请求，这样处理程序会签发第二个证书 (resigning)，而不是重新投递这一个。"
+  },
+  "pause": {
+    "rule": "  ----------------------------------------------------------------------",
+    "prompt": "  按 Enter 键让设备继续 ...",
+    "budget": "  时间预算：在 AWS IoT Core 将此执行标记为 TIMED_OUT 之前，大约还剩 {} 分钟 (共 {} 分钟)。",
+    "disabled": "  没有可用的终端输入 - 继续运行，不再暂停。",
+    "not_a_terminal": "已请求暂停，但当前不是交互式终端；将一直运行到结束。",
+    "aborted": "  收到 Ctrl-C - 正在停止。",
+    "exit": "已停止。作业执行保持在暂停时的状态；重新运行此命令即可继续。",
+    "job_taken": {
+      "what": "  OBSERVE 1/3 - 作业执行现在是 IN_PROGRESS。设备在生成密钥对之前在此等待。",
+      "console": "  控制台: AWS IoT 控制台 -> Manage -> Remote actions -> Jobs -> 你的作业 -> Job executions\n           {}",
+      "cli": "  CLI:     aws iot describe-job-execution --job-id {} --thing-name {} \\\n             --query \"execution.[status,statusDetails]\""
+    },
+    "overlap": {
+      "what": "  OBSERVE 2/3 - 重叠窗口。新证书已签名、处于 ACTIVE 状态并已附加，当前证书也仍然附加并正常工作。这个 thing 现在有两个证书，这正是轮换失败也不会把设备锁在外面的原因。",
+      "console": "  控制台: AWS IoT 控制台 -> Manage -> Things -> 你的 thing -> Certificates\n           {}",
+      "cli": "  CLI:     aws iot list-thing-principals --thing-name {} --query \"principals\"",
+      "expect": "  预期结果: 列出两个主体。新的那个以 {} 结尾。"
+    },
+    "retired": {
+      "what": "  OBSERVE 3/3 - 切换成功，因此旧证书正在被设为 INACTIVE。停用是事件驱动的，请稍等片刻；如果仍显示 ACTIVE，请重新运行命令。它还没有被删除：停用是延迟进行的，这样晚些重新出现的设备仍然可以恢复。",
+      "console": "  控制台: AWS IoT 控制台 -> Security -> Certificates (旧证书现在显示为 Inactive)\n           {}",
+      "cli": "  CLI:     使用你在 OBSERVE 2 看到的另一个证书 ID，也就是不是新证书的那个：\n             aws iot describe-certificate --certificate-id <thatId> \\\n               --query \"certificateDescription.status\"   (预期结果: INACTIVE)",
+      "scheduler": "  CLI:     aws scheduler list-schedules --name-prefix ws-aws-iot-dm-adv-prov-revoke- \\\n               --query \"Schedules[].[Name,State]\"\n             一次性删除计时器。它的名称以已停用证书 ID 的前 16 个字符结尾。"
+    }
+  },
+  "cli": {
+    "description": "运行后端驱动的证书轮换中设备端的部分。",
+    "endpoint": "iot:Data-ATS 端点",
+    "thing_name": "要轮换的 thing",
+    "cert": "当前证书 PEM",
+    "key": "当前私钥",
+    "ca": "Amazon 根 CA 文件",
+    "telemetry_topic": "用于证明新证书已获授权的主题",
+    "request_rule": "接收证书签名请求的主题规则名称。请求通过 Basic Ingest ($aws/rules/<rule>/devices/<thing>/certificate/rotation/request) 发布，因此无需消息传递费用即可到达规则引擎。必须与你创建的规则一致，否则发布会被丢弃，并产生 RuleNotFound",
+    "job_timeout": "等待待处理作业执行的秒数",
+    "cert_timeout": "等待签名证书的秒数",
+    "no_rollback": "切换失败时不回退到当前证书",
+    "connect_retries": "放弃之前使用新证书尝试连接的次数。授权失败 (CONNACK NOT_AUTHORIZED) 永远不会重试，因为重试无法改变结果",
+    "connect_backoff": "连接尝试之间的基础秒数；每次尝试后加倍",
+    "pause": "在每个可观察的步骤暂停，以便你在继续之前检查作业执行、证书重叠和延迟停用",
+    "break_after_csr": "发送证书签名请求后立即退出，不等待签名回复 — 以确定的方式模拟在此间隙重启的设备。之后不带此标志重新运行：新进程会生成新的密钥对并再次请求，这样处理程序会签发第二个证书 (`resigning`)，而不是重新投递第一个",
+    "in_progress_timeout": "作业允许执行保持 IN_PROGRESS 的分钟数；用于提醒你在执行被标记为 TIMED_OUT 之前最多可以暂停多久"
+  }
+}

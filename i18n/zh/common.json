@@ -1,0 +1,33 @@
+{
+  "account_id": "账户 ID",
+  "region": "区域",
+  "press_enter": "按 Enter 键继续...",
+  "goodbye": "再见！",
+  "cancelled_by_user": "👋 你已取消操作。再见！",
+  "tagging": {
+    "workshop_tag_key": "workshop",
+    "workshop_tag_value": "learning-aws-iot-dm-basics",
+    "applying": "正在应用标签...",
+    "success": "✅ 标签已应用",
+    "failed": "⚠️  标签应用失败"
+  },
+  "naming": {
+    "validation": {
+      "prefix_empty": "❌ 错误：thing 前缀不能为空",
+      "prefix_too_long": "❌ 错误：thing 前缀不能超过 20 个字符 (当前为 {length} 个字符)",
+      "prefix_invalid_chars": "❌ 错误：thing 前缀包含无效字符。只允许字母、数字、连字符 (-)、下划线 (_) 和冒号 (:)",
+      "prefix_valid": "✅ thing 前缀有效：{prefix}",
+      "sequential_number_invalid": "❌ 错误：序号必须介于 1 到 999 之间 (当前为 {number})"
+    },
+    "pattern_matching": {
+      "checking": "🔍 正在检查 '{name}' 是否匹配 {type} 的研讨会命名模式...",
+      "matched": "✅ 已匹配研讨会命名模式：{pattern}",
+      "no_match": "❌ 未找到匹配的研讨会命名模式",
+      "custom_prefix_match": "✅ 已匹配自定义前缀模式：{prefix}"
+    },
+    "generation": {
+      "generating": "🔧 正在使用前缀 '{prefix}' 和编号 {number} 生成 thing 名称...",
+      "generated": "✅ 已生成 thing 名称：{name}"
+    }
+  }
+}

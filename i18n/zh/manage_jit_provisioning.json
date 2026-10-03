@@ -1,0 +1,49 @@
+{
+  "warnings": {
+    "topic_rule_not_created": "⚠️  主题规则未创建 (请查看上面的错误)。"
+  },
+  "errors": {
+    "handler_source_not_found": "❌ 找不到处理程序源代码：{}",
+    "dependency_install_failed": "❌ 打包 cryptography 依赖项失败：{}"
+  },
+  "status": {
+    "topic_rule_created": "✅ 主题规则 '{}' 会将 {} 路由到 JITR 处理程序",
+    "handler_code_deployed": "✅ 已将 JITR 处理程序代码部署到 '{}'",
+    "certs_registered_header": "ℹ️  已注册 {} 个证书，所属 CA {}：",
+    "cert_line": "   - {}  status={}",
+    "thing_attributes": "ℹ️  thing '{}' 的属性：{}"
+  },
+  "cli": {
+    "description": "管理 Just-in-Time Provisioning (JITP) 和 JITR 资源。",
+    "register_ca": {
+      "help": "使用 JITP 配置注册自定义 CA。",
+      "role_arn": "JITP 注册角色 ARN。",
+      "template_file": "JITP 模板 JSON 路径。",
+      "ca_common_name": "根 CA 通用名称。",
+      "debug": "详细输出。"
+    },
+    "deploy_jitr_rule": {
+      "help": "创建 JITR 主题规则 (create-topic-rule)。",
+      "rule_name": "主题规则名称。",
+      "function_arn": "JITR 处理程序 Lambda ARN。",
+      "debug": "详细输出。"
+    },
+    "deploy_jitr_code": {
+      "help": "部署 JITR 处理程序代码 (update-function-code)。",
+      "function_name": "JITR 处理程序函数名称。",
+      "debug": "详细输出。"
+    },
+    "observe": {
+      "help": "查看注册结果 (list-certificates-by-ca / describe-thing)。",
+      "ca_cert_id": "CA 证书 ID。",
+      "thing_name": "要描述的 thing。",
+      "debug": "详细输出。"
+    }
+  },
+  "operations": {
+    "create_jitr_topic_rule": "创建 JITR 主题规则",
+    "deploy_jitr_handler_code": "部署 JITR 处理程序代码",
+    "describe_thing": "描述 thing",
+    "list_certificates_by_ca": "按 CA 列出证书"
+  }
+}

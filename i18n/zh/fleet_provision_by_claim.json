@@ -1,0 +1,99 @@
+{
+  "errors": {
+    "claim_create_failed": "❌ 无法创建声明证书",
+    "provisioning_failed": "❌ Fleet Provisioning 未完成：{}",
+    "provisioning_rejected": "Fleet Provisioning 在 {} 上被拒绝：{}",
+    "reply_timeout": "等待 {} 上的回复超时"
+  },
+  "status": {
+    "claim_cert_id": "ℹ️  声明证书 ID：{}",
+    "saved_claim_files": "   已保存 {} / {} / {}",
+    "claim_ready": "🎉 声明证书已就绪，权限范围仅限于 Fleet Provisioning",
+    "claim_ready_detail": "   CA/Lambda/模板是分开的 — 这个声明证书只能 (ONLY) 用于引导。",
+    "template_created": "✅ 预置模板 '{}' 已创建 (已启用)",
+    "hook_attached": "   已附加 pre-provisioning hook：{}",
+    "version_line": "   - 版本 {}{}",
+    "version_default_marker": " (默认)",
+    "version_created": "✅ 已创建版本 {}{}",
+    "version_set_default_suffix": " 并设为默认版本",
+    "version_deleted": "✅ 已删除版本 {} (回滚)",
+    "thing_info": "ℹ️  thing '{}' 类型={} 属性={}",
+    "principal_line": "   - 主体：{}",
+    "extracted_cert": "🔑 已提取永久证书 ({}...) 和 certificateOwnershipToken",
+    "saved_cert_key": "   已保存 {} / {}",
+    "extracted_cert_csr_note": "   (CSR 路径不会返回私钥 — 设备保留了自己的私钥)",
+    "saved_cert_csr": "   已保存 {} (继续使用你在 CSR 步骤中生成的私钥)",
+    "connecting_claim": "🔌 正在使用声明 (CLAIM) 证书连接到 {} ...",
+    "provisioned": "🎉 设备已通过声明完成预置",
+    "provisioned_thing_name": "   thingName: {}",
+    "provisioned_device_config": "   deviceConfiguration: {}",
+    "provisioned_reconnect": "   现在请使用永久 (PERMANENT) 证书 ({}) 重新连接并发布遥测数据 — 声明证书的任务已经完成。"
+  },
+  "mqtt": {
+    "subscribe": "📡 SUBSCRIBE {}",
+    "publish": "📨 PUBLISH → {}",
+    "received": "📥 RECEIVED ← {}",
+    "publish_empty_payload": "   payload: {}   (空消息体 — CreateKeysAndCertificate 不需要任何输入)",
+    "publish_csr_payload": "   payload: {{ \"certificateSigningRequest\": <来自 {} 的 PEM> }}"
+  },
+  "cli": {
+    "description": "通过声明进行 Fleet Provisioning：声明证书、模板、版本管理、MQTT 预置。",
+    "create_claim": {
+      "help": "创建声明证书 + 限定范围的策略。",
+      "policy_name": "声明策略名称。",
+      "policy_file": "声明策略 JSON。",
+      "claim_cert_out": "声明证书输出路径。",
+      "claim_key_out": "声明私钥输出路径。",
+      "claim_pub_out": "声明公钥输出路径。",
+      "debug": "详细输出。"
+    },
+    "create_template": {
+      "help": "创建 Fleet Provisioning 模板。",
+      "template_name": "模板名称。",
+      "provisioning_role_arn": "Fleet Provisioning 角色 ARN。",
+      "template_file": "模板 JSON 路径。",
+      "hook_arn": "pre-provisioning hook Lambda ARN。",
+      "debug": "详细输出。"
+    },
+    "provision": {
+      "help": "运行基于声明的 MQTT 预置交换。",
+      "template_name": "模板名称。",
+      "claim_cert": "声明证书路径。",
+      "claim_key": "声明私钥路径。",
+      "serial_number": "设备 SerialNumber (thing 名称)。",
+      "model_type": "设备 ModelType 参数。",
+      "endpoint": "iot:Data-ATS 端点 (省略时自动发现)。",
+      "out_prefix": "永久证书/私钥的输出前缀。",
+      "csr_file": "用于 CreateCertificateFromCsr 的 CSR PEM (设备保留自己的私钥)。省略时使用 CreateKeysAndCertificate。可选的 certificate provider 实验走的就是这条路径。",
+      "debug": "详细输出。"
+    },
+    "versions": {
+      "help": "管理预置模板版本。",
+      "template_name": "模板名称。",
+      "list": "列出版本。",
+      "new_version_file": "要添加的新模板正文 JSON。",
+      "set_default": "将新版本设为默认版本。",
+      "delete_version_id": "要删除的版本 ID (回滚)。",
+      "debug": "详细输出。"
+    },
+    "observe": {
+      "help": "describe-thing / list-thing-principals.",
+      "thing_name": "已预置的 thing 名称。",
+      "debug": "详细输出。"
+    }
+  },
+  "operations": {
+    "attach_claim_policy_to_claim_certificate": "将声明策略附加到声明证书",
+    "create_claim_certificate": "创建声明证书",
+    "create_claim_policy": "创建声明策略",
+    "create_fleet_provisioning_template": "创建 Fleet Provisioning 模板",
+    "create_provisioning_template_version": "创建预置模板版本",
+    "delete_provisioning_template_version": "删除预置模板版本",
+    "describe_thing": "描述 thing",
+    "list_provisioning_template_versions": "列出预置模板版本",
+    "list_thing_principals": "列出 thing 主体"
+  },
+  "operation_resources": {
+    "template_version": "{} v{}"
+  }
+}

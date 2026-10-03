@@ -1,0 +1,35 @@
+{
+  "debug": {
+    "openssl_cmd": "🔧 {}"
+  },
+  "errors": {
+    "openssl_failed": "❌ OpenSSL 失败：{}",
+    "no_registration_code": "❌ 无法获取注册码",
+    "registration_failed": "❌ CA 注册失败",
+    "ca_common_name_invalid_chars": "❌ --ca-common-name 只能包含字母、数字、空格、连字符、下划线和句点",
+    "openssl_command_failed": "OpenSSL 命令失败"
+  },
+  "status": {
+    "reusing_root_ca": "ℹ️  正在复用现有的根 CA ({})",
+    "creating_root_ca": "🔐 正在使用 OpenSSL 创建自签名根 CA (仅限研讨会)",
+    "root_ca_created": "✅ 已创建根 CA：{}",
+    "creating_verification": "🔏 正在创建 CA 验证证书 (CN == 注册码)",
+    "verification_created": "✅ 已创建验证证书：{}",
+    "openssl_available": "✅ OpenSSL 可用：{}",
+    "registration_code": "ℹ️  注册码：{}",
+    "registered_title": "🎉 自定义 CA 已注册，并已启用 Just-in-Time Provisioning",
+    "ca_certificate_id": "   CA 证书 ID：{}",
+    "verify_hint": "   验证命令：aws iot describe-ca-certificate --certificate-id {}"
+  },
+  "cli": {
+    "description": "向 AWS IoT Core 注册自定义证书颁发机构，并启用 Just-in-Time Provisioning (JITP)。",
+    "role_arn": "JITP 注册角色的 ARN (预先创建的角色 'ws-aws-iot-dm-adv-prov-jitp-registration-role')。",
+    "template_file": "JITP 预置模板 JSON 的路径 (默认：随附的 jitp-template.json)。",
+    "ca_common_name": "自签名根 CA 的通用名称 (仅限研讨会)。",
+    "debug": "打印 API 请求/响应详情和 OpenSSL 命令。"
+  },
+  "operations": {
+    "get_ca_registration_code": "获取 CA 注册码",
+    "register_custom_ca_jitp": "注册自定义 CA (JITP)"
+  }
+}

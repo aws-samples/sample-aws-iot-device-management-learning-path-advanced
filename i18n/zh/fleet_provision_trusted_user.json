@@ -1,0 +1,75 @@
+{
+  "errors": {
+    "claim_create_failed": "❌ 无法创建预置声明 — 你的 IAM 身份是否已限定为对此模板拥有 iot:CreateProvisioningClaim 权限？",
+    "provisioning_failed": "❌ Fleet Provisioning 未完成：{}",
+    "provisioning_rejected": "Fleet Provisioning 在 {} 上被拒绝：{}",
+    "reply_timeout": "等待 {} 上的回复超时"
+  },
+  "status": {
+    "template_created": "✅ 预置模板 '{}' 已创建 (已启用)",
+    "template_no_hook": "   没有 pre-provisioning hook — 限定范围的可信用户 IAM 身份就是把关者。",
+    "claim_minted": "🎟️  已为模板 '{}' 生成临时预置声明",
+    "saved_claim_files": "   已保存 {} / {}",
+    "claim_expires": "   过期时间：{} (大约五分钟 — 请立即预置)",
+    "claim_note": "   注意：这个临时声明证书不会 (NOT) 出现在 list-certificates 中。",
+    "thing_info": "ℹ️  thing '{}' 类型={} 属性={}",
+    "principal_line": "   - 主体：{}",
+    "connecting_claim": "🔌 正在使用临时 (TEMPORARY) 声明证书连接到 {} ...",
+    "extracted_cert": "🔑 已提取永久证书 ({}...) 和 certificateOwnershipToken",
+    "saved_cert_key": "   已保存 {} / {}",
+    "extracted_cert_csr_note": "   (CSR 路径不会返回私钥 — 设备保留了自己的私钥)",
+    "saved_cert_csr": "   已保存 {} (继续使用你在 CSR 步骤中生成的私钥)",
+    "provisioned": "🎉 设备已通过可信用户完成预置",
+    "provisioned_thing_name": "   thingName: {}",
+    "provisioned_device_config": "   deviceConfiguration: {}",
+    "provisioned_reconnect": "   现在请使用永久 (PERMANENT) 证书 ({}) 重新连接并发布遥测数据 — 临时声明的任务已经完成。"
+  },
+  "mqtt": {
+    "subscribe": "📡 SUBSCRIBE {}",
+    "publish": "📨 PUBLISH → {}",
+    "received": "📥 RECEIVED ← {}",
+    "publish_empty_payload": "   payload: {}   (空消息体 — CreateKeysAndCertificate 不需要任何输入)",
+    "publish_csr_payload": "   payload: {{ \"certificateSigningRequest\": <来自 {} 的 PEM> }}"
+  },
+  "cli": {
+    "description": "通过可信用户进行 Fleet Provisioning：模板、CreateProvisioningClaim、MQTT 预置。",
+    "create_template": {
+      "help": "创建可信用户预置模板。",
+      "template_name": "模板名称。",
+      "provisioning_role_arn": "Fleet Provisioning 角色 ARN。",
+      "template_file": "模板 JSON 路径。",
+      "debug": "详细输出。"
+    },
+    "create_claim": {
+      "help": "以可信用户身份调用 CreateProvisioningClaim。",
+      "template_name": "模板名称。",
+      "claim_cert_out": "临时声明证书输出路径。",
+      "claim_key_out": "临时声明私钥输出路径。",
+      "claim_pub_out": "临时声明公钥输出路径 (可选)。",
+      "debug": "详细输出。"
+    },
+    "provision": {
+      "help": "运行可信用户 MQTT 预置交换。",
+      "template_name": "模板名称。",
+      "claim_cert": "临时声明证书路径。",
+      "claim_key": "临时声明私钥路径。",
+      "serial_number": "设备 SerialNumber (thing 名称)。",
+      "device_type": "设备 DeviceType 参数。",
+      "endpoint": "iot:Data-ATS 端点 (省略时自动发现)。",
+      "out_prefix": "永久证书/私钥的输出前缀。",
+      "csr_file": "用于 CreateCertificateFromCsr 的 CSR PEM (设备保留自己的私钥)。省略时使用 CreateKeysAndCertificate。",
+      "debug": "详细输出。"
+    },
+    "observe": {
+      "help": "describe-thing / list-thing-principals.",
+      "thing_name": "已预置的 thing 名称。",
+      "debug": "详细输出。"
+    }
+  },
+  "operations": {
+    "create_provisioning_claim_trusted_user": "创建预置声明 (可信用户)",
+    "create_trusted_user_provisioning_template": "创建可信用户预置模板",
+    "describe_thing": "描述 thing",
+    "list_thing_principals": "列出 thing 主体"
+  }
+}

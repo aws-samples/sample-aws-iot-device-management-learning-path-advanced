@@ -1,0 +1,122 @@
+{
+  "header": {
+    "mode_dry_run": "试运行 (不会删除任何内容)",
+    "mode_execute": "执行",
+    "title": "高级设备预置 — 按专题清理 [{}]"
+  },
+  "status": {
+    "region_workshop": "区域 (研讨会)：{}",
+    "region_mar": "区域 (MAR / 第 5 节)：{}",
+    "scope_note": "此清理仅限于预置专题。通用设置 (存储库、依赖项、语言、OpenSSL) 始终不会被改动。",
+    "dry_run_hint": "试运行：查看将要删除的内容。使用 --execute 重新运行即可删除 (执行破坏性删除前会请你确认)。",
+    "dry_run_complete": "试运行完成。没有更改任何资源。",
+    "execute_complete": "清理完成。你拒绝删除的内容都已保留。",
+    "discovering_cas": "🔎 正在查找此专题创建的自定义证书颁发机构...",
+    "none_found": "  (未找到)",
+    "discovering_certificates": "🔎 正在查找此专题创建的证书 ({})...",
+    "discovering_things": "🔎 正在查找此专题创建的 thing ({})...",
+    "discovering_templates": "🔎 此专题创建的预置模板...",
+    "discovering_topic_rules": "🔎 此专题创建的主题规则...",
+    "discovering_thing_groups": "🔎 此专题创建的 thing group...",
+    "discovering_thing_types": "🔎 此专题创建的 thing type...",
+    "waiting_thing_types": "⏳ 弃用后需等待 5 分钟，AWS IoT 才允许删除 thing type...",
+    "discovering_policies": "🔎 此专题创建的设备/声明策略 ({})...",
+    "cleaning_mar_region": "=== 正在清理第二个区域 ({}) — 第 5 节 (MAR) ===",
+    "discovering_rotation_resources": "🔎 第 6 节 (证书轮换) 的资源 — 作业、主题规则、队列成员资格、计时器...",
+    "discovering_certificate_provider": "🔎 第 3 节中可选的 certificate provider...",
+    "reverting_event_configurations": "🔎 第 6 节启用的账户级 JOB / JOB_EXECUTION 事件配置..."
+  },
+  "plan": {
+    "prefix_dry_run": "试运行 — 将删除",
+    "prefix_execute": "正在删除",
+    "ca": "证书颁发机构 '{}' ({})",
+    "certificate": "证书 {}",
+    "thing": "thing {}",
+    "provisioning_template": "预置模板 {}",
+    "topic_rule": "主题规则 {}",
+    "thing_group": "thing group {}",
+    "thing_type": "thing type {}",
+    "policy": "策略 {}",
+    "rotation_job": "轮换作业 {}",
+    "rotation_thing_group_member": "thing {} (从轮换队列中移除)",
+    "schedule": "延迟删除计划 {}",
+    "certificate_provider": "certificate provider {}",
+    "event_configurations": "账户级 JOB / JOB_EXECUTION 事件配置 (恢复为禁用)"
+  },
+  "prompts": {
+    "confirm_warning": "⚠️  即将删除 {} 个 {}。此操作具有破坏性，且不可撤销。",
+    "confirm_question": "要删除这些 {} 吗？[y/N]: ",
+    "retained": "保留 {}：已按你的要求保留。"
+  },
+  "categories": {
+    "certificate_authorities": "证书颁发机构",
+    "provisioning_templates": "预置模板",
+    "certificates_region": "证书 ({})",
+    "things_region": "thing ({})"
+  },
+  "labels": {
+    "region": "区域 {}",
+    "mar_region": "MAR 区域 {}"
+  },
+  "notice": {
+    "header": "🧱 基础架构 (AWS Lambda 函数、IAM 角色) — 不在此处删除",
+    "stack_named": "  • pre-provisioning hook 和 JITR 处理程序 Lambda 属于 CloudFormation 堆栈 '{}'。",
+    "stack_named_detail": "    AWS 主导的活动：活动结束时会自动删除。你自己的账户：完成此专题后请删除该堆栈。",
+    "stack_unknown": "  • JITR 处理程序和 pre-provisioning hook Lambda 由堆栈管理。删除基础 CloudFormation 堆栈即可移除它们 (你自己的账户)，或者让 AWS 主导的活动自动拆除该堆栈。"
+  },
+  "cli": {
+    "description": "端到端设备预置 (高级) 专题的按专题清理。按命名模式限定范围，默认不具破坏性 (试运行)；传入 --execute 才会删除。",
+    "execute": "实际删除资源 (默认是试运行，不删除任何内容)。",
+    "region": "你运行此专题动手实践章节所在的区域。省略时使用 boto3 的常规区域解析 (先看 AWS_DEFAULT_REGION，再看 AWS CLI 配置文件中配置的区域)。",
+    "mar_region": "第 5 节 (Multi-Account Registration) 使用的第二个区域，例如 us-west-2。清理迁移到该区域的证书和 thing，不影响主区域。",
+    "debug": "打印每次控制平面调用的 API 请求/响应详情。"
+  },
+  "errors": {
+    "no_region": "未解析到 AWS 区域。请传入 --region，或者通过 'aws configure' 或 AWS_DEFAULT_REGION 环境变量进行设置。"
+  },
+  "operations": {
+    "cancel_job": "取消作业",
+    "deactivate_ca_certificate": "停用 CA 证书",
+    "deactivate_certificate": "停用证书",
+    "delete_ca_certificate": "删除 CA 证书",
+    "delete_certificate": "删除证书",
+    "delete_certificate_provider": "删除 certificate provider",
+    "delete_job": "删除作业",
+    "delete_policy": "删除策略",
+    "delete_policy_version": "删除策略版本",
+    "delete_provisioning_template": "删除预置模板",
+    "delete_rotation_shadow": "删除轮换 shadow",
+    "delete_schedule": "删除计划",
+    "delete_thing": "删除 thing",
+    "delete_thing_group": "删除 thing group",
+    "delete_thing_type": "删除 thing type",
+    "delete_topic_rule": "删除主题规则",
+    "deprecate_thing_type": "弃用 thing type",
+    "describe_ca_certificate": "描述 CA 证书",
+    "describe_certificate": "描述证书",
+    "describe_certificate_provider": "描述 certificate provider",
+    "describe_endpoint": "描述端点",
+    "describe_event_configurations": "描述事件配置",
+    "describe_job": "描述作业",
+    "describe_provisioning_template": "描述预置模板",
+    "describe_thing_group": "描述 thing group",
+    "describe_thing_type": "描述 thing type",
+    "detach_policy": "分离策略",
+    "detach_thing_principal": "分离 thing 主体",
+    "get_policy": "获取策略",
+    "get_topic_rule": "获取主题规则",
+    "list_attached_policies": "列出已附加的策略",
+    "list_ca_certificates": "列出 CA 证书",
+    "list_certificates_by_ca": "按 CA 列出证书",
+    "list_policy_versions": "列出策略版本",
+    "list_principal_things": "列出主体的 thing",
+    "list_schedules": "列出计划",
+    "list_targets_for_policy": "列出策略的目标",
+    "list_thing_principals": "列出 thing 主体",
+    "remove_thing_from_rotation_group": "从轮换组中移除 thing",
+    "revert_event_configurations": "恢复事件配置"
+  },
+  "operation_resources": {
+    "iot_data_endpoint": "IoT 数据端点 ({})"
+  }
+}

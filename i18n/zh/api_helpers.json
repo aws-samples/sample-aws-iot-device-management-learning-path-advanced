@@ -1,0 +1,20 @@
+{
+  "status": {
+    "in_progress": "⚙️  {}：正在创建 {}...",
+    "ready": "✅ {}：{} 已就绪",
+    "already_exists": "ℹ️  {}：{} 已存在，继续执行"
+  },
+  "errors": {
+    "api_error": "❌ {}：创建 {} 时出错：{}",
+    "unexpected": "❌ 错误：{}"
+  },
+  "debug": {
+    "header": "\n🔍 DEBUG: {} -> {}",
+    "api_call": "   API 调用：{}",
+    "input_parameters": "   输入参数：",
+    "api_response": "   API 响应：",
+    "full_error": "   完整错误：",
+    "full_traceback": "   完整回溯：",
+    "truncated_value": "{} …(已截断，共 {} 个字符)"
+  }
+}

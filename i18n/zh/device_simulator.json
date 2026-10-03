@@ -1,0 +1,29 @@
+{
+  "callbacks": {
+    "resumed": "\n🔄 MQTT 连接已恢复 (reason_code={}, rejoined_session={})",
+    "interrupted": "\n⚠️  MQTT 连接已中断 (reason_code={}, exception={})"
+  },
+  "errors": {
+    "resubscribe_failed": "❌ 重新订阅 {} 失败：{}",
+    "message_processing_failed": "❌ 处理收到的消息时出错：{}",
+    "connection_refused": "连接被拒绝：reason_code={} exception={}",
+    "no_connack": "{} 秒内未收到 CONNACK",
+    "subscribe_refused": "对 {} 的订阅被拒绝：{}",
+    "not_connected": "未连接到 AWS IoT Core",
+    "publish_refused": "向 {} 发布被拒绝：{} {}"
+  },
+  "debug": {
+    "describe_endpoint": "🔄 describe_endpoint(endpointType='{}')",
+    "endpoint_resolved": "📤 端点：{}",
+    "setup_header": "🔧 MQTT 连接设置",
+    "setup_client_id": "   客户端 ID：{}",
+    "setup_endpoint": "   端点：{}",
+    "setup_port": "   端口：{}",
+    "setup_certificate": "   证书：{}",
+    "setup_private_key": "   私钥：{}",
+    "setup_protocol": "   协议：基于 TLS 的 MQTT 5",
+    "setup_session": "   会话：{}",
+    "connected": "✅ MQTT 连接已建立",
+    "connack": "   CONNACK: {}"
+  }
+}
