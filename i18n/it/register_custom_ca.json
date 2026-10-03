@@ -1,0 +1,35 @@
+{
+  "debug": {
+    "openssl_cmd": "🔧 {}"
+  },
+  "errors": {
+    "openssl_failed": "❌ OpenSSL non riuscito: {}",
+    "no_registration_code": "❌ Impossibile ottenere un codice di registrazione",
+    "registration_failed": "❌ Registrazione della CA non riuscita",
+    "ca_common_name_invalid_chars": "❌ --ca-common-name può contenere solo lettere, numeri, spazi, trattini, trattini bassi e punti",
+    "openssl_command_failed": "Comando OpenSSL non riuscito"
+  },
+  "status": {
+    "reusing_root_ca": "ℹ️  Riuso della CA radice esistente ({})",
+    "creating_root_ca": "🔐 Creazione di una CA radice autofirmata con OpenSSL (SOLO PER IL WORKSHOP)",
+    "root_ca_created": "✅ CA radice creata: {}",
+    "creating_verification": "🔏 Creazione del certificato di verifica della CA (CN == codice di registrazione)",
+    "verification_created": "✅ Certificato di verifica creato: {}",
+    "openssl_available": "✅ OpenSSL disponibile: {}",
+    "registration_code": "ℹ️  Codice di registrazione: {}",
+    "registered_title": "🎉 CA personalizzata registrata con Just-in-Time Provisioning abilitato",
+    "ca_certificate_id": "   ID certificato CA: {}",
+    "verify_hint": "   Verifica con: aws iot describe-ca-certificate --certificate-id {}"
+  },
+  "cli": {
+    "description": "Registra un'autorità di certificazione personalizzata in AWS IoT Core e abilita Just-in-Time Provisioning (JITP).",
+    "role_arn": "ARN del ruolo di registrazione JITP (il ruolo creato in anticipo 'ws-aws-iot-dm-adv-prov-jitp-registration-role').",
+    "template_file": "Percorso del JSON del template di provisioning JITP (predefinito: il jitp-template.json incluso).",
+    "ca_common_name": "Nome comune della CA radice autofirmata (solo per il workshop).",
+    "debug": "Stampa i dettagli di richieste/risposte API e i comandi OpenSSL."
+  },
+  "operations": {
+    "get_ca_registration_code": "Ottenere il codice di registrazione della CA",
+    "register_custom_ca_jitp": "Registrare la CA personalizzata (JITP)"
+  }
+}

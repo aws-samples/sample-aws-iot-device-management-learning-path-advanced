@@ -1,0 +1,75 @@
+{
+  "errors": {
+    "claim_create_failed": "❌ Impossibile creare il provisioning claim — la tua identità IAM ha iot:CreateProvisioningClaim limitato a questo template?",
+    "provisioning_failed": "❌ Il Fleet Provisioning non è stato completato: {}",
+    "provisioning_rejected": "Fleet Provisioning rifiutato su {}: {}",
+    "reply_timeout": "Tempo scaduto in attesa di una risposta su {}"
+  },
+  "status": {
+    "template_created": "✅ Template di provisioning '{}' creato (abilitato)",
+    "template_no_hook": "   Nessun pre-provisioning hook — il controllo è l'identità IAM limitata dell'utente attendibile.",
+    "claim_minted": "🎟️  Provisioning claim temporaneo emesso per il template '{}'",
+    "saved_claim_files": "   Salvati {} / {}",
+    "claim_expires": "   Scade: {} (circa cinque minuti — esegui subito il provisioning)",
+    "claim_note": "   Nota: questo certificato di claim temporaneo NON compare in list-certificates.",
+    "thing_info": "ℹ️  Thing '{}' type={} attributes={}",
+    "principal_line": "   - principal: {}",
+    "connecting_claim": "🔌 Connessione con il certificato di claim TEMPORANEO a {} ...",
+    "extracted_cert": "🔑 Estratti il certificato permanente ({}...) e il certificateOwnershipToken",
+    "saved_cert_key": "   Salvati {} / {}",
+    "extracted_cert_csr_note": "   (nel percorso CSR non viene restituita alcuna chiave privata — il dispositivo ha conservato la sua)",
+    "saved_cert_csr": "   Salvato {} (riusa la tua chiave privata del passo della CSR)",
+    "provisioned": "🎉 Provisioning del dispositivo tramite utente attendibile completato",
+    "provisioned_thing_name": "   thingName: {}",
+    "provisioned_device_config": "   deviceConfiguration: {}",
+    "provisioned_reconnect": "   Ora riconnettiti con il certificato PERMANENTE ({}) per pubblicare la telemetria — il claim temporaneo ha fatto il suo lavoro."
+  },
+  "mqtt": {
+    "subscribe": "📡 SUBSCRIBE {}",
+    "publish": "📨 PUBLISH → {}",
+    "received": "📥 RICEVUTO ← {}",
+    "publish_empty_payload": "   payload: {}   (corpo vuoto — CreateKeysAndCertificate non richiede input)",
+    "publish_csr_payload": "   payload: {{ \"certificateSigningRequest\": <PEM da {}> }}"
+  },
+  "cli": {
+    "description": "Fleet Provisioning tramite utente attendibile: template, CreateProvisioningClaim, provisioning via MQTT.",
+    "create_template": {
+      "help": "Crea il template di provisioning per l'utente attendibile.",
+      "template_name": "Nome del template.",
+      "provisioning_role_arn": "ARN del ruolo di Fleet Provisioning.",
+      "template_file": "Percorso del JSON del template.",
+      "debug": "Output dettagliato."
+    },
+    "create_claim": {
+      "help": "Esegue CreateProvisioningClaim come utente attendibile.",
+      "template_name": "Nome del template.",
+      "claim_cert_out": "Percorso di output del certificato di claim temporaneo.",
+      "claim_key_out": "Output della chiave di claim temporanea.",
+      "claim_pub_out": "Output della chiave pubblica di claim temporanea (facoltativo).",
+      "debug": "Output dettagliato."
+    },
+    "provision": {
+      "help": "Esegue lo scambio MQTT di provisioning tramite utente attendibile.",
+      "template_name": "Nome del template.",
+      "claim_cert": "Percorso del certificato di claim temporaneo.",
+      "claim_key": "Percorso della chiave privata di claim temporanea.",
+      "serial_number": "SerialNumber del dispositivo (nome del thing).",
+      "device_type": "Parametro DeviceType del dispositivo.",
+      "endpoint": "Endpoint iot:Data-ATS (rilevato automaticamente se omesso).",
+      "out_prefix": "Prefisso di output per il certificato e la chiave permanenti.",
+      "csr_file": "PEM della CSR per usare CreateCertificateFromCsr (il dispositivo conserva la propria chiave). Omettilo per usare CreateKeysAndCertificate.",
+      "debug": "Output dettagliato."
+    },
+    "observe": {
+      "help": "describe-thing / list-thing-principals.",
+      "thing_name": "Nome del thing sottoposto a provisioning.",
+      "debug": "Output dettagliato."
+    }
+  },
+  "operations": {
+    "create_provisioning_claim_trusted_user": "Creare il provisioning claim (utente attendibile)",
+    "create_trusted_user_provisioning_template": "Creare il template di provisioning per l'utente attendibile",
+    "describe_thing": "Descrivere il thing",
+    "list_thing_principals": "Elencare i principal del thing"
+  }
+}

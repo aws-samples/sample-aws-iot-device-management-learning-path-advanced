@@ -1,0 +1,49 @@
+{
+  "warnings": {
+    "topic_rule_not_created": "⚠️  La regola di topic non è stata creata (vedi l'errore sopra)."
+  },
+  "errors": {
+    "handler_source_not_found": "❌ Codice sorgente dell'handler non trovato: {}",
+    "dependency_install_failed": "❌ Impossibile includere nel pacchetto la dipendenza cryptography: {}"
+  },
+  "status": {
+    "topic_rule_created": "✅ La regola di topic '{}' instrada {} all'handler JITR",
+    "handler_code_deployed": "✅ Codice dell'handler JITR distribuito in '{}'",
+    "certs_registered_header": "ℹ️  {} certificati registrati sotto la CA {}:",
+    "cert_line": "   - {}  status={}",
+    "thing_attributes": "ℹ️  Attributi del thing '{}': {}"
+  },
+  "cli": {
+    "description": "Gestisce le risorse di Just-in-Time Provisioning (JITP) e JITR.",
+    "register_ca": {
+      "help": "Registra la CA personalizzata con la configurazione JITP.",
+      "role_arn": "ARN del ruolo di registrazione JITP.",
+      "template_file": "Percorso del JSON del template JITP.",
+      "ca_common_name": "Nome comune della CA radice.",
+      "debug": "Output dettagliato."
+    },
+    "deploy_jitr_rule": {
+      "help": "Crea la regola di topic JITR (create-topic-rule).",
+      "rule_name": "Nome della regola di topic.",
+      "function_arn": "ARN della Lambda dell'handler JITR.",
+      "debug": "Output dettagliato."
+    },
+    "deploy_jitr_code": {
+      "help": "Distribuisce il codice dell'handler JITR (update-function-code).",
+      "function_name": "Nome della funzione dell'handler JITR.",
+      "debug": "Output dettagliato."
+    },
+    "observe": {
+      "help": "Osserva i risultati della registrazione (list-certificates-by-ca / describe-thing).",
+      "ca_cert_id": "ID del certificato CA.",
+      "thing_name": "Thing da descrivere.",
+      "debug": "Output dettagliato."
+    }
+  },
+  "operations": {
+    "create_jitr_topic_rule": "Creare la regola di topic JITR",
+    "deploy_jitr_handler_code": "Distribuire il codice dell'handler JITR",
+    "describe_thing": "Descrivere il thing",
+    "list_certificates_by_ca": "Elencare i certificati per CA"
+  }
+}

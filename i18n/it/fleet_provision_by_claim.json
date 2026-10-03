@@ -1,0 +1,99 @@
+{
+  "errors": {
+    "claim_create_failed": "❌ Impossibile creare il certificato di claim",
+    "provisioning_failed": "❌ Il Fleet Provisioning non è stato completato: {}",
+    "provisioning_rejected": "Fleet Provisioning rifiutato su {}: {}",
+    "reply_timeout": "Tempo scaduto in attesa di una risposta su {}"
+  },
+  "status": {
+    "claim_cert_id": "ℹ️  ID del certificato di claim: {}",
+    "saved_claim_files": "   Salvati {} / {} / {}",
+    "claim_ready": "🎉 Certificato di claim pronto e limitato al solo Fleet Provisioning",
+    "claim_ready_detail": "   CA, Lambda e template sono separati — questo certificato di claim può SOLO fare il bootstrap.",
+    "template_created": "✅ Template di provisioning '{}' creato (abilitato)",
+    "hook_attached": "   Pre-provisioning hook collegato: {}",
+    "version_line": "   - versione {}{}",
+    "version_default_marker": " (predefinita)",
+    "version_created": "✅ Versione {} creata{}",
+    "version_set_default_suffix": " e impostata come predefinita",
+    "version_deleted": "✅ Versione {} eliminata (rollback)",
+    "thing_info": "ℹ️  Thing '{}' type={} attributes={}",
+    "principal_line": "   - principal: {}",
+    "extracted_cert": "🔑 Estratti il certificato permanente ({}...) e il certificateOwnershipToken",
+    "saved_cert_key": "   Salvati {} / {}",
+    "extracted_cert_csr_note": "   (nel percorso CSR non viene restituita alcuna chiave privata — il dispositivo ha conservato la sua)",
+    "saved_cert_csr": "   Salvato {} (riusa la tua chiave privata del passo della CSR)",
+    "connecting_claim": "🔌 Connessione con il certificato di CLAIM a {} ...",
+    "provisioned": "🎉 Provisioning del dispositivo tramite claim completato",
+    "provisioned_thing_name": "   thingName: {}",
+    "provisioned_device_config": "   deviceConfiguration: {}",
+    "provisioned_reconnect": "   Ora riconnettiti con il certificato PERMANENTE ({}) per pubblicare la telemetria — il certificato di claim ha fatto il suo lavoro."
+  },
+  "mqtt": {
+    "subscribe": "📡 SUBSCRIBE {}",
+    "publish": "📨 PUBLISH → {}",
+    "received": "📥 RICEVUTO ← {}",
+    "publish_empty_payload": "   payload: {}   (corpo vuoto — CreateKeysAndCertificate non richiede input)",
+    "publish_csr_payload": "   payload: {{ \"certificateSigningRequest\": <PEM da {}> }}"
+  },
+  "cli": {
+    "description": "Fleet Provisioning tramite claim: certificato di claim, template, versioni, provisioning via MQTT.",
+    "create_claim": {
+      "help": "Crea il certificato di claim e la sua policy limitata.",
+      "policy_name": "Nome della policy di claim.",
+      "policy_file": "JSON della policy di claim.",
+      "claim_cert_out": "Percorso di output del certificato di claim.",
+      "claim_key_out": "Output della chiave di claim.",
+      "claim_pub_out": "Output della chiave pubblica di claim.",
+      "debug": "Output dettagliato."
+    },
+    "create_template": {
+      "help": "Crea il template di Fleet Provisioning.",
+      "template_name": "Nome del template.",
+      "provisioning_role_arn": "ARN del ruolo di Fleet Provisioning.",
+      "template_file": "Percorso del JSON del template.",
+      "hook_arn": "ARN della Lambda del pre-provisioning hook.",
+      "debug": "Output dettagliato."
+    },
+    "provision": {
+      "help": "Esegue lo scambio MQTT di provisioning tramite claim.",
+      "template_name": "Nome del template.",
+      "claim_cert": "Percorso del certificato di claim.",
+      "claim_key": "Percorso della chiave privata di claim.",
+      "serial_number": "SerialNumber del dispositivo (nome del thing).",
+      "model_type": "Parametro ModelType del dispositivo.",
+      "endpoint": "Endpoint iot:Data-ATS (rilevato automaticamente se omesso).",
+      "out_prefix": "Prefisso di output per il certificato e la chiave permanenti.",
+      "csr_file": "PEM della CSR per usare CreateCertificateFromCsr (il dispositivo conserva la propria chiave). Omettilo per usare CreateKeysAndCertificate. È il percorso usato dal lab facoltativo sul certificate provider.",
+      "debug": "Output dettagliato."
+    },
+    "versions": {
+      "help": "Gestisce le versioni del template di provisioning.",
+      "template_name": "Nome del template.",
+      "list": "Elenca le versioni.",
+      "new_version_file": "JSON con il nuovo corpo del template da aggiungere.",
+      "set_default": "Imposta la nuova versione come predefinita.",
+      "delete_version_id": "ID della versione da eliminare (rollback).",
+      "debug": "Output dettagliato."
+    },
+    "observe": {
+      "help": "describe-thing / list-thing-principals.",
+      "thing_name": "Nome del thing sottoposto a provisioning.",
+      "debug": "Output dettagliato."
+    }
+  },
+  "operations": {
+    "attach_claim_policy_to_claim_certificate": "Collegare la policy di claim al certificato di claim",
+    "create_claim_certificate": "Creare il certificato di claim",
+    "create_claim_policy": "Creare la policy di claim",
+    "create_fleet_provisioning_template": "Creare il template di Fleet Provisioning",
+    "create_provisioning_template_version": "Creare una versione del template di provisioning",
+    "delete_provisioning_template_version": "Eliminare una versione del template di provisioning",
+    "describe_thing": "Descrivere il thing",
+    "list_provisioning_template_versions": "Elencare le versioni del template di provisioning",
+    "list_thing_principals": "Elencare i principal del thing"
+  },
+  "operation_resources": {
+    "template_version": "{} v{}"
+  }
+}

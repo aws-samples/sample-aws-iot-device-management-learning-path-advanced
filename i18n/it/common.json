@@ -1,0 +1,33 @@
+{
+  "account_id": "ID account",
+  "region": "Regione",
+  "press_enter": "Premi Invio per continuare...",
+  "goodbye": "Ciao!",
+  "cancelled_by_user": "👋 Annullato dall'utente. Ciao!",
+  "tagging": {
+    "workshop_tag_key": "workshop",
+    "workshop_tag_value": "learning-aws-iot-dm-basics",
+    "applying": "Applicazione dei tag...",
+    "success": "✅ Tag applicati",
+    "failed": "⚠️  Applicazione dei tag non riuscita"
+  },
+  "naming": {
+    "validation": {
+      "prefix_empty": "❌ Errore: il prefisso del thing non può essere vuoto",
+      "prefix_too_long": "❌ Errore: il prefisso del thing deve avere al massimo 20 caratteri (ricevuti {length} caratteri)",
+      "prefix_invalid_chars": "❌ Errore: il prefisso del thing contiene caratteri non validi. Sono consentiti solo caratteri alfanumerici, trattini (-), trattini bassi (_) e due punti (:)",
+      "prefix_valid": "✅ Il prefisso del thing è valido: {prefix}",
+      "sequential_number_invalid": "❌ Errore: il numero sequenziale deve essere compreso tra 1 e 999 (ricevuto {number})"
+    },
+    "pattern_matching": {
+      "checking": "🔍 Verifica se '{name}' corrisponde al pattern del workshop per {type}...",
+      "matched": "✅ Corrisponde al pattern del workshop: {pattern}",
+      "no_match": "❌ Nessuna corrispondenza trovata con un pattern del workshop",
+      "custom_prefix_match": "✅ Corrisponde al pattern del prefisso personalizzato: {prefix}"
+    },
+    "generation": {
+      "generating": "🔧 Generazione del nome del thing con il prefisso '{prefix}' e il numero {number}...",
+      "generated": "✅ Nome del thing generato: {name}"
+    }
+  }
+}
