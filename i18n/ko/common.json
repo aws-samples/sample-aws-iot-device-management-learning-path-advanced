@@ -1,0 +1,33 @@
+{
+  "account_id": "계정 ID",
+  "region": "리전",
+  "press_enter": "계속하려면 Enter 키를 누르세요...",
+  "goodbye": "안녕히 가세요!",
+  "cancelled_by_user": "👋 사용자가 취소했어요. 안녕히 가세요!",
+  "tagging": {
+    "workshop_tag_key": "workshop",
+    "workshop_tag_value": "learning-aws-iot-dm-basics",
+    "applying": "태그를 적용하는 중이에요...",
+    "success": "✅ 태그를 적용했어요",
+    "failed": "⚠️  태그 지정에 실패했어요"
+  },
+  "naming": {
+    "validation": {
+      "prefix_empty": "❌ 오류: thing 접두사는 비워 둘 수 없어요",
+      "prefix_too_long": "❌ 오류: thing 접두사는 20자 이하여야 해요(입력: {length}자)",
+      "prefix_invalid_chars": "❌ 오류: thing 접두사에 잘못된 문자가 있어요. 영숫자, 하이픈(-), 밑줄(_), 콜론(:)만 사용할 수 있어요",
+      "prefix_valid": "✅ thing 접두사가 유효해요: {prefix}",
+      "sequential_number_invalid": "❌ 오류: 일련번호는 1에서 999 사이여야 해요(입력: {number})"
+    },
+    "pattern_matching": {
+      "checking": "🔍 '{name}'이(가) {type}의 워크숍 패턴과 일치하는지 확인하는 중이에요...",
+      "matched": "✅ 워크숍 패턴과 일치해요: {pattern}",
+      "no_match": "❌ 일치하는 워크숍 패턴을 찾지 못했어요",
+      "custom_prefix_match": "✅ 사용자 지정 접두사 패턴과 일치해요: {prefix}"
+    },
+    "generation": {
+      "generating": "🔧 접두사 '{prefix}'와(과) 번호 {number}(으)로 thing 이름을 생성하는 중이에요...",
+      "generated": "✅ thing 이름을 생성했어요: {name}"
+    }
+  }
+}

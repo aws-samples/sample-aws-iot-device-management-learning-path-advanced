@@ -1,0 +1,20 @@
+{
+  "status": {
+    "in_progress": "⚙️  {}: {} 생성 중...",
+    "ready": "✅ {}: {} 준비 완료",
+    "already_exists": "ℹ️  {}: {}이(가) 이미 있어서 계속 진행해요"
+  },
+  "errors": {
+    "api_error": "❌ {}: {} 생성 중 오류: {}",
+    "unexpected": "❌ 오류: {}"
+  },
+  "debug": {
+    "header": "\n🔍 DEBUG: {} -> {}",
+    "api_call": "   API 호출: {}",
+    "input_parameters": "   입력 파라미터:",
+    "api_response": "   API 응답:",
+    "full_error": "   전체 오류:",
+    "full_traceback": "   전체 트레이스백:",
+    "truncated_value": "{} …(잘림, 총 {}자)"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "callbacks": {
+    "resumed": "\n🔄 MQTT 연결이 재개됐어요(reason_code={}, rejoined_session={})",
+    "interrupted": "\n⚠️  MQTT 연결이 중단됐어요(reason_code={}, exception={})"
+  },
+  "errors": {
+    "resubscribe_failed": "❌ {}에 다시 구독하지 못했어요: {}",
+    "message_processing_failed": "❌ 수신한 메시지를 처리하는 중 오류가 발생했어요: {}",
+    "connection_refused": "연결 거부됨: reason_code={} exception={}",
+    "no_connack": "{}초 이내에 CONNACK 없음",
+    "subscribe_refused": "{} 구독 거부됨: {}",
+    "not_connected": "AWS IoT Core에 연결되어 있지 않음",
+    "publish_refused": "{}에 대한 게시 거부됨: {} {}"
+  },
+  "debug": {
+    "describe_endpoint": "🔄 describe_endpoint(endpointType='{}')",
+    "endpoint_resolved": "📤 엔드포인트: {}",
+    "setup_header": "🔧 MQTT 연결 설정",
+    "setup_client_id": "   클라이언트 ID: {}",
+    "setup_endpoint": "   엔드포인트: {}",
+    "setup_port": "   포트: {}",
+    "setup_certificate": "   인증서: {}",
+    "setup_private_key": "   프라이빗 키: {}",
+    "setup_protocol": "   프로토콜: MQTT 5 over TLS",
+    "setup_session": "   세션: {}",
+    "connected": "✅ MQTT 연결이 설정됐어요",
+    "connack": "   CONNACK: {}"
+  }
+}

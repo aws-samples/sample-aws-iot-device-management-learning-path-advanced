@@ -1,0 +1,122 @@
+{
+  "header": {
+    "mode_dry_run": "드라이 런(아무것도 삭제하지 않음)",
+    "mode_execute": "실행",
+    "title": "고급 디바이스 프로비저닝 — 주제별 정리 [{}]"
+  },
+  "status": {
+    "region_workshop": "리전(워크숍): {}",
+    "region_mar": "리전(MAR / 섹션 5): {}",
+    "scope_note": "이 정리는 프로비저닝 주제에만 적용돼요. 공통 설정(리포지토리, 종속성, 언어, OpenSSL)은 절대 건드리지 않아요.",
+    "dry_run_hint": "드라이 런: 제거될 항목을 검토하고 있어요. 삭제하려면 --execute를 붙여 다시 실행하세요(되돌릴 수 없는 삭제는 확인을 요청해요).",
+    "dry_run_complete": "드라이 런이 끝났어요. 변경된 리소스는 없어요.",
+    "execute_complete": "정리가 끝났어요. 삭제를 거절한 항목은 모두 유지했어요.",
+    "discovering_cas": "🔎 이 주제에서 만든 사용자 지정 인증 기관을 찾는 중이에요...",
+    "none_found": "  (찾은 항목 없음)",
+    "discovering_certificates": "🔎 이 주제에서 만든 인증서를 찾는 중이에요({})...",
+    "discovering_things": "🔎 이 주제에서 만든 thing을 찾는 중이에요({})...",
+    "discovering_templates": "🔎 이 주제에서 만든 프로비저닝 템플릿...",
+    "discovering_topic_rules": "🔎 이 주제에서 만든 토픽 규칙...",
+    "discovering_thing_groups": "🔎 이 주제에서 만든 thing group...",
+    "discovering_thing_types": "🔎 이 주제에서 만든 thing type...",
+    "waiting_thing_types": "⏳ AWS IoT에서 thing type을 삭제할 수 있도록 사용 중단 후 5분 동안 기다리는 중이에요...",
+    "discovering_policies": "🔎 이 주제에서 만든 디바이스 / 클레임 정책({})...",
+    "cleaning_mar_region": "=== 두 번째 리전({}) 정리 — 섹션 5(MAR) ===",
+    "discovering_rotation_resources": "🔎 섹션 6(인증서 교체) 리소스 — 작업, 토픽 규칙, 대기열 멤버십, 타이머...",
+    "discovering_certificate_provider": "🔎 섹션 3의 선택 사항인 certificate provider...",
+    "reverting_event_configurations": "🔎 섹션 6에서 활성화한 계정 전체 JOB / JOB_EXECUTION 이벤트 구성..."
+  },
+  "plan": {
+    "prefix_dry_run": "드라이 런 — 제거 예정",
+    "prefix_execute": "제거 중",
+    "ca": "인증 기관 '{}' ({})",
+    "certificate": "인증서 {}",
+    "thing": "thing {}",
+    "provisioning_template": "프로비저닝 템플릿 {}",
+    "topic_rule": "토픽 규칙 {}",
+    "thing_group": "thing group {}",
+    "thing_type": "thing type {}",
+    "policy": "정책 {}",
+    "rotation_job": "교체 작업 {}",
+    "rotation_thing_group_member": "thing {} (교체 대기열에서 제거)",
+    "schedule": "지연 삭제 일정 {}",
+    "certificate_provider": "certificate provider {}",
+    "event_configurations": "계정 전체 JOB / JOB_EXECUTION 이벤트 구성(비활성화로 되돌림)"
+  },
+  "prompts": {
+    "confirm_warning": "⚠️  {}개 {}을(를) 삭제하려고 해요. 되돌릴 수 없는 삭제 작업이에요.",
+    "confirm_question": "이 {}을(를) 삭제할까요? [y/N]: ",
+    "retained": "{}을(를) 유지해요. 요청에 따라 삭제하지 않았어요."
+  },
+  "categories": {
+    "certificate_authorities": "인증 기관",
+    "provisioning_templates": "프로비저닝 템플릿",
+    "certificates_region": "인증서({})",
+    "things_region": "thing({})"
+  },
+  "labels": {
+    "region": "리전 {}",
+    "mar_region": "MAR 리전 {}"
+  },
+  "notice": {
+    "header": "🧱 기본 인프라(AWS Lambda 함수, IAM 역할) — 여기서는 삭제하지 않아요",
+    "stack_named": "  • pre-provisioning hook과 JITR 핸들러 Lambda는 CloudFormation 스택 '{}'에 속해요.",
+    "stack_named_detail": "    AWS 주도 이벤트: 이벤트가 끝나면 자동으로 제거돼요. 자신의 계정: 이 주제를 마치면 해당 스택을 삭제하세요.",
+    "stack_unknown": "  • JITR 핸들러와 pre-provisioning hook Lambda는 스택에서 관리해요. 제거하려면 기본 CloudFormation 스택을 삭제하거나(자신의 계정), AWS 주도 이벤트에서 정리하도록 두세요."
+  },
+  "cli": {
+    "description": "엔드투엔드 고급 디바이스 프로비저닝 주제의 주제별 정리. 패턴으로 범위가 한정되고 기본값은 비파괴적인 드라이 런이에요. 삭제하려면 --execute를 전달하세요.",
+    "execute": "리소스를 실제로 삭제(기본값은 아무것도 삭제하지 않는 드라이 런).",
+    "region": "이 주제의 실습 섹션을 실행한 리전. 생략하면 boto3의 일반적인 리전 결정 방식(AWS_DEFAULT_REGION, 그다음 AWS CLI 프로필에 구성된 리전)을 따라요.",
+    "mar_region": "섹션 5(Multi-Account Registration)에서 사용한 두 번째 리전(예: us-west-2). 주 리전은 건드리지 않고, 그곳으로 이동한 인증서와 thing을 정리해요.",
+    "debug": "각 컨트롤 플레인 호출의 API 요청/응답 세부 정보 출력."
+  },
+  "errors": {
+    "no_region": "AWS 리전을 확인할 수 없어요. --region을 전달하거나 'aws configure' 또는 AWS_DEFAULT_REGION 환경 변수로 설정하세요."
+  },
+  "operations": {
+    "cancel_job": "작업 취소",
+    "deactivate_ca_certificate": "CA 인증서 비활성화",
+    "deactivate_certificate": "인증서 비활성화",
+    "delete_ca_certificate": "CA 인증서 삭제",
+    "delete_certificate": "인증서 삭제",
+    "delete_certificate_provider": "certificate provider 삭제",
+    "delete_job": "작업 삭제",
+    "delete_policy": "정책 삭제",
+    "delete_policy_version": "정책 버전 삭제",
+    "delete_provisioning_template": "프로비저닝 템플릿 삭제",
+    "delete_rotation_shadow": "교체 shadow 삭제",
+    "delete_schedule": "일정 삭제",
+    "delete_thing": "thing 삭제",
+    "delete_thing_group": "thing group 삭제",
+    "delete_thing_type": "thing type 삭제",
+    "delete_topic_rule": "토픽 규칙 삭제",
+    "deprecate_thing_type": "thing type 사용 중단",
+    "describe_ca_certificate": "CA 인증서 조회",
+    "describe_certificate": "인증서 조회",
+    "describe_certificate_provider": "certificate provider 조회",
+    "describe_endpoint": "엔드포인트 조회",
+    "describe_event_configurations": "이벤트 구성 조회",
+    "describe_job": "작업 조회",
+    "describe_provisioning_template": "프로비저닝 템플릿 조회",
+    "describe_thing_group": "thing group 조회",
+    "describe_thing_type": "thing type 조회",
+    "detach_policy": "정책 분리",
+    "detach_thing_principal": "thing 보안 주체 분리",
+    "get_policy": "정책 조회",
+    "get_topic_rule": "토픽 규칙 조회",
+    "list_attached_policies": "연결된 정책 목록 조회",
+    "list_ca_certificates": "CA 인증서 목록 조회",
+    "list_certificates_by_ca": "CA별 인증서 목록 조회",
+    "list_policy_versions": "정책 버전 목록 조회",
+    "list_principal_things": "보안 주체의 thing 목록 조회",
+    "list_schedules": "일정 목록 조회",
+    "list_targets_for_policy": "정책 대상 목록 조회",
+    "list_thing_principals": "thing 보안 주체 목록 조회",
+    "remove_thing_from_rotation_group": "교체 그룹에서 thing 제거",
+    "revert_event_configurations": "이벤트 구성 복원"
+  },
+  "operation_resources": {
+    "iot_data_endpoint": "IoT 데이터 엔드포인트({})"
+  }
+}

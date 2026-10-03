@@ -1,0 +1,75 @@
+{
+  "errors": {
+    "claim_create_failed": "❌ 프로비저닝 클레임을 만들 수 없어요. IAM ID의 범위가 이 템플릿의 iot:CreateProvisioningClaim으로 지정되어 있나요?",
+    "provisioning_failed": "❌ Fleet Provisioning이 완료되지 않았어요: {}",
+    "provisioning_rejected": "{}에서 Fleet Provisioning이 거부됐어요: {}",
+    "reply_timeout": "{}에서 응답을 기다리다가 시간이 초과됐어요"
+  },
+  "status": {
+    "template_created": "✅ 프로비저닝 템플릿 '{}'을(를) 만들었어요(활성화됨)",
+    "template_no_hook": "   Pre-provisioning hook이 없어요. 범위가 제한된 신뢰할 수 있는 사용자의 IAM ID가 관문 역할을 해요.",
+    "claim_minted": "🎟️  템플릿 '{}'에 대한 임시 프로비저닝 클레임을 발급했어요",
+    "saved_claim_files": "   저장함: {} / {}",
+    "claim_expires": "   만료: {} (약 5분이에요. 지금 바로 프로비저닝하세요)",
+    "claim_note": "   참고: 이 임시 클레임 인증서는 list-certificates에 나타나지 않아요.",
+    "thing_info": "ℹ️  Thing '{}' type={} attributes={}",
+    "principal_line": "   - principal: {}",
+    "connecting_claim": "🔌 임시(TEMPORARY) 클레임 인증서로 {}에 연결하는 중이에요 ...",
+    "extracted_cert": "🔑 영구 인증서({}...)와 certificateOwnershipToken을 추출했어요",
+    "saved_cert_key": "   저장함: {} / {}",
+    "extracted_cert_csr_note": "   (CSR 경로에서는 프라이빗 키가 반환되지 않아요. 디바이스가 자체 키를 그대로 보관해요)",
+    "saved_cert_csr": "   저장함: {} (CSR 단계에서 만든 자신의 프라이빗 키를 다시 사용하세요)",
+    "provisioned": "🎉 신뢰할 수 있는 사용자를 통해 디바이스를 프로비저닝했어요",
+    "provisioned_thing_name": "   thingName: {}",
+    "provisioned_device_config": "   deviceConfiguration: {}",
+    "provisioned_reconnect": "   이제 영구(PERMANENT) 인증서({})로 다시 연결해서 텔레메트리를 게시하세요. 임시 클레임의 역할은 끝났어요."
+  },
+  "mqtt": {
+    "subscribe": "📡 SUBSCRIBE {}",
+    "publish": "📨 PUBLISH → {}",
+    "received": "📥 RECEIVED ← {}",
+    "publish_empty_payload": "   payload: {}   (빈 본문이에요. CreateKeysAndCertificate는 입력을 받지 않아요)",
+    "publish_csr_payload": "   payload: {{ \"certificateSigningRequest\": <{}의 PEM> }}"
+  },
+  "cli": {
+    "description": "신뢰할 수 있는 사용자 기반 Fleet Provisioning: 템플릿, CreateProvisioningClaim, MQTT 프로비저닝.",
+    "create_template": {
+      "help": "신뢰할 수 있는 사용자용 프로비저닝 템플릿 생성.",
+      "template_name": "템플릿 이름.",
+      "provisioning_role_arn": "Fleet Provisioning 역할 ARN.",
+      "template_file": "템플릿 JSON 경로.",
+      "debug": "상세 출력."
+    },
+    "create_claim": {
+      "help": "신뢰할 수 있는 사용자로 CreateProvisioningClaim 실행.",
+      "template_name": "템플릿 이름.",
+      "claim_cert_out": "임시 클레임 인증서 출력 경로.",
+      "claim_key_out": "임시 클레임 키 출력.",
+      "claim_pub_out": "임시 클레임 퍼블릭 키 출력(선택 사항).",
+      "debug": "상세 출력."
+    },
+    "provision": {
+      "help": "신뢰할 수 있는 사용자 기반 MQTT 프로비저닝 교환 실행.",
+      "template_name": "템플릿 이름.",
+      "claim_cert": "임시 클레임 인증서 경로.",
+      "claim_key": "임시 클레임 프라이빗 키 경로.",
+      "serial_number": "디바이스 SerialNumber(thing 이름).",
+      "device_type": "디바이스 DeviceType 파라미터.",
+      "endpoint": "iot:Data-ATS 엔드포인트(생략하면 자동 검색).",
+      "out_prefix": "영구 인증서/키의 출력 접두사.",
+      "csr_file": "CreateCertificateFromCsr를 사용할 CSR PEM(디바이스가 자체 키를 보관). 생략하면 CreateKeysAndCertificate를 사용.",
+      "debug": "상세 출력."
+    },
+    "observe": {
+      "help": "describe-thing / list-thing-principals.",
+      "thing_name": "프로비저닝된 thing 이름.",
+      "debug": "상세 출력."
+    }
+  },
+  "operations": {
+    "create_provisioning_claim_trusted_user": "프로비저닝 클레임 생성(신뢰할 수 있는 사용자)",
+    "create_trusted_user_provisioning_template": "신뢰할 수 있는 사용자용 프로비저닝 템플릿 생성",
+    "describe_thing": "thing 조회",
+    "list_thing_principals": "thing 보안 주체 목록 조회"
+  }
+}

@@ -1,0 +1,99 @@
+{
+  "errors": {
+    "claim_create_failed": "❌ 클레임 인증서를 만들 수 없어요",
+    "provisioning_failed": "❌ Fleet Provisioning이 완료되지 않았어요: {}",
+    "provisioning_rejected": "{}에서 Fleet Provisioning이 거부됐어요: {}",
+    "reply_timeout": "{}에서 응답을 기다리다가 시간이 초과됐어요"
+  },
+  "status": {
+    "claim_cert_id": "ℹ️  클레임 인증서 ID: {}",
+    "saved_claim_files": "   저장함: {} / {} / {}",
+    "claim_ready": "🎉 클레임 인증서가 준비됐고, 범위가 Fleet Provisioning으로만 제한되어 있어요",
+    "claim_ready_detail": "   CA/Lambda/템플릿은 별개예요. 이 클레임 인증서로는 오직 부트스트랩만 할 수 있어요.",
+    "template_created": "✅ 프로비저닝 템플릿 '{}'을(를) 만들었어요(활성화됨)",
+    "hook_attached": "   Pre-provisioning hook 연결됨: {}",
+    "version_line": "   - 버전 {}{}",
+    "version_default_marker": " (기본값)",
+    "version_created": "✅ 버전 {}을(를) 만들었어요{}",
+    "version_set_default_suffix": " (기본 버전으로 설정함)",
+    "version_deleted": "✅ 버전 {}을(를) 삭제했어요(롤백)",
+    "thing_info": "ℹ️  Thing '{}' type={} attributes={}",
+    "principal_line": "   - principal: {}",
+    "extracted_cert": "🔑 영구 인증서({}...)와 certificateOwnershipToken을 추출했어요",
+    "saved_cert_key": "   저장함: {} / {}",
+    "extracted_cert_csr_note": "   (CSR 경로에서는 프라이빗 키가 반환되지 않아요. 디바이스가 자체 키를 그대로 보관해요)",
+    "saved_cert_csr": "   저장함: {} (CSR 단계에서 만든 자신의 프라이빗 키를 다시 사용하세요)",
+    "connecting_claim": "🔌 클레임(CLAIM) 인증서로 {}에 연결하는 중이에요 ...",
+    "provisioned": "🎉 클레임으로 디바이스를 프로비저닝했어요",
+    "provisioned_thing_name": "   thingName: {}",
+    "provisioned_device_config": "   deviceConfiguration: {}",
+    "provisioned_reconnect": "   이제 영구(PERMANENT) 인증서({})로 다시 연결해서 텔레메트리를 게시하세요. 클레임 인증서의 역할은 끝났어요."
+  },
+  "mqtt": {
+    "subscribe": "📡 SUBSCRIBE {}",
+    "publish": "📨 PUBLISH → {}",
+    "received": "📥 RECEIVED ← {}",
+    "publish_empty_payload": "   payload: {}   (빈 본문이에요. CreateKeysAndCertificate는 입력을 받지 않아요)",
+    "publish_csr_payload": "   payload: {{ \"certificateSigningRequest\": <{}의 PEM> }}"
+  },
+  "cli": {
+    "description": "클레임 기반 Fleet Provisioning: 클레임 인증서, 템플릿, 버전 관리, MQTT 프로비저닝.",
+    "create_claim": {
+      "help": "클레임 인증서 및 범위가 제한된 정책 생성.",
+      "policy_name": "클레임 정책 이름.",
+      "policy_file": "클레임 정책 JSON.",
+      "claim_cert_out": "클레임 인증서 출력 경로.",
+      "claim_key_out": "클레임 키 출력.",
+      "claim_pub_out": "클레임 퍼블릭 키 출력.",
+      "debug": "상세 출력."
+    },
+    "create_template": {
+      "help": "Fleet Provisioning 템플릿 생성.",
+      "template_name": "템플릿 이름.",
+      "provisioning_role_arn": "Fleet Provisioning 역할 ARN.",
+      "template_file": "템플릿 JSON 경로.",
+      "hook_arn": "Pre-provisioning hook Lambda의 ARN.",
+      "debug": "상세 출력."
+    },
+    "provision": {
+      "help": "클레임 기반 MQTT 프로비저닝 교환 실행.",
+      "template_name": "템플릿 이름.",
+      "claim_cert": "클레임 인증서 경로.",
+      "claim_key": "클레임 프라이빗 키 경로.",
+      "serial_number": "디바이스 SerialNumber(thing 이름).",
+      "model_type": "디바이스 ModelType 파라미터.",
+      "endpoint": "iot:Data-ATS 엔드포인트(생략하면 자동 검색).",
+      "out_prefix": "영구 인증서/키의 출력 접두사.",
+      "csr_file": "CreateCertificateFromCsr를 사용할 CSR PEM(디바이스가 자체 키를 보관). 생략하면 CreateKeysAndCertificate를 사용. 선택 사항인 certificate provider 실습에서 사용하는 경로예요.",
+      "debug": "상세 출력."
+    },
+    "versions": {
+      "help": "프로비저닝 템플릿 버전 관리.",
+      "template_name": "템플릿 이름.",
+      "list": "버전 목록 표시.",
+      "new_version_file": "추가할 새 템플릿 본문 JSON.",
+      "set_default": "새 버전을 기본값으로 설정.",
+      "delete_version_id": "삭제할 버전 ID(롤백).",
+      "debug": "상세 출력."
+    },
+    "observe": {
+      "help": "describe-thing / list-thing-principals.",
+      "thing_name": "프로비저닝된 thing 이름.",
+      "debug": "상세 출력."
+    }
+  },
+  "operations": {
+    "attach_claim_policy_to_claim_certificate": "클레임 인증서에 클레임 정책 연결",
+    "create_claim_certificate": "클레임 인증서 생성",
+    "create_claim_policy": "클레임 정책 생성",
+    "create_fleet_provisioning_template": "Fleet Provisioning 템플릿 생성",
+    "create_provisioning_template_version": "프로비저닝 템플릿 버전 생성",
+    "delete_provisioning_template_version": "프로비저닝 템플릿 버전 삭제",
+    "describe_thing": "thing 조회",
+    "list_provisioning_template_versions": "프로비저닝 템플릿 버전 목록 조회",
+    "list_thing_principals": "thing 보안 주체 목록 조회"
+  },
+  "operation_resources": {
+    "template_version": "{} v{}"
+  }
+}

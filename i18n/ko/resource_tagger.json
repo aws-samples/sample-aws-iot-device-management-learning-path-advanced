@@ -1,0 +1,28 @@
+{
+  "tagging": {
+    "success": "✅ {}에 태그를 적용했어요",
+    "failed": "⚠️  {}에 태그를 적용하지 못했어요: {}",
+    "warning_continue": "⚠️  {} 태그 지정이 되지 않았지만, 리소스 생성은 계속 진행해요",
+    "invalid_schema": "⚠️  {}의 태그 스키마가 올바르지 않은 것 같아요",
+    "unsupported_type": "⚠️  이 리소스 유형은 아직 태그 지정을 지원하지 않아요: {}"
+  },
+  "debug": {
+    "applying_tags": "🔧 {}에 워크숍 태그를 추가하는 중이에요(유형: {})",
+    "tags_applied": "✅ 태그 적용됨: {}",
+    "tag_count": "📊 태그 {}개를 {}에 추가했어요",
+    "using_api": "🔧 태그 지정에 {} API를 사용해요",
+    "tag_validation": "🔍 태그 스키마를 확인하는 중이에요...",
+    "tag_validation_passed": "✅ 태그 스키마에 문제가 없어요",
+    "tag_validation_failed": "❌ 태그 스키마 검증을 통과하지 못했어요"
+  },
+  "summary": {
+    "resources_without_tags": "📊 태그 없이 생성된 리소스: {}",
+    "tag_failures": "⚠️  태그 적용 문제",
+    "total_failures": "태그가 없는 리소스 총계: {}",
+    "relying_on_naming": "ℹ️  걱정하지 마세요. 이 리소스들은 정리할 때 명명 규칙으로 식별돼요"
+  },
+  "module_info": {
+    "standalone_description": "이 모듈은 리소스 태그 지정 기능을 제공해요.",
+    "standalone_usage": "apply_workshop_tags()를 사용하려면 스크립트에서 이 모듈을 가져오세요."
+  }
+}

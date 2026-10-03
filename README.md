@@ -12,8 +12,9 @@ It is the sample-code companion for the **whole advanced learning path** — a s
 |----------|--------|
 | 🇺🇸 English | [README.md](README.md) |
 | 🇪🇸 Español | [README.es.md](README.es.md) |
+| 🇰🇷 한국어 | [README.ko.md](README.ko.md) |
 
-The scripts themselves are localized: set `AWS_IOT_LANG` (`en`, `es`, `ja`, `ko`, `pt`, `zh`, `de`, `it`, `fr`) or pick a language interactively on first run. Script messages are currently available in English and Spanish; any message that is not translated yet falls back to English.
+The scripts themselves are localized: set `AWS_IOT_LANG` (`en`, `es`, `ja`, `ko`, `pt`, `zh`, `de`, `it`, `fr`) or pick a language interactively on first run. Script messages are currently available in English, Spanish, and Korean; any message that is not translated yet falls back to English.
 
 ## 🎯 Topics in This Learning Path
 
@@ -206,7 +207,7 @@ export AWS_IOT_LANG=en   # Set default language (en, es, fr, ja, ko, pt, zh, de,
 
 ## 🌍 Internationalization
 
-This learning path targets the 9 workshop locales: English (`en`), Spanish (`es`), Japanese (`ja`), Korean (`ko`), Portuguese (`pt`), Chinese (`zh`), German (`de`), Italian (`it`), and French (`fr`). Script messages ship today in English and Spanish (`i18n/en/`, `i18n/es/`); the other languages are added one at a time. Set `AWS_IOT_LANG` to skip the interactive prompt; scripts fall back to English, message by message, when a translation is missing.
+This learning path targets the 9 workshop locales: English (`en`), Spanish (`es`), Japanese (`ja`), Korean (`ko`), Portuguese (`pt`), Chinese (`zh`), German (`de`), Italian (`it`), and French (`fr`). Script messages ship today in English, Spanish, and Korean (`i18n/en/`, `i18n/es/`, `i18n/ko/`); the other languages are added one at a time. Set `AWS_IOT_LANG` to skip the interactive prompt; scripts fall back to English, message by message, when a translation is missing.
 
 ## 🧹 Resource Cleanup
 

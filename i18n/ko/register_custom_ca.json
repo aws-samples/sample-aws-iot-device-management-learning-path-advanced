@@ -1,0 +1,35 @@
+{
+  "debug": {
+    "openssl_cmd": "🔧 {}"
+  },
+  "errors": {
+    "openssl_failed": "❌ OpenSSL이 실패했어요: {}",
+    "no_registration_code": "❌ 등록 코드를 가져올 수 없어요",
+    "registration_failed": "❌ CA 등록에 실패했어요",
+    "ca_common_name_invalid_chars": "❌ --ca-common-name에는 문자, 숫자, 공백, 하이픈, 밑줄, 마침표만 사용할 수 있어요",
+    "openssl_command_failed": "OpenSSL 명령이 실패했어요"
+  },
+  "status": {
+    "reusing_root_ca": "ℹ️  기존 루트 CA를 다시 사용해요({})",
+    "creating_root_ca": "🔐 OpenSSL로 자체 서명 루트 CA를 만드는 중이에요(워크숍 전용)",
+    "root_ca_created": "✅ 루트 CA를 만들었어요: {}",
+    "creating_verification": "🔏 CA 확인 인증서를 만드는 중이에요(CN == 등록 코드)",
+    "verification_created": "✅ 확인 인증서를 만들었어요: {}",
+    "openssl_available": "✅ OpenSSL 사용 가능: {}",
+    "registration_code": "ℹ️  등록 코드: {}",
+    "registered_title": "🎉 Just-in-Time Provisioning을 활성화한 상태로 사용자 지정 CA를 등록했어요",
+    "ca_certificate_id": "   CA 인증서 ID: {}",
+    "verify_hint": "   확인 방법: aws iot describe-ca-certificate --certificate-id {}"
+  },
+  "cli": {
+    "description": "AWS IoT Core에 사용자 지정 인증 기관을 등록하고 Just-in-Time Provisioning(JITP) 활성화.",
+    "role_arn": "JITP 등록 역할의 ARN(기본 스택 출력 'JitpRegistrationRoleArn').",
+    "template_file": "JITP 프로비저닝 템플릿 JSON 경로(기본값: 함께 제공되는 jitp-template.json).",
+    "ca_common_name": "자체 서명 루트 CA의 일반 이름(CN)(워크숍 전용).",
+    "debug": "API 요청/응답 세부 정보와 OpenSSL 명령 출력."
+  },
+  "operations": {
+    "get_ca_registration_code": "CA 등록 코드 조회",
+    "register_custom_ca_jitp": "사용자 지정 CA 등록(JITP)"
+  }
+}

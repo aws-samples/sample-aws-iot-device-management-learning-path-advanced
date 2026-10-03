@@ -1,0 +1,49 @@
+{
+  "warnings": {
+    "topic_rule_not_created": "⚠️  토픽 규칙이 만들어지지 않았어요(위 오류를 확인하세요)."
+  },
+  "errors": {
+    "handler_source_not_found": "❌ 핸들러 소스를 찾을 수 없어요: {}",
+    "dependency_install_failed": "❌ cryptography 종속성을 번들링하지 못했어요: {}"
+  },
+  "status": {
+    "topic_rule_created": "✅ 토픽 규칙 '{}'이(가) {}을(를) JITR 핸들러로 라우팅해요",
+    "handler_code_deployed": "✅ JITR 핸들러 코드를 '{}'에 배포했어요",
+    "certs_registered_header": "ℹ️  인증서 {}개가 CA {} 아래에 등록되어 있어요:",
+    "cert_line": "   - {}  status={}",
+    "thing_attributes": "ℹ️  Thing '{}' 속성: {}"
+  },
+  "cli": {
+    "description": "Just-in-Time Provisioning(JITP) 및 JITR 리소스 관리.",
+    "register_ca": {
+      "help": "JITP 구성으로 사용자 지정 CA 등록.",
+      "role_arn": "JITP 등록 역할 ARN.",
+      "template_file": "JITP 템플릿 JSON 경로.",
+      "ca_common_name": "루트 CA 일반 이름(CN).",
+      "debug": "상세 출력."
+    },
+    "deploy_jitr_rule": {
+      "help": "JITR 토픽 규칙 생성(create-topic-rule).",
+      "rule_name": "토픽 규칙 이름.",
+      "function_arn": "JITR 핸들러 Lambda ARN.",
+      "debug": "상세 출력."
+    },
+    "deploy_jitr_code": {
+      "help": "JITR 핸들러 코드 배포(update-function-code).",
+      "function_name": "JITR 핸들러 함수 이름.",
+      "debug": "상세 출력."
+    },
+    "observe": {
+      "help": "등록 결과 확인(list-certificates-by-ca / describe-thing).",
+      "ca_cert_id": "CA 인증서 ID.",
+      "thing_name": "조회할 thing.",
+      "debug": "상세 출력."
+    }
+  },
+  "operations": {
+    "create_jitr_topic_rule": "JITR 토픽 규칙 생성",
+    "deploy_jitr_handler_code": "JITR 핸들러 코드 배포",
+    "describe_thing": "thing 조회",
+    "list_certificates_by_ca": "CA별 인증서 목록 조회"
+  }
+}

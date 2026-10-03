@@ -12,8 +12,9 @@ Es el código de ejemplo complementario de **toda la ruta de aprendizaje avanzad
 |----------|--------|
 | 🇺🇸 English | [README.md](README.md) |
 | 🇪🇸 Español | [README.es.md](README.es.md) |
+| 🇰🇷 한국어 | [README.ko.md](README.ko.md) |
 
-Los propios scripts están localizados: define `AWS_IOT_LANG` (`en`, `es`, `ja`, `ko`, `pt`, `zh`, `de`, `it`, `fr`) o elige un idioma de forma interactiva en la primera ejecución. Por ahora, los mensajes de los scripts están disponibles en inglés y español; cualquier mensaje que aún no esté traducido usa el inglés como alternativa (fallback).
+Los propios scripts están localizados: define `AWS_IOT_LANG` (`en`, `es`, `ja`, `ko`, `pt`, `zh`, `de`, `it`, `fr`) o elige un idioma de forma interactiva en la primera ejecución. Por ahora, los mensajes de los scripts están disponibles en inglés, español y coreano; cualquier mensaje que aún no esté traducido usa el inglés como alternativa (fallback).
 
 ## 🎯 Temas de esta ruta de aprendizaje
 
@@ -206,7 +207,7 @@ export AWS_IOT_LANG=en   # Define el idioma predeterminado (en, es, fr, ja, ko, 
 
 ## 🌍 Internacionalización
 
-Esta ruta de aprendizaje apunta a los 9 idiomas del taller: inglés (`en`), español (`es`), japonés (`ja`), coreano (`ko`), portugués (`pt`), chino (`zh`), alemán (`de`), italiano (`it`) y francés (`fr`). Los mensajes de los scripts se publican hoy en inglés y español (`i18n/en/`, `i18n/es/`); los demás idiomas se añaden de uno en uno. Define `AWS_IOT_LANG` para omitir la pregunta interactiva; los scripts usan el inglés como alternativa, mensaje por mensaje, cuando falta una traducción.
+Esta ruta de aprendizaje apunta a los 9 idiomas del taller: inglés (`en`), español (`es`), japonés (`ja`), coreano (`ko`), portugués (`pt`), chino (`zh`), alemán (`de`), italiano (`it`) y francés (`fr`). Los mensajes de los scripts se publican hoy en inglés, español y coreano (`i18n/en/`, `i18n/es/`, `i18n/ko/`); los demás idiomas se añaden de uno en uno. Define `AWS_IOT_LANG` para omitir la pregunta interactiva; los scripts usan el inglés como alternativa, mensaje por mensaje, cuando falta una traducción.
 
 ## 🧹 Limpieza de recursos
 
