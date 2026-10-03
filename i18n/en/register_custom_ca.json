@@ -23,7 +23,7 @@
   },
   "cli": {
     "description": "Register a custom Certificate Authority with AWS IoT Core and enable Just-in-Time Provisioning (JITP).",
-    "role_arn": "ARN of the JITP registration role (the base stack output 'JitpRegistrationRoleArn').",
+    "role_arn": "ARN of the JITP registration role (the pre-created role 'ws-aws-iot-dm-adv-prov-jitp-registration-role').",
     "template_file": "Path to the JITP provisioning template JSON (default: bundled jitp-template.json).",
     "ca_common_name": "Common name for the self-signed root CA (workshop only).",
     "debug": "Print API request/response detail and OpenSSL commands."

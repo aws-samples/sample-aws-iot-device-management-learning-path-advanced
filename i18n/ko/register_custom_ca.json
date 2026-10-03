@@ -23,7 +23,7 @@
   },
   "cli": {
     "description": "AWS IoT Core에 사용자 지정 인증 기관을 등록하고 Just-in-Time Provisioning(JITP) 활성화.",
-    "role_arn": "JITP 등록 역할의 ARN(기본 스택 출력 'JitpRegistrationRoleArn').",
+    "role_arn": "JITP 등록 역할의 ARN(미리 만들어 둔 역할 'ws-aws-iot-dm-adv-prov-jitp-registration-role').",
     "template_file": "JITP 프로비저닝 템플릿 JSON 경로(기본값: 함께 제공되는 jitp-template.json).",
     "ca_common_name": "자체 서명 루트 CA의 일반 이름(CN)(워크숍 전용).",
     "debug": "API 요청/응답 세부 정보와 OpenSSL 명령 출력."
