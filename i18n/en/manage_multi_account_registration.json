@@ -8,7 +8,7 @@
     "cert_registered_header": "🪪 Certificate registered in the destination Region (no new cert minted)",
     "cert_registered_region": "   Region:         {}",
     "cert_registered_id": "   certificateId:  {}",
-    "cert_id_derived_note": "   (This id is derived from the certificate — it matches the lobby id.)",
+    "cert_id_derived_note": "   (This id is derived from the certificate, so it matches the id the certificate has in the lobby Region.)",
     "same_cert_recognized": "✅ The same certificate is now recognized in the destination Region.",
     "next_get_endpoint": "   Next: get that Region's iot:Data-ATS endpoint and reconnect the SAME certificate to it (the 'move' subcommand).",
     "ca_registered_header": "🏛️  CA registered in SNI_ONLY (multi-account) mode",

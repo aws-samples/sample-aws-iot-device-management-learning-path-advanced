@@ -340,7 +340,7 @@
   "description_label": "Description",
   "input_parameters_label": "Input Parameters",
   "expected_output_label": "Expected Output",
-  "creating_cert_keypair": "Creating certificate and key pair...",
+  "creating_cert_keypair": "Creating certificate and key pair",
   "cert_keypair_completed": "Creating certificate and key pair completed successfully",
   "attaching_cert_to_thing": "Attaching certificate to Thing...",
   "cert_attachment_completed": "Attaching certificate to Thing completed successfully",

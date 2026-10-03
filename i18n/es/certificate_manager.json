@@ -340,7 +340,7 @@
   "description_label": "Descripción",
   "input_parameters_label": "Parámetros de entrada",
   "expected_output_label": "Salida esperada",
-  "creating_cert_keypair": "Creando el certificado y el par de claves...",
+  "creating_cert_keypair": "Creando el certificado y el par de claves",
   "cert_keypair_completed": "Creación del certificado y el par de claves completada correctamente",
   "attaching_cert_to_thing": "Asociando el certificado al thing...",
   "cert_attachment_completed": "Asociación del certificado al thing completada correctamente",
