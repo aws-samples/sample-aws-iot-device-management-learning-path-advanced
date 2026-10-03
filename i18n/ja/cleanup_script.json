@@ -1,0 +1,122 @@
+{
+  "header": {
+    "mode_dry_run": "ドライラン (何も削除しません)",
+    "mode_execute": "実行",
+    "title": "Advanced Device Provisioning: テーマ別クリーンアップ [{}]"
+  },
+  "status": {
+    "region_workshop": "リージョン (ワークショップ): {}",
+    "region_mar": "リージョン (MAR / セクション 5): {}",
+    "scope_note": "このクリーンアップの対象はプロビジョニングのテーマだけです。共通のセットアップ (リポジトリ、依存関係、言語、OpenSSL) には一切触れません。",
+    "dry_run_hint": "ドライラン: 削除される内容を確認しています。削除するには --execute を付けて再実行してください (破壊的な削除の前に確認を求めます)。",
+    "dry_run_complete": "ドライランが完了しました。リソースは何も変更していません。",
+    "execute_complete": "クリーンアップが完了しました。削除しないと答えたものはそのまま残しています。",
+    "discovering_cas": "🔎 このテーマで作成したカスタム認証局を探しています...",
+    "none_found": "  (見つかりませんでした)",
+    "discovering_certificates": "🔎 このテーマで作成した証明書を探しています ({})...",
+    "discovering_things": "🔎 このテーマで作成した thing を探しています ({})...",
+    "discovering_templates": "🔎 このテーマで作成したプロビジョニングテンプレート...",
+    "discovering_topic_rules": "🔎 このテーマで作成したトピックルール...",
+    "discovering_thing_groups": "🔎 このテーマで作成した thing group...",
+    "discovering_thing_types": "🔎 このテーマで作成した thing type...",
+    "waiting_thing_types": "⏳ AWS IoT で thing type を削除できるのは非推奨にしてから 5 分後なので、待機しています...",
+    "discovering_policies": "🔎 このテーマで作成したデバイス / クレームポリシー ({})...",
+    "cleaning_mar_region": "=== 2 番目のリージョン ({}) をクリーンアップしています: セクション 5 (MAR) ===",
+    "discovering_rotation_resources": "🔎 セクション 6 (証明書のローテーション) のリソース: ジョブ、トピックルール、キューのメンバーシップ、タイマー...",
+    "discovering_certificate_provider": "🔎 セクション 3 のオプションの certificate provider...",
+    "reverting_event_configurations": "🔎 セクション 6 で有効にした、アカウント全体の JOB / JOB_EXECUTION イベント設定..."
+  },
+  "plan": {
+    "prefix_dry_run": "ドライラン: 削除予定",
+    "prefix_execute": "削除中",
+    "ca": "認証局 '{}' ({})",
+    "certificate": "証明書 {}",
+    "thing": "thing {}",
+    "provisioning_template": "プロビジョニングテンプレート {}",
+    "topic_rule": "トピックルール {}",
+    "thing_group": "thing group {}",
+    "thing_type": "thing type {}",
+    "policy": "ポリシー {}",
+    "rotation_job": "ローテーションジョブ {}",
+    "rotation_thing_group_member": "thing {} (ローテーションキューから削除)",
+    "schedule": "遅延削除スケジュール {}",
+    "certificate_provider": "certificate provider {}",
+    "event_configurations": "アカウント全体の JOB / JOB_EXECUTION イベント設定 (無効に戻します)"
+  },
+  "prompts": {
+    "confirm_warning": "⚠️  {} 件の {} を削除しようとしています。これは破壊的な操作で、元に戻せません。",
+    "confirm_question": "これらの {} を削除しますか? [y/N]: ",
+    "retained": "{} はリクエストどおり残しておきます。"
+  },
+  "categories": {
+    "certificate_authorities": "認証局",
+    "provisioning_templates": "プロビジョニングテンプレート",
+    "certificates_region": "証明書 ({})",
+    "things_region": "thing ({})"
+  },
+  "labels": {
+    "region": "リージョン {}",
+    "mar_region": "MAR リージョン {}"
+  },
+  "notice": {
+    "header": "🧱 ベースインフラストラクチャ (AWS Lambda 関数、IAM ロール): ここでは削除しません",
+    "stack_named": "  • pre-provisioning hook と JITR ハンドラーの Lambda は CloudFormation スタック '{}' に属しています。",
+    "stack_named_detail": "    AWS 主催イベント: イベント終了時に自動で削除されます。自分のアカウント: このテーマが終わったら、そのスタックを削除してください。",
+    "stack_unknown": "  • JITR ハンドラーと pre-provisioning hook の Lambda はスタックで管理されています。削除するには、ベースの CloudFormation スタックを削除するか (自分のアカウント)、AWS 主催イベントでの削除に任せてください。"
+  },
+  "cli": {
+    "description": "Advanced Device Provisioning End-to-End テーマのテーマ別クリーンアップ。パターンで対象を絞り、デフォルトでは非破壊です (ドライラン)。削除するには --execute を指定します。",
+    "execute": "実際にリソースを削除します (デフォルトは何も削除しないドライラン)。",
+    "region": "このテーマのハンズオンセクションを実行したリージョン。省略すると boto3 の通常のリージョン解決 (AWS_DEFAULT_REGION、次に AWS CLI プロファイルで設定したリージョン) を使います。",
+    "mar_region": "セクション 5 (Multi-Account Registration) で使った 2 番目のリージョン (例: us-west-2)。メインのリージョンには触れずに、そこへ移動した証明書と thing をクリーンアップします。",
+    "debug": "コントロールプレーンの各呼び出しについて、API のリクエスト/レスポンスの詳細を表示します。"
+  },
+  "errors": {
+    "no_region": "AWS リージョンを解決できませんでした。--region を指定するか、'aws configure' または環境変数 AWS_DEFAULT_REGION で設定してください。"
+  },
+  "operations": {
+    "cancel_job": "ジョブのキャンセル",
+    "deactivate_ca_certificate": "CA 証明書の無効化",
+    "deactivate_certificate": "証明書の無効化",
+    "delete_ca_certificate": "CA 証明書の削除",
+    "delete_certificate": "証明書の削除",
+    "delete_certificate_provider": "certificate provider の削除",
+    "delete_job": "ジョブの削除",
+    "delete_policy": "ポリシーの削除",
+    "delete_policy_version": "ポリシーバージョンの削除",
+    "delete_provisioning_template": "プロビジョニングテンプレートの削除",
+    "delete_rotation_shadow": "ローテーション shadow の削除",
+    "delete_schedule": "スケジュールの削除",
+    "delete_thing": "thing の削除",
+    "delete_thing_group": "thing group の削除",
+    "delete_thing_type": "thing type の削除",
+    "delete_topic_rule": "トピックルールの削除",
+    "deprecate_thing_type": "thing type の非推奨化",
+    "describe_ca_certificate": "CA 証明書の詳細取得",
+    "describe_certificate": "証明書の詳細取得",
+    "describe_certificate_provider": "certificate provider の詳細取得",
+    "describe_endpoint": "エンドポイントの詳細取得",
+    "describe_event_configurations": "イベント設定の詳細取得",
+    "describe_job": "ジョブの詳細取得",
+    "describe_provisioning_template": "プロビジョニングテンプレートの詳細取得",
+    "describe_thing_group": "thing group の詳細取得",
+    "describe_thing_type": "thing type の詳細取得",
+    "detach_policy": "ポリシーのデタッチ",
+    "detach_thing_principal": "thing プリンシパルのデタッチ",
+    "get_policy": "ポリシーの取得",
+    "get_topic_rule": "トピックルールの取得",
+    "list_attached_policies": "アタッチされたポリシーの一覧取得",
+    "list_ca_certificates": "CA 証明書の一覧取得",
+    "list_certificates_by_ca": "CA ごとの証明書の一覧取得",
+    "list_policy_versions": "ポリシーバージョンの一覧取得",
+    "list_principal_things": "プリンシパルの thing の一覧取得",
+    "list_schedules": "スケジュールの一覧取得",
+    "list_targets_for_policy": "ポリシーのターゲットの一覧取得",
+    "list_thing_principals": "thing プリンシパルの一覧取得",
+    "remove_thing_from_rotation_group": "ローテーショングループからの thing の削除",
+    "revert_event_configurations": "イベント設定を元に戻す"
+  },
+  "operation_resources": {
+    "iot_data_endpoint": "IoT データエンドポイント ({})"
+  }
+}

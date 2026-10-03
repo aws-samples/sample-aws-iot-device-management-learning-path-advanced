@@ -1,0 +1,71 @@
+{
+  "errors": {
+    "register_without_ca_failed": "❌ register-certificate-without-ca に失敗しました。証明書の PEM は有効ですか?",
+    "register_ca_sni_failed": "❌ register-ca-certificate (SNI_ONLY) に失敗しました。CA の PEM は有効ですか?",
+    "describe_endpoint_failed": "❌ describe-endpoint に失敗しました"
+  },
+  "status": {
+    "cert_registered_header": "🪪 宛先リージョンに証明書を登録しました (新しい証明書は発行していません)",
+    "cert_registered_region": "   リージョン:     {}",
+    "cert_registered_id": "   certificateId:  {}",
+    "cert_id_derived_note": "   (この ID は証明書から導出されるので、ロビーリージョンでその証明書が持つ ID と一致します。)",
+    "same_cert_recognized": "✅ 同じ証明書が宛先リージョンで認識されるようになりました。",
+    "next_get_endpoint": "   次: そのリージョンの iot:Data-ATS エンドポイントを取得し、同じ証明書でそこに再接続します ('move' サブコマンド)。",
+    "ca_registered_header": "🏛️  SNI_ONLY (マルチアカウント) モードで CA を登録しました",
+    "ca_registered_region": "   リージョン:   {}",
+    "ca_registered_id": "   CA 証明書 ID: {}",
+    "ca_trusted_note": "   この CA が署名したデバイス証明書はすべて、このリージョンで信頼されるようになりました。",
+    "ca_sni_validated_note": "   デバイスが提示する SNI ホスト名で検証されるので、証明書ごとの登録は不要です。",
+    "endpoint_for_region": "🌐 {} の iot:Data-ATS エンドポイント: {}",
+    "reconnecting_move": "🔌 '{}' を同じ証明書で宛先エンドポイント {} に再接続しています ...",
+    "published_seq": "   seq={} を {} にパブリッシュしました",
+    "move_complete": "🎉 移動が完了しました。同じ証明書が宛先リージョンに接続されています。",
+    "move_complete_note": "   新しい証明書は発行していません。変わったのはエンドポイントだけです。"
+  },
+  "cli": {
+    "description": "Multi-Account Registration (MAR): 既存の証明書を宛先リージョンに登録し、同じ証明書でそのリージョンのエンドポイントに再接続します。",
+    "register_without_ca": {
+      "help": "既存のデバイス証明書を宛先リージョンに登録します (CA なし)。",
+      "region": "宛先 (本番の代わりの) リージョン。",
+      "certificate_pem": "デバイス証明書 PEM のパス。",
+      "policy_name": "宛先で作成/アタッチするデバイスポリシー。",
+      "policy_document": "作成するポリシー JSON (--policy-name が新しい場合)。",
+      "thing_name": "宛先で作成してアタッチする thing (オプション)。",
+      "debug": "詳細を出力します。"
+    },
+    "register_ca_sni": {
+      "help": "宛先リージョンに SNI_ONLY (マルチアカウント) モードで CA を登録します。",
+      "region": "宛先 (本番の代わりの) リージョン。",
+      "ca_certificate": "CA 証明書 PEM のパス。",
+      "debug": "詳細を出力します。"
+    },
+    "endpoint": {
+      "help": "リージョンに対して describe-endpoint --endpoint-type iot:Data-ATS を実行します。",
+      "region": "データエンドポイントを取得するリージョン。",
+      "debug": "詳細を出力します。"
+    },
+    "move": {
+      "help": "同じ証明書で宛先エンドポイントに再接続します。",
+      "region": "宛先 (本番の代わりの) リージョン。",
+      "thing_name": "デバイス/thing 名 (MQTT クライアント ID として使用)。",
+      "cert": "同じデバイス証明書 PEM のパス。",
+      "key": "同じデバイス秘密鍵のパス。",
+      "endpoint": "宛先エンドポイント (省略すると自動検出)。",
+      "message_count": "パブリッシュするテレメトリメッセージの数。",
+      "debug": "詳細を出力します。"
+    }
+  },
+  "operations": {
+    "attach_device_policy_to_moved_certificate": "移動した証明書へのデバイスポリシーのアタッチ",
+    "attach_moved_certificate_to_thing": "thing への移動した証明書のアタッチ",
+    "create_destination_device_policy": "宛先のデバイスポリシーの作成",
+    "create_thing_in_destination_region": "宛先リージョンでの thing の作成",
+    "describe_iot_data_ats_endpoint": "iot:Data-ATS エンドポイントの詳細取得",
+    "register_ca_in_sni_only_multi_account_mode": "SNI_ONLY (マルチアカウント) モードでの CA の登録",
+    "register_certificate_without_ca_mar": "CA なしでの証明書の登録 (MAR)"
+  },
+  "operation_resources": {
+    "certificate_in_region": "{} の証明書",
+    "ca_in_region": "{} の CA"
+  }
+}

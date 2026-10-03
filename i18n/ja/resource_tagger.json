@@ -1,0 +1,28 @@
+{
+  "tagging": {
+    "success": "✅ {} にタグを適用しました",
+    "failed": "⚠️  {} にタグを適用できませんでした: {}",
+    "warning_continue": "⚠️  {} のタグ付けはうまくいきませんでしたが、リソースの作成は続けます",
+    "invalid_schema": "⚠️  {} のタグスキーマが正しくないようです",
+    "unsupported_type": "⚠️  このリソースタイプはまだタグ付けに対応していません: {}"
+  },
+  "debug": {
+    "applying_tags": "🔧 {} にワークショップのタグを追加しています (タイプ: {})",
+    "tags_applied": "✅ 適用したタグ: {}",
+    "tag_count": "📊 {} 個のタグを {} に追加しました",
+    "using_api": "🔧 タグ付けに {} API を使います",
+    "tag_validation": "🔍 タグスキーマを確認しています...",
+    "tag_validation_passed": "✅ タグスキーマに問題はありません",
+    "tag_validation_failed": "❌ タグスキーマの検証に失敗しました"
+  },
+  "summary": {
+    "resources_without_tags": "📊 タグなしで作成されたリソース: {}",
+    "tag_failures": "⚠️  タグ適用の問題",
+    "total_failures": "タグのないリソースの合計: {}",
+    "relying_on_naming": "ℹ️  心配いりません。これらのリソースはクリーンアップ時に命名規則で識別されます"
+  },
+  "module_info": {
+    "standalone_description": "このモジュールはリソースのタグ付け機能を提供します。",
+    "standalone_usage": "スクリプトでインポートして apply_workshop_tags() を使ってください。"
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "warnings": {
+    "topic_rule_not_created": "⚠️  トピックルールは作成されませんでした (上のエラーを確認してください)。"
+  },
+  "errors": {
+    "handler_source_not_found": "❌ ハンドラーのソースが見つかりません: {}",
+    "dependency_install_failed": "❌ cryptography 依存関係のバンドルに失敗しました: {}"
+  },
+  "status": {
+    "topic_rule_created": "✅ トピックルール '{}' が {} を JITR ハンドラーにルーティングします",
+    "handler_code_deployed": "✅ JITR ハンドラーのコードを '{}' にデプロイしました",
+    "certs_registered_header": "ℹ️  {} 個の証明書が CA {} の下に登録されています:",
+    "cert_line": "   - {}  status={}",
+    "thing_attributes": "ℹ️  thing '{}' の属性: {}"
+  },
+  "cli": {
+    "description": "Just-in-Time Provisioning (JITP) と JITR のリソースを管理します。",
+    "register_ca": {
+      "help": "JITP 設定付きでカスタム CA を登録します。",
+      "role_arn": "JITP 登録ロールの ARN。",
+      "template_file": "JITP テンプレート JSON のパス。",
+      "ca_common_name": "ルート CA の共通名。",
+      "debug": "詳細を出力します。"
+    },
+    "deploy_jitr_rule": {
+      "help": "JITR トピックルールを作成します (create-topic-rule)。",
+      "rule_name": "トピックルール名。",
+      "function_arn": "JITR ハンドラーの Lambda ARN。",
+      "debug": "詳細を出力します。"
+    },
+    "deploy_jitr_code": {
+      "help": "JITR ハンドラーのコードをデプロイします (update-function-code)。",
+      "function_name": "JITR ハンドラーの関数名。",
+      "debug": "詳細を出力します。"
+    },
+    "observe": {
+      "help": "登録結果を確認します (list-certificates-by-ca / describe-thing)。",
+      "ca_cert_id": "CA 証明書 ID。",
+      "thing_name": "詳細を取得する thing。",
+      "debug": "詳細を出力します。"
+    }
+  },
+  "operations": {
+    "create_jitr_topic_rule": "JITR トピックルールの作成",
+    "deploy_jitr_handler_code": "JITR ハンドラーコードのデプロイ",
+    "describe_thing": "thing の詳細取得",
+    "list_certificates_by_ca": "CA ごとの証明書の一覧取得"
+  }
+}

@@ -1,0 +1,120 @@
+{
+  "usage": "使い方: python3 scripts/rotate_certificate.py --endpoint <endpoint> --thing-name <thing> --cert <certFile> --key <keyFile> --ca <caFile>",
+  "connect": {
+    "attempt": "{} として{}証明書で接続しています ...",
+    "old_certificate": "現在の",
+    "new_certificate": "新しい",
+    "connected": "接続しました [{}]。",
+    "connack": "     CONNACK: {}",
+    "detail": "     endpoint={}  clientId={}  certificate={}",
+    "failed": "{}証明書で接続できませんでした: {}",
+    "refused_terminal": "{}証明書がブローカーに拒否されました: reason_code={}。これは認可の失敗なので、再試行しても解決しません。すぐに中止します。",
+    "refused_retry": "  {}証明書で接続できませんでした (reason_code={})。試行 {}/{}、{} 秒後に再試行します ...",
+    "refused_exhausted": "{}証明書は {} 回試行しても接続できませんでした。",
+    "no_connack": "30 秒以内に CONNACK を受信できませんでした"
+  },
+  "wire": {
+    "sub": "     SUB      {}",
+    "pub": "     PUB  --> {}",
+    "recv": "     RECV <-- {}",
+    "payload": "              payload: {}",
+    "truncated": "{}... ({} 文字)",
+    "job_meta": "              jobId={}  executionNumber={}  status={}",
+    "job_document": "              ジョブドキュメント: {}",
+    "cert_detail": "              certificateId={}  certificatePem: {}",
+    "csr_payload": "              payload: jobId={}  csr: {}",
+    "key_not_sent": "              (このメッセージに秘密鍵は含まれません。秘密鍵がデバイスの外に出ることはありません)"
+  },
+  "job": {
+    "subscribing": "ジョブを取得する前に、応答トピックをサブスクライブしています ...",
+    "waiting": "{} でローテーションジョブの実行を待っています ...",
+    "taken": "ジョブ実行を取得しました: {}",
+    "none": "この thing に保留中のローテーションジョブ実行はありません。先にローテーション用の thing group に追加してから、再実行してください。",
+    "wrong_operation": "このジョブ実行が求めている操作は '{}' で、'{}' ではありません。REJECTED を報告して停止します。デバイスは自分が実装していないジョブを実行してはいけません。",
+    "phase": "  ジョブ実行 -> status={} phase={}",
+    "subscribe_refused": "ブローカーが {} へのサブスクリプションを拒否しました: reason_code={}",
+    "update_failed": "  警告: ジョブ実行に status={} を報告できませんでした: {}"
+  },
+  "keypair": {
+    "generating": "新しいキーペアと証明書署名リクエストをローカルで生成しています ...",
+    "generated": "新しいキーペアを生成しました。秘密鍵がこのデバイスの外に出ることはありません: {}",
+    "detail": "     RSA {} ビットの鍵、証明書署名リクエストのサブジェクト CN={}、出力先 {}",
+    "openssl_missing": "OpenSSL が PATH に見つかりませんでした。OpenSSL が使えることは共通のセットアップセクションで確認します。インストールしてから再実行してください。",
+    "failed": "キーペアまたは証明書署名リクエストを生成できませんでした: {}"
+  },
+  "request": {
+    "sent": "{} で証明書署名リクエストを送信しました。ハンドラーが署名するのを待っています。",
+    "received": "証明書 {} を受信しました。",
+    "timeout": "{} 秒以内に証明書が届きませんでした。ハンドラーがリクエストを拒否した可能性があります。理由はジョブ実行の statusDetails で確認してください。"
+  },
+  "disconnect_choice": {
+    "menu": "  証明書が届きました。このデバイスは次に何をしますか?\n    1) 続行: 証明書をインストールしてローテーションを進める\n    2) 切断をシミュレート: 証明書は届いたが、ディスクには書き込まれなかった (ちょうどここでクラッシュや接続断が起きた場合)",
+    "prompt": "  選択 [1]: ",
+    "disconnecting": "切断をシミュレートしています: 今届いた証明書はインストールせずに破棄します。",
+    "reconnected": "現在の証明書で再接続しました。新しい証明書はインストールされなかったので、このデバイスが持っているのは現在の証明書だけです。",
+    "reasking": "同じ証明書署名リクエスト (同じ鍵、同じジョブ) でもう一度リクエストします。ハンドラーのログに、2 回目の署名ではなく `redelivering` が出ることを確認してください。",
+    "rediscovered": "  ジョブ実行 -> status={} statusDetails={}"
+  },
+  "cutover": {
+    "installing": "新しい証明書を {} にインストールしています ...",
+    "reconnecting": "新しい証明書で再接続しています ...",
+    "proving": "{} にパブリッシュして、新しい証明書が認可されていることを確認しています ...",
+    "proved": "新しい証明書での認可されたパブリッシュに成功しました。",
+    "connect_failed": "新しい証明書で接続できませんでした (reason_code={})。証明書は発行されましたが使えないので、ローテーションはここで停止します。",
+    "publish_refused": "新しい証明書で接続できましたが、ブローカーがパブリッシュを拒否しました: reason_code={}。証明書は機能していますが、そのポリシーではこのトピックが認可されていません。",
+    "publish_failed": "新しい証明書でパブリッシュできませんでした: {}",
+    "rolled_back": "現在の証明書にロールバックし (この証明書は廃止されていません)、FAILED を報告しました。デバイスはオンラインのままです。"
+  },
+  "result": {
+    "succeeded": "ジョブ実行は SUCCEEDED を報告しました。これでバックエンドが古い証明書を廃止できます。",
+    "failed": "ジョブ実行は FAILED を報告しました。証明書は廃止されておらず、デバイスは現在の証明書を使い続けます。",
+    "summary": "{} のローテーションが完了しました: 新しい証明書 {} を使用中です。"
+  },
+  "break_after_csr": {
+    "exit": "--break-after-csr の指定どおり、ここで意図的に中断します。ジョブ実行 {} の証明書署名リクエストは送信済みで、応答は受け取らないままにします。実行は IN_PROGRESS、phase=INITIATED のままです。続きを再開するには、--break-after-csr を付けずに同じコマンドを再実行してください。新しいプロセスが新しいキーペアを生成してもう一度リクエストするので、ハンドラーはこの証明書を再配信するのではなく、2 つ目の証明書に署名します (resigning)。"
+  },
+  "pause": {
+    "rule": "  ----------------------------------------------------------------------",
+    "prompt": "  Enter キーを押すとデバイスが続行します ...",
+    "budget": "  残り時間: AWS IoT Core がこの実行を TIMED_OUT にするまで、あと約 {} 分です (全 {} 分)。",
+    "disabled": "  ターミナル入力を使えません。これ以上は一時停止せずに続行します。",
+    "not_a_terminal": "一時停止が指定されましたが、対話型ターミナルではないので最後まで続けて実行します。",
+    "aborted": "  Ctrl-C を受け取りました。停止します。",
+    "exit": "停止しました。ジョブ実行は一時停止した時点の状態のままです。続きを再開するには、このコマンドを再実行してください。",
+    "job_taken": {
+      "what": "  観察 1/3 - ジョブ実行が IN_PROGRESS になりました。デバイスはキーペアを生成する前に、ここで待機しています。",
+      "console": "  コンソール: AWS IoT コンソール -> Manage -> Remote actions -> Jobs -> 対象のジョブ -> Job executions\n           {}",
+      "cli": "  CLI:     aws iot describe-job-execution --job-id {} --thing-name {} \\\n             --query \"execution.[status,statusDetails]\""
+    },
+    "overlap": {
+      "what": "  観察 2/3 - 重複期間です。新しい証明書は署名済みで ACTIVE になり、アタッチされています。現在の証明書もアタッチされたまま動作しています。今この thing には証明書が 2 つあります。だからこそ、ローテーションに失敗してもデバイスが締め出されることはありません。",
+      "console": "  コンソール: AWS IoT コンソール -> Manage -> Things -> 対象の thing -> Certificates\n           {}",
+      "cli": "  CLI:     aws iot list-thing-principals --thing-name {} --query \"principals\"",
+      "expect": "  期待される結果: プリンシパルが 2 つ表示されます。新しい方の末尾は {} です。"
+    },
+    "retired": {
+      "what": "  観察 3/3 - 切り替えに成功したので、古い証明書を INACTIVE に設定しています。廃止はイベント駆動なので、少し待ってから、まだ ACTIVE と表示される場合はコマンドを再実行してください。まだ削除はされません。遅れて再び現れたデバイスも復旧できるように、廃止は遅延させています。",
+      "console": "  コンソール: AWS IoT コンソール -> Security -> Certificates (古い証明書は Inactive と表示されます)\n           {}",
+      "cli": "  CLI:     観察 2 で見たもう一方の証明書 ID (新しい証明書ではない方) を使います:\n             aws iot describe-certificate --certificate-id <thatId> \\\n               --query \"certificateDescription.status\"   (期待される結果: INACTIVE)",
+      "scheduler": "  CLI:     aws scheduler list-schedules --name-prefix ws-aws-iot-dm-adv-prov-revoke- \\\n               --query \"Schedules[].[Name,State]\"\n             1 回限りの削除タイマーです。名前の末尾は、廃止された証明書 ID の先頭 16 文字です。"
+    }
+  },
+  "cli": {
+    "description": "バックエンド主導の証明書ローテーションのうち、デバイス側の処理を実行します。",
+    "endpoint": "iot:Data-ATS エンドポイント",
+    "thing_name": "ローテーションする thing",
+    "cert": "現在の証明書 PEM",
+    "key": "現在の秘密鍵",
+    "ca": "Amazon ルート CA ファイル",
+    "telemetry_topic": "新しい証明書が認可されていることを確認するためのトピック",
+    "request_rule": "証明書署名リクエストを受け取るトピックルールの名前。リクエストは Basic Ingest ($aws/rules/<rule>/devices/<thing>/certificate/rotation/request) でパブリッシュされるので、メッセージング料金なしでルールエンジンに届きます。作成したルールと一致している必要があります。一致しないとパブリッシュは破棄され、RuleNotFound が出力されます",
+    "job_timeout": "保留中のジョブ実行を待つ秒数",
+    "cert_timeout": "署名済み証明書を待つ秒数",
+    "no_rollback": "切り替えに失敗しても、現在の証明書にフォールバックしません",
+    "connect_retries": "新しい証明書での接続を諦めるまでの試行回数。認可の失敗 (CONNACK NOT_AUTHORIZED) は再試行しても変わらないので、再試行しません",
+    "connect_backoff": "接続試行の間隔の基準秒数。試行ごとに 2 倍になります",
+    "pause": "観察できる各ステップで一時停止し、続行する前にジョブ実行、証明書の重複、遅延された廃止を確認できるようにします",
+    "break_after_csr": "証明書署名リクエストを送信した直後、署名済みの応答を待つ前に終了します。この間に再起動するデバイスを確実に再現するためのものです。その後はこのフラグを付けずに再実行してください。新しいプロセスが新しいキーペアを生成してもう一度リクエストするので、ハンドラーは 1 つ目の証明書を再配信するのではなく、2 つ目の証明書に署名します (`resigning`)",
+    "in_progress_timeout": "ジョブが実行を IN_PROGRESS のままにしておける分数。実行が TIMED_OUT になるまでどれくらい一時停止できるかの警告に使います"
+  }
+}

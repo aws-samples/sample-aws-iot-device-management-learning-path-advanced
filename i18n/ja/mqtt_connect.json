@@ -1,0 +1,22 @@
+{
+  "usage": "使い方: python3 ../scripts/mqtt_connect.py <endpoint> <clientId> <certFile> <keyFile> <caFile> <topic>",
+  "callbacks": {
+    "interrupted": "警告  接続が中断されました: reason_code={} exception={} (MQTT 5 クライアントが自動で再試行します)",
+    "resumed": "OK  接続が再開しました (reason_code={}, rejoined_session={})"
+  },
+  "connect": {
+    "waiting": "MQTT 5 で {} として接続しています。ブローカーが受け入れるまで、クライアントが自動で再試行します ...",
+    "connected": "接続しました。",
+    "refused_retry": "  接続が拒否されました: reason_code={} exception={} - 再試行します (プロビジョニングが終わるまでは想定どおりです) ...",
+    "failed": "制限時間内に接続できませんでした。証明書/ポリシーを確認して、もう一度試してください。"
+  },
+  "publish": {
+    "loop_start": "{} へのパブリッシュをループで開始します。各メッセージがトピックに届くはずです。",
+    "sent": "  PUBLISH -> {}: {}",
+    "refused": "  PUBLISH -> {} がブローカーに拒否されました: reason_code={} (MQTT 3.1.1 ではこれを報告できません)",
+    "failed": "  publish seq={} に失敗しました (再接続中の可能性があります): {}"
+  },
+  "disconnect": {
+    "clean": "正常に切断しました。"
+  }
+}

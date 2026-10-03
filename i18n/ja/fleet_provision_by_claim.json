@@ -1,0 +1,99 @@
+{
+  "errors": {
+    "claim_create_failed": "❌ クレーム証明書を作成できませんでした",
+    "provisioning_failed": "❌ Fleet Provisioning が完了しませんでした: {}",
+    "provisioning_rejected": "{} で Fleet Provisioning が拒否されました: {}",
+    "reply_timeout": "{} での応答待ちがタイムアウトしました"
+  },
+  "status": {
+    "claim_cert_id": "ℹ️  クレーム証明書 ID: {}",
+    "saved_claim_files": "   {} / {} / {} を保存しました",
+    "claim_ready": "🎉 クレーム証明書の準備ができました。スコープは Fleet Provisioning だけに絞っています",
+    "claim_ready_detail": "   CA/Lambda/テンプレートは別のものです。このクレーム証明書でできるのはブートストラップだけです。",
+    "template_created": "✅ プロビジョニングテンプレート '{}' を作成しました (有効)",
+    "hook_attached": "   pre-provisioning hook をアタッチしました: {}",
+    "version_line": "   - バージョン {}{}",
+    "version_default_marker": " (デフォルト)",
+    "version_created": "✅ バージョン {}{} を作成しました",
+    "version_set_default_suffix": " (デフォルトに設定)",
+    "version_deleted": "✅ バージョン {} を削除しました (ロールバック)",
+    "thing_info": "ℹ️  thing '{}' type={} attributes={}",
+    "principal_line": "   - principal: {}",
+    "extracted_cert": "🔑 永続的な証明書 ({}...) と certificateOwnershipToken を取り出しました",
+    "saved_cert_key": "   {} / {} を保存しました",
+    "extracted_cert_csr_note": "   (CSR パスでは秘密鍵は返されません。デバイスは自分の秘密鍵を持ち続けます)",
+    "saved_cert_csr": "   {} を保存しました (秘密鍵は CSR ステップで作ったものをそのまま使います)",
+    "connecting_claim": "🔌 クレーム証明書で {} に接続しています ...",
+    "provisioned": "🎉 クレームによるデバイスのプロビジョニングが完了しました",
+    "provisioned_thing_name": "   thingName: {}",
+    "provisioned_device_config": "   deviceConfiguration: {}",
+    "provisioned_reconnect": "   次は永続的な証明書 ({}) で再接続して、テレメトリをパブリッシュしてください。クレーム証明書の役目はここまでです。"
+  },
+  "mqtt": {
+    "subscribe": "📡 SUBSCRIBE {}",
+    "publish": "📨 PUBLISH → {}",
+    "received": "📥 RECEIVED ← {}",
+    "publish_empty_payload": "   payload: {}   (本文は空です。CreateKeysAndCertificate は入力を取りません)",
+    "publish_csr_payload": "   payload: {{ \"certificateSigningRequest\": <{} の PEM> }}"
+  },
+  "cli": {
+    "description": "クレームによる Fleet Provisioning: クレーム証明書、テンプレート、バージョン管理、MQTT によるプロビジョニング。",
+    "create_claim": {
+      "help": "クレーム証明書とスコープを絞ったポリシーを作成します。",
+      "policy_name": "クレームポリシー名。",
+      "policy_file": "クレームポリシーの JSON。",
+      "claim_cert_out": "クレーム証明書の出力パス。",
+      "claim_key_out": "クレームキーの出力先。",
+      "claim_pub_out": "クレーム公開鍵の出力先。",
+      "debug": "詳細を出力します。"
+    },
+    "create_template": {
+      "help": "Fleet Provisioning テンプレートを作成します。",
+      "template_name": "テンプレート名。",
+      "provisioning_role_arn": "Fleet Provisioning ロールの ARN。",
+      "template_file": "テンプレート JSON のパス。",
+      "hook_arn": "pre-provisioning hook の Lambda ARN。",
+      "debug": "詳細を出力します。"
+    },
+    "provision": {
+      "help": "クレームによる MQTT プロビジョニングのやり取りを実行します。",
+      "template_name": "テンプレート名。",
+      "claim_cert": "クレーム証明書のパス。",
+      "claim_key": "クレーム秘密鍵のパス。",
+      "serial_number": "デバイスの SerialNumber (thing 名)。",
+      "model_type": "デバイスの ModelType パラメーター。",
+      "endpoint": "iot:Data-ATS エンドポイント (省略すると自動検出)。",
+      "out_prefix": "永続的な証明書/キーの出力プレフィックス。",
+      "csr_file": "CreateCertificateFromCsr で使う CSR PEM (デバイスは自分の鍵を保持)。省略すると CreateKeysAndCertificate を使います。オプションの certificate provider ラボで使うのはこのパスです。",
+      "debug": "詳細を出力します。"
+    },
+    "versions": {
+      "help": "プロビジョニングテンプレートのバージョンを管理します。",
+      "template_name": "テンプレート名。",
+      "list": "バージョンを一覧表示します。",
+      "new_version_file": "追加する新しいテンプレート本文の JSON。",
+      "set_default": "新しいバージョンをデフォルトに設定します。",
+      "delete_version_id": "削除するバージョン ID (ロールバック)。",
+      "debug": "詳細を出力します。"
+    },
+    "observe": {
+      "help": "describe-thing / list-thing-principals.",
+      "thing_name": "プロビジョニングした thing の名前。",
+      "debug": "詳細を出力します。"
+    }
+  },
+  "operations": {
+    "attach_claim_policy_to_claim_certificate": "クレーム証明書へのクレームポリシーのアタッチ",
+    "create_claim_certificate": "クレーム証明書の作成",
+    "create_claim_policy": "クレームポリシーの作成",
+    "create_fleet_provisioning_template": "Fleet Provisioning テンプレートの作成",
+    "create_provisioning_template_version": "プロビジョニングテンプレートバージョンの作成",
+    "delete_provisioning_template_version": "プロビジョニングテンプレートバージョンの削除",
+    "describe_thing": "thing の詳細取得",
+    "list_provisioning_template_versions": "プロビジョニングテンプレートバージョンの一覧取得",
+    "list_thing_principals": "thing プリンシパルの一覧取得"
+  },
+  "operation_resources": {
+    "template_version": "{} v{}"
+  }
+}

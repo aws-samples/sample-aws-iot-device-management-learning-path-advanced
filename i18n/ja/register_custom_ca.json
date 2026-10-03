@@ -1,0 +1,35 @@
+{
+  "debug": {
+    "openssl_cmd": "🔧 {}"
+  },
+  "errors": {
+    "openssl_failed": "❌ OpenSSL が失敗しました: {}",
+    "no_registration_code": "❌ 登録コードを取得できませんでした",
+    "registration_failed": "❌ CA の登録に失敗しました",
+    "ca_common_name_invalid_chars": "❌ --ca-common-name に使えるのは英字、数字、スペース、ハイフン、アンダースコア、ピリオドだけです",
+    "openssl_command_failed": "OpenSSL コマンドが失敗しました"
+  },
+  "status": {
+    "reusing_root_ca": "ℹ️  既存のルート CA を再利用します ({})",
+    "creating_root_ca": "🔐 OpenSSL で自己署名ルート CA を作成しています (ワークショップ専用)",
+    "root_ca_created": "✅ ルート CA を作成しました: {}",
+    "creating_verification": "🔏 CA の検証証明書を作成しています (CN == 登録コード)",
+    "verification_created": "✅ 検証証明書を作成しました: {}",
+    "openssl_available": "✅ OpenSSL を利用できます: {}",
+    "registration_code": "ℹ️  登録コード: {}",
+    "registered_title": "🎉 Just-in-Time Provisioning を有効にしてカスタム CA を登録しました",
+    "ca_certificate_id": "   CA 証明書 ID: {}",
+    "verify_hint": "   確認するには: aws iot describe-ca-certificate --certificate-id {}"
+  },
+  "cli": {
+    "description": "カスタム認証局を AWS IoT Core に登録し、Just-in-Time Provisioning (JITP) を有効にします。",
+    "role_arn": "JITP 登録ロールの ARN (事前に作成されたロール 'ws-aws-iot-dm-adv-prov-jitp-registration-role')。",
+    "template_file": "JITP プロビジョニングテンプレート JSON のパス (デフォルト: 同梱の jitp-template.json)。",
+    "ca_common_name": "自己署名ルート CA の共通名 (ワークショップ専用)。",
+    "debug": "API のリクエスト/レスポンスの詳細と OpenSSL コマンドを表示します。"
+  },
+  "operations": {
+    "get_ca_registration_code": "CA 登録コードの取得",
+    "register_custom_ca_jitp": "カスタム CA の登録 (JITP)"
+  }
+}

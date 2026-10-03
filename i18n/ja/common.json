@@ -1,0 +1,33 @@
+{
+  "account_id": "アカウント ID",
+  "region": "リージョン",
+  "press_enter": "続行するには Enter キーを押してください...",
+  "goodbye": "さようなら!",
+  "cancelled_by_user": "👋 ユーザーがキャンセルしました。さようなら!",
+  "tagging": {
+    "workshop_tag_key": "workshop",
+    "workshop_tag_value": "learning-aws-iot-dm-basics",
+    "applying": "タグを適用しています...",
+    "success": "✅ タグを適用しました",
+    "failed": "⚠️  タグ付けに失敗しました"
+  },
+  "naming": {
+    "validation": {
+      "prefix_empty": "❌ エラー: thing プレフィックスは空にできません",
+      "prefix_too_long": "❌ エラー: thing プレフィックスは 20 文字以内にしてください (現在 {length} 文字)",
+      "prefix_invalid_chars": "❌ エラー: thing プレフィックスに無効な文字が含まれています。使えるのは英数字、ハイフン (-)、アンダースコア (_)、コロン (:) だけです",
+      "prefix_valid": "✅ thing プレフィックスは有効です: {prefix}",
+      "sequential_number_invalid": "❌ エラー: 連番は 1 から 999 の範囲で指定してください (現在 {number})"
+    },
+    "pattern_matching": {
+      "checking": "🔍 '{name}' が {type} のワークショップパターンに一致するか確認しています...",
+      "matched": "✅ ワークショップパターンに一致しました: {pattern}",
+      "no_match": "❌ 一致するワークショップパターンが見つかりませんでした",
+      "custom_prefix_match": "✅ カスタムプレフィックスのパターンに一致しました: {prefix}"
+    },
+    "generation": {
+      "generating": "🔧 プレフィックス '{prefix}' と番号 {number} で thing 名を生成しています...",
+      "generated": "✅ thing 名を生成しました: {name}"
+    }
+  }
+}
