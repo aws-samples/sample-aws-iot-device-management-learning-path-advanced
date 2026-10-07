@@ -69,7 +69,7 @@ Entrambi i piani si installano insieme da `requirements.txt`.
 
 - **Account AWS** con accesso amministrativo (lo stack dell'infrastruttura di base crea ruoli IAM con nome)
 - Aver completato il workshop [AWS IoT Core Basics](https://catalog.workshops.aws/workshops/a007780e-1086-421b-a7e3-b7ac63e37089) (o esperienza equivalente)
-- Aver completato il workshop [AWS IoT Device Management - Learning Path - Basics](https://catalog.workshops.aws/workshops/40b80218-bf1d-45d6-b8bb-022f6d316a52) (o esperienza equivalente)
+- Aver completato il workshop [AWS IoT Device Management - Learning Path - Basic](https://catalog.workshops.aws/workshops/40b80218-bf1d-45d6-b8bb-022f6d316a52) (o esperienza equivalente)
 - Una buona comprensione dei certificati X.509, delle autorità di certificazione (CA) e del TLS reciproco
 - **Credenziali AWS** configurate (`aws configure`, variabili d'ambiente o ruoli IAM)
 - **Python 3.10+** con pip

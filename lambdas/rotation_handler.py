@@ -706,7 +706,7 @@ def abandon_failed_rotation(event):
     Left in the rotation thing group on purpose. Removing a thing from the
     group automatically here would silently start a fresh rotation attempt
     on its own schedule; the operator-facing recovery for a stuck execution —
-    leave the group, then rejoin it — stays in *Error-Handling Scenarios*, and
+    leave the group, then rejoin it — stays in *Error-handling scenarios*, and
     this cleanup simply means that recovery no longer collides with an
     abandoned certificate when it runs.
 

@@ -69,7 +69,7 @@ Advanced AWS IoT Device Management 학습 경로의 샘플 코드예요. [**AWS 
 
 - 관리자 액세스 권한이 있는 **AWS 계정**(기본 인프라 스택이 이름이 지정된 IAM 역할을 생성해요)
 - [AWS IoT Core Basics](https://catalog.workshops.aws/workshops/a007780e-1086-421b-a7e3-b7ac63e37089) 워크숍 수료(또는 동등한 경험)
-- [AWS IoT Device Management - Learning Path - Basics](https://catalog.workshops.aws/workshops/40b80218-bf1d-45d6-b8bb-022f6d316a52) 워크숍 수료(또는 동등한 경험)
+- [AWS IoT Device Management - Learning Path - Basic](https://catalog.workshops.aws/workshops/40b80218-bf1d-45d6-b8bb-022f6d316a52) 워크숍 수료(또는 동등한 경험)
 - X.509 인증서, 인증 기관(CA), 상호 TLS에 대한 탄탄한 이해
 - 구성된 **AWS 자격 증명**(`aws configure`, 환경 변수 또는 IAM 역할)
 - pip가 포함된 **Python 3.10+**

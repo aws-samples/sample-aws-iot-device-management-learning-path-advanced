@@ -69,7 +69,7 @@ AWS IoT Device Management の上級学習パス用のサンプルコードです
 
 - 管理者アクセス権限のある **AWS アカウント** (ベースインフラストラクチャのスタックが名前付きの IAM ロールを作成します)
 - [AWS IoT Core Basics](https://catalog.workshops.aws/workshops/a007780e-1086-421b-a7e3-b7ac63e37089) ワークショップの修了 (または同等の経験)
-- [AWS IoT Device Management - Learning Path - Basics](https://catalog.workshops.aws/workshops/40b80218-bf1d-45d6-b8bb-022f6d316a52) ワークショップの修了 (または同等の経験)
+- [AWS IoT Device Management - Learning Path - Basic](https://catalog.workshops.aws/workshops/40b80218-bf1d-45d6-b8bb-022f6d316a52) ワークショップの修了 (または同等の経験)
 - X.509 証明書、認証局 (CA)、相互 TLS についての十分な理解
 - 設定済みの **AWS 認証情報** (`aws configure`、環境変数、または IAM ロール)
 - pip が使える **Python 3.10 以降**
