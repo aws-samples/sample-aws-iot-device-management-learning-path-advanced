@@ -1,0 +1,49 @@
+{
+  "warnings": {
+    "topic_rule_not_created": "⚠️  A regra de tópico não foi criada (veja o erro acima)."
+  },
+  "errors": {
+    "handler_source_not_found": "❌ Código-fonte do handler não encontrado: {}",
+    "dependency_install_failed": "❌ Não foi possível empacotar a dependência cryptography: {}"
+  },
+  "status": {
+    "topic_rule_created": "✅ A regra de tópico '{}' encaminha {} para o handler JITR",
+    "handler_code_deployed": "✅ Código do handler JITR implantado em '{}'",
+    "certs_registered_header": "ℹ️  {} certificado(s) registrado(s) sob a CA {}:",
+    "cert_line": "   - {}  status={}",
+    "thing_attributes": "ℹ️  Atributos do thing '{}': {}"
+  },
+  "cli": {
+    "description": "Gerenciar os recursos de Just-in-Time Provisioning (JITP) e JITR.",
+    "register_ca": {
+      "help": "Registrar a CA personalizada com a configuração JITP.",
+      "role_arn": "ARN da função de registro do JITP.",
+      "template_file": "Caminho do JSON do template JITP.",
+      "ca_common_name": "Nome comum da CA raiz.",
+      "debug": "Saída detalhada."
+    },
+    "deploy_jitr_rule": {
+      "help": "Criar a regra de tópico JITR (create-topic-rule).",
+      "rule_name": "Nome da regra de tópico.",
+      "function_arn": "ARN da Lambda do handler JITR.",
+      "debug": "Saída detalhada."
+    },
+    "deploy_jitr_code": {
+      "help": "Implantar o código do handler JITR (update-function-code).",
+      "function_name": "Nome da função do handler JITR.",
+      "debug": "Saída detalhada."
+    },
+    "observe": {
+      "help": "Observar os resultados do registro (list-certificates-by-ca / describe-thing).",
+      "ca_cert_id": "ID do certificado de CA.",
+      "thing_name": "Thing a descrever.",
+      "debug": "Saída detalhada."
+    }
+  },
+  "operations": {
+    "create_jitr_topic_rule": "Criar a regra de tópico JITR",
+    "deploy_jitr_handler_code": "Implantar o código do handler JITR",
+    "describe_thing": "Descrever o thing",
+    "list_certificates_by_ca": "Listar os certificados por CA"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "tagging": {
+    "success": "✅ Tags aplicadas com sucesso a {}",
+    "failed": "⚠️  Não foi possível aplicar as tags a {}: {}",
+    "warning_continue": "⚠️  A aplicação de tags não funcionou para {}, mas vamos continuar com a criação do recurso",
+    "invalid_schema": "⚠️  O esquema de tags de {} não parece correto",
+    "unsupported_type": "⚠️  Este tipo de recurso ainda não oferece suporte a tags: {}"
+  },
+  "debug": {
+    "applying_tags": "🔧 Adicionando as tags do workshop a {} (tipo: {})",
+    "tags_applied": "✅ Tags aplicadas: {}",
+    "tag_count": "📊 {} tags adicionadas a {}",
+    "using_api": "🔧 Usando a API {} para as tags",
+    "tag_validation": "🔍 Verificando o esquema de tags...",
+    "tag_validation_passed": "✅ O esquema de tags está correto",
+    "tag_validation_failed": "❌ A validação do esquema de tags não passou"
+  },
+  "summary": {
+    "resources_without_tags": "📊 Recursos criados sem tags: {}",
+    "tag_failures": "⚠️  Problemas na aplicação de tags",
+    "total_failures": "Total de recursos sem tags: {}",
+    "relying_on_naming": "ℹ️  Não se preocupe: durante a limpeza, esses recursos serão identificados pelas convenções de nomenclatura"
+  },
+  "module_info": {
+    "standalone_description": "Este módulo fornece a funcionalidade de aplicação de tags aos recursos.",
+    "standalone_usage": "Importe-o nos seus scripts para usar apply_workshop_tags()."
+  }
+}

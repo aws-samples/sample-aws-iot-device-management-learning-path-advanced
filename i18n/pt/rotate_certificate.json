@@ -1,0 +1,120 @@
+{
+  "usage": "Uso: python3 scripts/rotate_certificate.py --endpoint <endpoint> --thing-name <thing> --cert <certFile> --key <keyFile> --ca <caFile>",
+  "connect": {
+    "attempt": "Conectando como {} com o certificado {} ...",
+    "old_certificate": "atual",
+    "new_certificate": "novo",
+    "connected": "Conectado [{}].",
+    "connack": "     CONNACK: {}",
+    "detail": "     endpoint={}  clientId={}  certificate={}",
+    "failed": "Não foi possível conectar com o certificado {}: {}",
+    "refused_terminal": "O certificado {} foi RECUSADO pelo broker: reason_code={}. É uma falha de autorização, então tentar de novo não adianta - desistindo imediatamente.",
+    "refused_retry": "  o certificado {} não conseguiu se conectar (reason_code={}), tentativa {}/{} - tentando de novo em {}s ...",
+    "refused_exhausted": "O certificado {} não conseguiu se conectar após {} tentativas.",
+    "no_connack": "nenhum CONNACK em 30s"
+  },
+  "wire": {
+    "sub": "     SUB      {}",
+    "pub": "     PUB  --> {}",
+    "recv": "     RECV <-- {}",
+    "payload": "              payload: {}",
+    "truncated": "{}... ({} caracteres)",
+    "job_meta": "              jobId={}  executionNumber={}  status={}",
+    "job_document": "              documento do job: {}",
+    "cert_detail": "              certificateId={}  certificatePem: {}",
+    "csr_payload": "              payload: jobId={}  csr: {}",
+    "key_not_sent": "              (nenhuma chave privada nesta mensagem - ela nunca sai do dispositivo)"
+  },
+  "job": {
+    "subscribing": "Assinando os tópicos de resposta antes de assumir um job ...",
+    "waiting": "Aguardando uma execução do job de rotação em {} ...",
+    "taken": "Execução do job assumida: {}",
+    "none": "Nenhuma execução do job de rotação está pendente para este thing. Adicione-o primeiro ao thing group de rotação e depois execute de novo.",
+    "wrong_operation": "Esta execução do job pede a operação '{}', não '{}'. Reportando REJECTED e parando: um dispositivo não deve agir sobre um job que ele não implementa.",
+    "phase": "  execução do job -> status={} phase={}",
+    "subscribe_refused": "O broker recusou a assinatura de {}: reason_code={}",
+    "update_failed": "  WARNING não foi possível reportar status={} à execução do job: {}"
+  },
+  "keypair": {
+    "generating": "Gerando localmente um novo par de chaves e uma solicitação de assinatura de certificado ...",
+    "generated": "Novo par de chaves gerado. A chave privada nunca sai deste dispositivo: {}",
+    "detail": "     chave RSA de {} bits, assunto da solicitação de assinatura de certificado CN={}, gravada em {}",
+    "openssl_missing": "O OpenSSL não foi encontrado no PATH. A seção de Configuração compartilhada confirma que o OpenSSL está disponível; instale-o e execute de novo.",
+    "failed": "Não foi possível gerar o par de chaves ou a solicitação de assinatura de certificado: {}"
+  },
+  "request": {
+    "sent": "Certificate signing request sent on {}; waiting for the handler to sign it.",
+    "received": "Certificado {} recebido.",
+    "timeout": "Nenhum certificado chegou em {} segundos. O handler pode ter negado a solicitação — verifique o statusDetails da execução do job para ver o motivo."
+  },
+  "disconnect_choice": {
+    "menu": "  O certificado chegou. O que este dispositivo deve fazer agora?\n    1) Continuar - instalá-lo e seguir com a rotação\n    2) Simular uma desconexão - o certificado chegou, mas nunca foi gravado em disco (uma falha ou uma conexão perdida exatamente aqui)",
+    "prompt": "  Opção [1]: ",
+    "disconnecting": "Simulando uma desconexão: o certificado que acabou de chegar está sendo descartado, não instalado.",
+    "reconnected": "Reconectado com o certificado ATUAL - o novo nunca foi instalado, então este é o único que o dispositivo ainda tem.",
+    "reasking": "Pedindo de novo com a MESMA solicitação de assinatura de certificado - mesma chave, mesmo job. Observe nos logs do handler se aparece `redelivering` em vez de uma segunda assinatura.",
+    "rediscovered": "  execução do job -> status={} statusDetails={}"
+  },
+  "cutover": {
+    "installing": "Instalando o novo certificado em {} ...",
+    "reconnecting": "Reconectando com o NOVO certificado ...",
+    "proving": "Provando que o novo certificado está autorizado ao publicar em {} ...",
+    "proved": "A publicação autorizada com o novo certificado foi bem-sucedida.",
+    "connect_failed": "O novo certificado não conseguiu se conectar (reason_code={}). Ele foi emitido, mas não pode ser usado - então a rotação para aqui.",
+    "publish_refused": "O novo certificado se conectou, mas o broker RECUSOU a publicação: reason_code={}. O certificado funciona; a política dele não autoriza este tópico.",
+    "publish_failed": "O novo certificado não conseguiu publicar: {}",
+    "rolled_back": "Revertido para o certificado ATUAL — ele nunca foi retirado — e o status FAILED foi reportado. O dispositivo continua online."
+  },
+  "result": {
+    "succeeded": "Execução do job reportada como SUCCEEDED. Agora o backend pode retirar o certificado antigo.",
+    "failed": "Execução do job reportada como FAILED. Nenhum certificado foi retirado, e o dispositivo continua usando o certificado atual.",
+    "summary": "Rotação concluída para {}: o novo certificado {} está em uso."
+  },
+  "break_after_csr": {
+    "exit": "Interrompendo aqui de propósito, conforme pedido por --break-after-csr. Solicitação de assinatura de certificado enviada para a execução do job {} e deixada sem resposta - a execução continua IN_PROGRESS, phase=INITIATED. Execute de novo este mesmo comando SEM --break-after-csr para retomá-la: um novo processo gera um novo par de chaves e pede de novo, e é isso que faz o handler assinar um segundo certificado (resigning) em vez de reentregar este."
+  },
+  "pause": {
+    "rule": "  ----------------------------------------------------------------------",
+    "prompt": "  Pressione Enter para o dispositivo continuar ...",
+    "budget": "  Tempo disponível: restam cerca de {} de {} minutos antes de o AWS IoT Core marcar esta execução como TIMED_OUT.",
+    "disabled": "  Nenhuma entrada de terminal disponível - continuando sem mais pausas.",
+    "not_a_terminal": "As pausas foram solicitadas, mas este não é um terminal interativo; executando tudo sem parar.",
+    "aborted": "  Ctrl-C recebido - parando.",
+    "exit": "Parado. A execução do job ficou exatamente onde estava em pausa; execute este comando de novo para retomá-la.",
+    "job_taken": {
+      "what": "  OBSERVE 1/3 - a execução do job agora está IN_PROGRESS. O dispositivo está aguardando aqui antes de gerar um par de chaves.",
+      "console": "  Console: AWS IoT console -> Manage -> Remote actions -> Jobs -> seu job -> Job executions\n           {}",
+      "cli": "  CLI:     aws iot describe-job-execution --job-id {} --thing-name {} \\\n             --query \"execution.[status,statusDetails]\""
+    },
+    "overlap": {
+      "what": "  OBSERVE 2/3 - a janela de sobreposição. O novo certificado está assinado, ACTIVE e anexado, e o atual ainda está anexado e funcionando. O thing tem DOIS certificados neste momento, e é exatamente por isso que uma rotação com falha não consegue deixar o dispositivo bloqueado.",
+      "console": "  Console: AWS IoT console -> Manage -> Things -> seu thing -> Certificates\n           {}",
+      "cli": "  CLI:     aws iot list-thing-principals --thing-name {} --query \"principals\"",
+      "expect": "  Resultado esperado: dois principals listados. O novo termina em {}."
+    },
+    "retired": {
+      "what": "  OBSERVE 3/3 - a troca foi bem-sucedida, então o certificado antigo está sendo definido como INACTIVE. A retirada é orientada a eventos, então aguarde um momento e execute o comando de novo se ele ainda mostrar ACTIVE. Ele ainda não foi excluído: a retirada é adiada para que um dispositivo que reapareça tarde ainda possa ser recuperado.",
+      "console": "  Console: AWS IoT console -> Security -> Certificates (o antigo agora mostra Inactive)\n           {}",
+      "cli": "  CLI:     Use o OUTRO id de certificado que você viu em OBSERVE 2 - o que não é o novo certificado:\n             aws iot describe-certificate --certificate-id <thatId> \\\n               --query \"certificateDescription.status\"   (resultado esperado: INACTIVE)",
+      "scheduler": "  CLI:     aws scheduler list-schedules --name-prefix ws-aws-iot-dm-adv-prov-revoke- \\\n               --query \"Schedules[].[Name,State]\"\n             O timer de exclusão único. O nome dele termina com os primeiros 16 caracteres do id do certificado retirado."
+    }
+  },
+  "cli": {
+    "description": "Executa a parte do dispositivo de uma rotação de certificados conduzida pelo backend.",
+    "endpoint": "Endpoint iot:Data-ATS",
+    "thing_name": "Thing sendo rotacionado",
+    "cert": "PEM do certificado atual",
+    "key": "Chave privada atual",
+    "ca": "Arquivo da CA raiz da Amazon",
+    "telemetry_topic": "Tópico usado para provar que o novo certificado está autorizado",
+    "request_rule": "Nome da regra de tópico (topic rule) que recebe a solicitação de assinatura de certificado. A solicitação é publicada via Basic Ingest ($aws/rules/<rule>/devices/<thing>/certificate/rotation/request), para chegar ao mecanismo de regras sem custo de mensagens. Deve corresponder à regra que você criou; caso contrário, a publicação é descartada e RuleNotFound é emitido",
+    "job_timeout": "Segundos de espera por uma execução de job pendente",
+    "cert_timeout": "Segundos de espera pelo certificado assinado",
+    "no_rollback": "Não voltar ao certificado atual quando a troca falhar",
+    "connect_retries": "Tentativas de conexão com o novo certificado antes de desistir. Uma falha de autorização (CONNACK NOT_AUTHORIZED) nunca é repetida, porque uma nova tentativa não pode mudar o resultado",
+    "connect_backoff": "Segundos base entre as tentativas de conexão; dobra após cada tentativa",
+    "pause": "Pausar em cada etapa observável para você inspecionar a execução do job, a sobreposição dos certificados e a retirada adiada antes de continuar",
+    "break_after_csr": "Sair logo após enviar a solicitação de assinatura de certificado, antes de esperar a resposta assinada — um substituto determinístico para um dispositivo que reinicia nesse intervalo. Depois, execute de novo SEM esta flag: um novo processo gera um novo par de chaves e pede de novo, e é isso que faz o handler assinar um segundo certificado (`resigning`) em vez de reentregar o primeiro",
+    "in_progress_timeout": "Minutos que o job permite que uma execução fique em IN_PROGRESS; usado para avisar por quanto tempo você pode pausar antes de a execução ser marcada como TIMED_OUT"
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "errors": {
+    "register_without_ca_failed": "❌ Falha em register-certificate-without-ca — o PEM do certificado é válido?",
+    "register_ca_sni_failed": "❌ Falha em register-ca-certificate (SNI_ONLY) — o PEM da CA é válido?",
+    "describe_endpoint_failed": "❌ Falha em describe-endpoint"
+  },
+  "status": {
+    "cert_registered_header": "🪪 Certificado registrado na região de destino (nenhum certificado novo emitido)",
+    "cert_registered_region": "   Região:         {}",
+    "cert_registered_id": "   certificateId:  {}",
+    "cert_id_derived_note": "   (Este ID é derivado do certificado, então corresponde ao ID que o certificado tem na região lobby.)",
+    "same_cert_recognized": "✅ O mesmo certificado agora é reconhecido na região de destino.",
+    "next_get_endpoint": "   Próximo passo: obtenha o endpoint iot:Data-ATS dessa região e reconecte o MESMO certificado a ele (o subcomando 'move').",
+    "ca_registered_header": "🏛️  CA registrada no modo SNI_ONLY (multi-conta)",
+    "ca_registered_region": "   Região:            {}",
+    "ca_registered_id": "   ID do certificado de CA: {}",
+    "ca_trusted_note": "   Todo certificado de dispositivo que esta CA assinou agora é confiável nesta região,",
+    "ca_sni_validated_note": "   validado pelo hostname SNI que o dispositivo apresenta. Não é preciso registrar cada certificado.",
+    "endpoint_for_region": "🌐 Endpoint iot:Data-ATS de {}: {}",
+    "reconnecting_move": "🔌 Reconectando '{}' com o MESMO certificado ao endpoint de destino {} ...",
+    "published_seq": "   publicado seq={} em {}",
+    "move_complete": "🎉 Movimentação concluída — o mesmo certificado agora está conectado à região de destino.",
+    "move_complete_note": "   Nenhum certificado novo foi emitido; só o endpoint mudou."
+  },
+  "cli": {
+    "description": "Multi-Account Registration (MAR): registrar um certificado existente em uma região de destino e reconectar o mesmo certificado ao endpoint dessa região.",
+    "register_without_ca": {
+      "help": "Registrar um certificado de dispositivo existente na região de destino (sem CA).",
+      "region": "Região de destino (que simula a de produção).",
+      "certificate_pem": "Caminho do PEM do certificado do dispositivo.",
+      "policy_name": "Política do dispositivo a criar/anexar no destino.",
+      "policy_document": "JSON da política a criar (se --policy-name for nova).",
+      "thing_name": "Thing opcional a criar e anexar no destino.",
+      "debug": "Saída detalhada."
+    },
+    "register_ca_sni": {
+      "help": "Registrar uma CA no modo SNI_ONLY (multi-conta) na região de destino.",
+      "region": "Região de destino (que simula a de produção).",
+      "ca_certificate": "Caminho do PEM do certificado de CA.",
+      "debug": "Saída detalhada."
+    },
+    "endpoint": {
+      "help": "describe-endpoint --endpoint-type iot:Data-ATS para uma região.",
+      "region": "Região cujo endpoint de dados será descrito.",
+      "debug": "Saída detalhada."
+    },
+    "move": {
+      "help": "Reconectar o mesmo certificado ao endpoint de destino.",
+      "region": "Região de destino (que simula a de produção).",
+      "thing_name": "Nome do dispositivo/thing (usado como client id MQTT).",
+      "cert": "Caminho do PEM do MESMO certificado do dispositivo.",
+      "key": "Caminho da MESMA chave privada do dispositivo.",
+      "endpoint": "Endpoint de destino (descoberto automaticamente se omitido).",
+      "message_count": "Mensagens de telemetria a publicar.",
+      "debug": "Saída detalhada."
+    }
+  },
+  "operations": {
+    "attach_device_policy_to_moved_certificate": "Anexar a política do dispositivo ao certificado movido",
+    "attach_moved_certificate_to_thing": "Anexar o certificado movido ao thing",
+    "create_destination_device_policy": "Criar a política do dispositivo no destino",
+    "create_thing_in_destination_region": "Criar o thing na região de destino",
+    "describe_iot_data_ats_endpoint": "Descrever o endpoint iot:Data-ATS",
+    "register_ca_in_sni_only_multi_account_mode": "Registrar a CA no modo SNI_ONLY (multi-conta)",
+    "register_certificate_without_ca_mar": "Registrar o certificado sem CA (MAR)"
+  },
+  "operation_resources": {
+    "certificate_in_region": "certificado em {}",
+    "ca_in_region": "CA em {}"
+  }
+}

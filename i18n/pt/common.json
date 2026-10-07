@@ -1,0 +1,33 @@
+{
+  "account_id": "ID da conta",
+  "region": "Região",
+  "press_enter": "Pressione Enter para continuar...",
+  "goodbye": "Até logo!",
+  "cancelled_by_user": "👋 Cancelado pelo usuário. Até logo!",
+  "tagging": {
+    "workshop_tag_key": "workshop",
+    "workshop_tag_value": "learning-aws-iot-dm-basics",
+    "applying": "Aplicando as tags...",
+    "success": "✅ Tags aplicadas",
+    "failed": "⚠️  Falha ao aplicar as tags"
+  },
+  "naming": {
+    "validation": {
+      "prefix_empty": "❌ Erro: o prefixo do thing não pode estar vazio",
+      "prefix_too_long": "❌ Erro: o prefixo do thing deve ter no máximo 20 caracteres (recebidos {length} caracteres)",
+      "prefix_invalid_chars": "❌ Erro: o prefixo do thing contém caracteres inválidos. São permitidos apenas caracteres alfanuméricos, hifens (-), sublinhados (_) e dois-pontos (:)",
+      "prefix_valid": "✅ O prefixo do thing é válido: {prefix}",
+      "sequential_number_invalid": "❌ Erro: o número sequencial deve estar entre 1 e 999 (recebido {number})"
+    },
+    "pattern_matching": {
+      "checking": "🔍 Verificando se '{name}' corresponde ao padrão do workshop para {type}...",
+      "matched": "✅ Corresponde ao padrão do workshop: {pattern}",
+      "no_match": "❌ Nenhuma correspondência com um padrão do workshop",
+      "custom_prefix_match": "✅ Corresponde ao padrão do prefixo personalizado: {prefix}"
+    },
+    "generation": {
+      "generating": "🔧 Gerando o nome do thing com o prefixo '{prefix}' e o número {number}...",
+      "generated": "✅ Nome do thing gerado: {name}"
+    }
+  }
+}

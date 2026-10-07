@@ -16,8 +16,9 @@ It is the sample-code companion for the **whole advanced learning path** — a s
 | 🇯🇵 日本語 | [README.ja.md](README.ja.md) |
 | 🇨🇳 简体中文 | [README.zh.md](README.zh.md) |
 | 🇮🇹 Italiano | [README.it.md](README.it.md) |
+| 🇧🇷 Português (Brasil) | [README.pt.md](README.pt.md) |
 
-The scripts themselves are localized: set `AWS_IOT_LANG` (`en`, `es`, `ja`, `ko`, `pt`, `zh`, `de`, `it`, `fr`) or pick a language interactively on first run. Script messages are currently available in English, Spanish, Korean, Japanese, Simplified Chinese, and Italian; any message that is not translated yet falls back to English.
+The scripts themselves are localized: set `AWS_IOT_LANG` (`en`, `es`, `ja`, `ko`, `pt`, `zh`, `de`, `it`, `fr`) or pick a language interactively on first run. Script messages are currently available in English, Spanish, Korean, Japanese, Simplified Chinese, Italian, and Brazilian Portuguese; any message that is not translated yet falls back to English.
 
 ## 🎯 Topics in This Learning Path
 
@@ -210,7 +211,7 @@ export AWS_IOT_LANG=en   # Set default language (en, es, fr, ja, ko, pt, zh, de,
 
 ## 🌍 Internationalization
 
-This learning path targets the 9 workshop locales: English (`en`), Spanish (`es`), Japanese (`ja`), Korean (`ko`), Portuguese (`pt`), Chinese (`zh`), German (`de`), Italian (`it`), and French (`fr`). Script messages ship today in English, Spanish, Korean, Japanese, Simplified Chinese, and Italian (`i18n/en/`, `i18n/es/`, `i18n/ko/`, `i18n/ja/`, `i18n/zh/`, `i18n/it/`); the other languages are added one at a time. Set `AWS_IOT_LANG` to skip the interactive prompt; scripts fall back to English, message by message, when a translation is missing.
+This learning path targets the 9 workshop locales: English (`en`), Spanish (`es`), Japanese (`ja`), Korean (`ko`), Portuguese (`pt`), Chinese (`zh`), German (`de`), Italian (`it`), and French (`fr`). Script messages ship today in English, Spanish, Korean, Japanese, Simplified Chinese, Italian, and Brazilian Portuguese (`i18n/en/`, `i18n/es/`, `i18n/ko/`, `i18n/ja/`, `i18n/zh/`, `i18n/it/`, `i18n/pt/`); the other languages are added one at a time. Set `AWS_IOT_LANG` to skip the interactive prompt; scripts fall back to English, message by message, when a translation is missing.
 
 ## 🧹 Resource Cleanup
 

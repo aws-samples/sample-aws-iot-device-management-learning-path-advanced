@@ -16,8 +16,9 @@ Es el código de ejemplo complementario de **toda la ruta de aprendizaje avanzad
 | 🇯🇵 日本語 | [README.ja.md](README.ja.md) |
 | 🇨🇳 简体中文 | [README.zh.md](README.zh.md) |
 | 🇮🇹 Italiano | [README.it.md](README.it.md) |
+| 🇧🇷 Português (Brasil) | [README.pt.md](README.pt.md) |
 
-Los propios scripts están localizados: define `AWS_IOT_LANG` (`en`, `es`, `ja`, `ko`, `pt`, `zh`, `de`, `it`, `fr`) o elige un idioma de forma interactiva en la primera ejecución. Por ahora, los mensajes de los scripts están disponibles en inglés, español, coreano, japonés, chino simplificado e italiano; cualquier mensaje que aún no esté traducido usa el inglés como alternativa (fallback).
+Los propios scripts están localizados: define `AWS_IOT_LANG` (`en`, `es`, `ja`, `ko`, `pt`, `zh`, `de`, `it`, `fr`) o elige un idioma de forma interactiva en la primera ejecución. Por ahora, los mensajes de los scripts están disponibles en inglés, español, coreano, japonés, chino simplificado, italiano y portugués de Brasil; cualquier mensaje que aún no esté traducido usa el inglés como alternativa (fallback).
 
 ## 🎯 Temas de esta ruta de aprendizaje
 
@@ -210,7 +211,7 @@ export AWS_IOT_LANG=en   # Define el idioma predeterminado (en, es, fr, ja, ko, 
 
 ## 🌍 Internacionalización
 
-Esta ruta de aprendizaje apunta a los 9 idiomas del taller: inglés (`en`), español (`es`), japonés (`ja`), coreano (`ko`), portugués (`pt`), chino (`zh`), alemán (`de`), italiano (`it`) y francés (`fr`). Los mensajes de los scripts se publican hoy en inglés, español, coreano, japonés, chino simplificado e italiano (`i18n/en/`, `i18n/es/`, `i18n/ko/`, `i18n/ja/`, `i18n/zh/`, `i18n/it/`); los demás idiomas se añaden de uno en uno. Define `AWS_IOT_LANG` para omitir la pregunta interactiva; los scripts usan el inglés como alternativa, mensaje por mensaje, cuando falta una traducción.
+Esta ruta de aprendizaje apunta a los 9 idiomas del taller: inglés (`en`), español (`es`), japonés (`ja`), coreano (`ko`), portugués (`pt`), chino (`zh`), alemán (`de`), italiano (`it`) y francés (`fr`). Los mensajes de los scripts se publican hoy en inglés, español, coreano, japonés, chino simplificado, italiano y portugués de Brasil (`i18n/en/`, `i18n/es/`, `i18n/ko/`, `i18n/ja/`, `i18n/zh/`, `i18n/it/`, `i18n/pt/`); los demás idiomas se añaden de uno en uno. Define `AWS_IOT_LANG` para omitir la pregunta interactiva; los scripts usan el inglés como alternativa, mensaje por mensaje, cuando falta una traducción.
 
 ## 🧹 Limpieza de recursos
 
