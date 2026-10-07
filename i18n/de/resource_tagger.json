@@ -1,0 +1,28 @@
+{
+  "tagging": {
+    "success": "✅ Tags erfolgreich auf {} angewendet",
+    "failed": "⚠️  Tags konnten nicht auf {} angewendet werden: {}",
+    "warning_continue": "⚠️  Das Taggen hat für {} nicht funktioniert, aber wir fahren mit der Erstellung der Ressource fort",
+    "invalid_schema": "⚠️  Das Tag-Schema für {} sieht nicht richtig aus",
+    "unsupported_type": "⚠️  Dieser Ressourcentyp unterstützt noch keine Tags: {}"
+  },
+  "debug": {
+    "applying_tags": "🔧 Workshop-Tags werden zu {} hinzugefügt (Typ: {})",
+    "tags_applied": "✅ Tags angewendet: {}",
+    "tag_count": "📊 {} Tags zu {} hinzugefügt",
+    "using_api": "🔧 Für das Taggen wird die API {} verwendet",
+    "tag_validation": "🔍 Tag-Schema wird geprüft...",
+    "tag_validation_passed": "✅ Das Tag-Schema sieht gut aus",
+    "tag_validation_failed": "❌ Die Validierung des Tag-Schemas ist fehlgeschlagen"
+  },
+  "summary": {
+    "resources_without_tags": "📊 Ohne Tags erstellte Ressourcen: {}",
+    "tag_failures": "⚠️  Probleme beim Anwenden der Tags",
+    "total_failures": "Ressourcen ohne Tags insgesamt: {}",
+    "relying_on_naming": "ℹ️  Keine Sorge: Bei der Bereinigung werden diese Ressourcen anhand der Benennungsmuster erkannt"
+  },
+  "module_info": {
+    "standalone_description": "Dieses Modul stellt Funktionen zum Taggen von Ressourcen bereit.",
+    "standalone_usage": "Importiere es in deine Skripte, um apply_workshop_tags() zu verwenden."
+  }
+}

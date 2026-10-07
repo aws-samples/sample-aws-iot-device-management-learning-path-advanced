@@ -1,0 +1,29 @@
+{
+  "callbacks": {
+    "resumed": "\n🔄 MQTT-Verbindung wiederaufgenommen (reason_code={}, rejoined_session={})",
+    "interrupted": "\n⚠️  MQTT-Verbindung unterbrochen (reason_code={}, exception={})"
+  },
+  "errors": {
+    "resubscribe_failed": "❌ Erneutes Abonnieren von {} fehlgeschlagen: {}",
+    "message_processing_failed": "❌ Fehler beim Verarbeiten der empfangenen Nachricht: {}",
+    "connection_refused": "Verbindung abgelehnt: reason_code={} exception={}",
+    "no_connack": "kein CONNACK innerhalb von {}s",
+    "subscribe_refused": "Abonnement von {} abgelehnt: {}",
+    "not_connected": "Nicht mit AWS IoT Core verbunden",
+    "publish_refused": "Veröffentlichen auf {} abgelehnt: {} {}"
+  },
+  "debug": {
+    "describe_endpoint": "🔄 describe_endpoint(endpointType='{}')",
+    "endpoint_resolved": "📤 Endpoint: {}",
+    "setup_header": "🔧 Einrichtung der MQTT-Verbindung",
+    "setup_client_id": "   Client ID: {}",
+    "setup_endpoint": "   Endpoint: {}",
+    "setup_port": "   Port: {}",
+    "setup_certificate": "   Zertifikat: {}",
+    "setup_private_key": "   Privater Schlüssel: {}",
+    "setup_protocol": "   Protokoll: MQTT 5 über TLS",
+    "setup_session": "   Sitzung: {}",
+    "connected": "✅ MQTT-Verbindung hergestellt",
+    "connack": "   CONNACK: {}"
+  }
+}

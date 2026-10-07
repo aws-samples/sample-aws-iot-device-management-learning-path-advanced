@@ -1,0 +1,120 @@
+{
+  "usage": "Verwendung: python3 scripts/rotate_certificate.py --endpoint <endpoint> --thing-name <thing> --cert <certFile> --key <keyFile> --ca <caFile>",
+  "connect": {
+    "attempt": "Verbindung als {} wird aufgebaut, verwendet wird das {} Zertifikat ...",
+    "old_certificate": "aktuelle",
+    "new_certificate": "neue",
+    "connected": "Verbunden [das {} Zertifikat].",
+    "connack": "     CONNACK: {}",
+    "detail": "     endpoint={}  clientId={}  certificate={}",
+    "failed": "Das {} Zertifikat konnte keine Verbindung herstellen: {}",
+    "refused_terminal": "Das {} Zertifikat wurde vom Broker ABGELEHNT: reason_code={}. Das ist ein Autorisierungsfehler, eine Wiederholung hilft also nicht - es wird sofort aufgegeben.",
+    "refused_retry": "  das {} Zertifikat konnte keine Verbindung herstellen (reason_code={}), Versuch {}/{} - neuer Versuch in {}s ...",
+    "refused_exhausted": "Das {} Zertifikat konnte nach {} Versuchen keine Verbindung herstellen.",
+    "no_connack": "kein CONNACK innerhalb von 30s"
+  },
+  "wire": {
+    "sub": "     SUB      {}",
+    "pub": "     PUB  --> {}",
+    "recv": "     RECV <-- {}",
+    "payload": "              payload: {}",
+    "truncated": "{}... ({} Zeichen)",
+    "job_meta": "              jobId={}  executionNumber={}  status={}",
+    "job_document": "              Job-Dokument: {}",
+    "cert_detail": "              certificateId={}  certificatePem: {}",
+    "csr_payload": "              payload: jobId={}  csr: {}",
+    "key_not_sent": "              (kein privater Schlüssel in dieser Nachricht - er verlässt das Gerät nie)"
+  },
+  "job": {
+    "subscribing": "Antwort-Topics werden abonniert, bevor ein Job übernommen wird ...",
+    "waiting": "Warte auf eine Job-Ausführung für die Rotation auf {} ...",
+    "taken": "Job-Ausführung übernommen: {}",
+    "none": "Für dieses Thing steht keine Job-Ausführung für die Rotation an. Füge es zuerst der Rotations-Thing Group hinzu und führe den Befehl dann erneut aus.",
+    "wrong_operation": "Diese Job-Ausführung fordert die Operation '{}' an, nicht '{}'. Melde REJECTED und stoppe: Ein Gerät darf nicht auf einen Job reagieren, den es nicht implementiert.",
+    "phase": "  Job-Ausführung -> status={} phase={}",
+    "subscribe_refused": "Der Broker hat das Abonnement von {} abgelehnt: reason_code={}",
+    "update_failed": "  WARNUNG status={} konnte nicht an die Job-Ausführung gemeldet werden: {}"
+  },
+  "keypair": {
+    "generating": "Neues Schlüsselpaar und neue Zertifikatsignieranforderung werden lokal erzeugt ...",
+    "generated": "Neues Schlüsselpaar erzeugt. Der private Schlüssel verlässt dieses Gerät nie: {}",
+    "detail": "     RSA-Schlüssel mit {} Bit, Subject der Zertifikatsignieranforderung CN={}, geschrieben nach {}",
+    "openssl_missing": "OpenSSL wurde im PATH nicht gefunden. Der gemeinsame Einrichtungsabschnitt prüft, ob OpenSSL verfügbar ist; installiere es und führe den Befehl erneut aus.",
+    "failed": "Schlüsselpaar oder Zertifikatsignieranforderung konnte nicht erzeugt werden: {}"
+  },
+  "request": {
+    "sent": "Certificate signing request sent on {}; waiting for the handler to sign it.",
+    "received": "Zertifikat {} empfangen.",
+    "timeout": "Innerhalb von {} Sekunden ist kein Zertifikat angekommen. Der Handler hat die Anforderung möglicherweise verweigert — prüfe die statusDetails der Job-Ausführung auf den Grund."
+  },
+  "disconnect_choice": {
+    "menu": "  Das Zertifikat ist angekommen. Was soll dieses Gerät als Nächstes tun?\n    1) Fortfahren - es installieren und mit der Rotation weitermachen\n    2) Verbindungsabbruch simulieren - das Zertifikat ist angekommen, wurde aber nie auf die Festplatte geschrieben (ein Absturz oder eine abgebrochene Verbindung genau an dieser Stelle)",
+    "prompt": "  Auswahl [1]: ",
+    "disconnecting": "Verbindungsabbruch wird simuliert: Das gerade angekommene Zertifikat wird verworfen, nicht installiert.",
+    "reconnected": "Erneut mit dem AKTUELLEN Zertifikat verbunden - das neue wurde nie installiert, es ist also das einzige, das dieses Gerät noch besitzt.",
+    "reasking": "Erneute Anforderung mit DERSELBEN Zertifikatsignieranforderung - derselbe Schlüssel, derselbe Job. Achte in den Logs des Handlers auf `redelivering` statt auf eine zweite Signatur.",
+    "rediscovered": "  Job-Ausführung -> status={} statusDetails={}"
+  },
+  "cutover": {
+    "installing": "Das neue Zertifikat wird unter {} installiert ...",
+    "reconnecting": "Erneute Verbindung mit dem NEUEN Zertifikat ...",
+    "proving": "Nachweis, dass das neue Zertifikat autorisiert ist, durch Veröffentlichen auf {} ...",
+    "proved": "Autorisiertes Veröffentlichen mit dem neuen Zertifikat war erfolgreich.",
+    "connect_failed": "Das neue Zertifikat konnte keine Verbindung herstellen (reason_code={}). Es wurde ausgestellt, ist aber nicht nutzbar - die Rotation endet daher hier.",
+    "publish_refused": "Das neue Zertifikat hat sich verbunden, aber der Broker hat das Veröffentlichen ABGELEHNT: reason_code={}. Das Zertifikat funktioniert; seine Richtlinie autorisiert dieses Topic nicht.",
+    "publish_failed": "Das neue Zertifikat konnte nicht veröffentlichen: {}",
+    "rolled_back": "Auf das AKTUELLE Zertifikat zurückgesetzt — es wurde nie außer Betrieb genommen — und FAILED gemeldet. Das Gerät bleibt online."
+  },
+  "result": {
+    "succeeded": "Job-Ausführung hat SUCCEEDED gemeldet. Das Backend kann das alte Zertifikat jetzt außer Betrieb nehmen.",
+    "failed": "Job-Ausführung hat FAILED gemeldet. Es wurde kein Zertifikat außer Betrieb genommen, und das Gerät verwendet weiter sein aktuelles Zertifikat.",
+    "summary": "Rotation für {} abgeschlossen: Das neue Zertifikat {} ist in Verwendung."
+  },
+  "break_after_csr": {
+    "exit": "Absichtlicher Abbruch an dieser Stelle, wie mit --break-after-csr angefordert. Zertifikatsignieranforderung für die Job-Ausführung {} gesendet und unbeantwortet gelassen - die Ausführung bleibt IN_PROGRESS, phase=INITIATED. Führe denselben Befehl OHNE --break-after-csr erneut aus, um sie wieder aufzunehmen: Ein frischer Prozess erzeugt ein neues Schlüsselpaar und fragt erneut an, und genau das bringt den Handler dazu, ein zweites Zertifikat zu signieren (resigning), statt dieses erneut zuzustellen."
+  },
+  "pause": {
+    "rule": "  ----------------------------------------------------------------------",
+    "prompt": "  Drücke Enter, damit das Gerät weitermacht ...",
+    "budget": "  Zeitbudget: noch etwa {} von {} Minuten, bevor AWS IoT Core diese Ausführung als TIMED_OUT markiert.",
+    "disabled": "  Keine Terminaleingabe verfügbar - es geht ohne weitere Pausen weiter.",
+    "not_a_terminal": "Pausen wurden angefordert, aber dies ist kein interaktives Terminal; der Lauf geht ohne Unterbrechung durch.",
+    "aborted": "  Ctrl-C empfangen - Abbruch.",
+    "exit": "Gestoppt. Die Job-Ausführung bleibt genau dort, wo sie pausiert wurde; führe diesen Befehl erneut aus, um sie wieder aufzunehmen.",
+    "job_taken": {
+      "what": "  OBSERVE 1/3 - die Job-Ausführung ist jetzt IN_PROGRESS. Das Gerät wartet hier, bevor es ein Schlüsselpaar erzeugt.",
+      "console": "  Console: AWS IoT console -> Manage -> Remote actions -> Jobs -> dein Job -> Job executions\n           {}",
+      "cli": "  CLI:     aws iot describe-job-execution --job-id {} --thing-name {} \\\n             --query \"execution.[status,statusDetails]\""
+    },
+    "overlap": {
+      "what": "  OBSERVE 2/3 - das Überlappungsfenster. Das neue Zertifikat ist signiert, ACTIVE und angehängt, und das aktuelle ist weiterhin angehängt und funktioniert. Das Thing hat gerade ZWEI Zertifikate, und genau deshalb kann eine fehlgeschlagene Rotation das Gerät nicht aussperren.",
+      "console": "  Console: AWS IoT console -> Manage -> Things -> dein Thing -> Certificates\n           {}",
+      "cli": "  CLI:     aws iot list-thing-principals --thing-name {} --query \"principals\"",
+      "expect": "  Erwartet: zwei Principals aufgelistet. Der neue endet auf {}."
+    },
+    "retired": {
+      "what": "  OBSERVE 3/3 - die Umstellung war erfolgreich, daher wird das alte Zertifikat auf INACTIVE gesetzt. Die Außerbetriebnahme ist ereignisgesteuert, warte also einen Moment und führe den Befehl erneut aus, falls weiterhin ACTIVE angezeigt wird. Es ist noch nicht gelöscht: Die Außerbetriebnahme ist verzögert, damit ein Gerät, das sich verspätet zurückmeldet, noch wiederhergestellt werden kann.",
+      "console": "  Console: AWS IoT console -> Security -> Certificates (das alte zeigt jetzt Inactive)\n           {}",
+      "cli": "  CLI:     Verwende die ANDERE Zertifikat-ID, die du bei OBSERVE 2 gesehen hast - die, die nicht zum neuen Zertifikat gehört:\n             aws iot describe-certificate --certificate-id <thatId> \\\n               --query \"certificateDescription.status\"   (erwartet: INACTIVE)",
+      "scheduler": "  CLI:     aws scheduler list-schedules --name-prefix ws-aws-iot-dm-adv-prov-revoke- \\\n               --query \"Schedules[].[Name,State]\"\n             Der einmalige Lösch-Timer. Sein Name endet mit den ersten 16 Zeichen der ID des außer Betrieb genommenen Zertifikats."
+    }
+  },
+  "cli": {
+    "description": "Führt die Geräteseite einer vom Backend gesteuerten Zertifikatsrotation aus.",
+    "endpoint": "iot:Data-ATS-Endpoint",
+    "thing_name": "Thing, das rotiert wird",
+    "cert": "PEM des aktuellen Zertifikats",
+    "key": "Aktueller privater Schlüssel",
+    "ca": "Datei der Amazon-Stamm-CA",
+    "telemetry_topic": "Topic, mit dem nachgewiesen wird, dass das neue Zertifikat autorisiert ist",
+    "request_rule": "Name der Topic-Regel, die die Zertifikatsignieranforderung empfängt. Die Anforderung wird über Basic Ingest ($aws/rules/<rule>/devices/<thing>/certificate/rotation/request) veröffentlicht, damit sie die Regel-Engine ohne Messaging-Gebühr erreicht. Muss mit der Regel übereinstimmen, die du erstellt hast, sonst wird die Veröffentlichung verworfen und RuleNotFound ausgegeben",
+    "job_timeout": "Sekunden, die auf eine anstehende Job-Ausführung gewartet wird",
+    "cert_timeout": "Sekunden, die auf das signierte Zertifikat gewartet wird",
+    "no_rollback": "Bei fehlgeschlagener Umstellung nicht auf das aktuelle Zertifikat zurückfallen",
+    "connect_retries": "Verbindungsversuche mit dem neuen Zertifikat, bevor aufgegeben wird. Ein Autorisierungsfehler (CONNACK NOT_AUTHORIZED) wird nie wiederholt, weil eine Wiederholung daran nichts ändern kann",
+    "connect_backoff": "Grundwartezeit in Sekunden zwischen Verbindungsversuchen; verdoppelt sich nach jedem Versuch",
+    "pause": "An jedem beobachtbaren Arbeitsschritt pausieren, damit du die Job-Ausführung, die Zertifikatsüberlappung und die verzögerte Außerbetriebnahme prüfen kannst, bevor es weitergeht",
+    "break_after_csr": "Direkt nach dem Senden der Zertifikatsignieranforderung beenden, bevor auf die signierte Antwort gewartet wird — ein deterministischer Ersatz für ein Gerät, das genau in dieser Lücke neu startet. Führe den Befehl danach OHNE dieses Flag erneut aus: Ein frischer Prozess erzeugt ein neues Schlüsselpaar und fragt erneut an, und genau das bringt den Handler dazu, ein zweites Zertifikat zu signieren (`resigning`), statt das erste erneut zuzustellen",
+    "in_progress_timeout": "Minuten, die der Job einer Ausführung im Zustand IN_PROGRESS erlaubt; wird verwendet, um zu warnen, wie lange du pausieren kannst, bevor die Ausführung als TIMED_OUT markiert wird"
+  }
+}

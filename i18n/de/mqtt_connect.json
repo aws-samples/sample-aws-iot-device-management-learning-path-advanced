@@ -1,0 +1,22 @@
+{
+  "usage": "Verwendung: python3 ../scripts/mqtt_connect.py <endpoint> <clientId> <certFile> <keyFile> <caFile> <topic>",
+  "callbacks": {
+    "interrupted": "WARNING  Connection interrupted: reason_code={} exception={} (the MQTT 5 client will retry automatically)",
+    "resumed": "OK  Connection resumed (reason_code={}, rejoined_session={})"
+  },
+  "connect": {
+    "waiting": "Verbindung als {} über MQTT 5 wird aufgebaut; der Client versucht es selbstständig erneut, bis der Broker ihn akzeptiert ...",
+    "connected": "Connected.",
+    "refused_retry": "  connect refused: reason_code={} exception={} - retrying (expected while provisioning finishes) ...",
+    "failed": "Innerhalb des Zeitbudgets konnte keine Verbindung hergestellt werden - prüfe Zertifikat/Richtlinie und versuche es erneut."
+  },
+  "publish": {
+    "loop_start": "Jetzt wird in einer Schleife auf {} veröffentlicht; jede Nachricht sollte auf dem Topic ankommen.",
+    "sent": "  PUBLISH -> {}: {}",
+    "refused": "  PUBLISH -> {} REFUSED by the broker: reason_code={} (MQTT 3.1.1 could not report this)",
+    "failed": "  Veröffentlichen von seq={} fehlgeschlagen (wahrscheinlich während der erneuten Verbindung): {}"
+  },
+  "disconnect": {
+    "clean": "Sauber getrennt."
+  }
+}

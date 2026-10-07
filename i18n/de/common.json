@@ -1,0 +1,33 @@
+{
+  "account_id": "Konto-ID",
+  "region": "Region",
+  "press_enter": "Drücke die Eingabetaste, um fortzufahren...",
+  "goodbye": "Tschüss!",
+  "cancelled_by_user": "👋 Vom Benutzer abgebrochen. Tschüss!",
+  "tagging": {
+    "workshop_tag_key": "workshop",
+    "workshop_tag_value": "learning-aws-iot-dm-basics",
+    "applying": "Tags werden angewendet...",
+    "success": "✅ Tags angewendet",
+    "failed": "⚠️  Taggen fehlgeschlagen"
+  },
+  "naming": {
+    "validation": {
+      "prefix_empty": "❌ Fehler: Das Thing-Präfix darf nicht leer sein",
+      "prefix_too_long": "❌ Fehler: Das Thing-Präfix darf höchstens 20 Zeichen lang sein (erhalten: {length} Zeichen)",
+      "prefix_invalid_chars": "❌ Fehler: Das Thing-Präfix enthält ungültige Zeichen. Erlaubt sind nur alphanumerische Zeichen, Bindestriche (-), Unterstriche (_) und Doppelpunkte (:)",
+      "prefix_valid": "✅ Das Thing-Präfix ist gültig: {prefix}",
+      "sequential_number_invalid": "❌ Fehler: Die laufende Nummer muss zwischen 1 und 999 liegen (erhalten: {number})"
+    },
+    "pattern_matching": {
+      "checking": "🔍 Es wird geprüft, ob '{name}' zum Workshop-Benennungsmuster für {type} passt...",
+      "matched": "✅ Passt zum Workshop-Benennungsmuster: {pattern}",
+      "no_match": "❌ Kein passendes Workshop-Benennungsmuster gefunden",
+      "custom_prefix_match": "✅ Passt zum Muster mit eigenem Präfix: {prefix}"
+    },
+    "generation": {
+      "generating": "🔧 Thing-Name mit Präfix '{prefix}' und Nummer {number} wird erzeugt...",
+      "generated": "✅ Thing-Name erzeugt: {name}"
+    }
+  }
+}

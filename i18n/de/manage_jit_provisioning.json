@@ -1,0 +1,49 @@
+{
+  "warnings": {
+    "topic_rule_not_created": "⚠️  Die Topic-Regel wurde nicht erstellt (siehe Fehler oben)."
+  },
+  "errors": {
+    "handler_source_not_found": "❌ Quellcode des Handlers nicht gefunden: {}",
+    "dependency_install_failed": "❌ Die Abhängigkeit cryptography konnte nicht gebündelt werden: {}"
+  },
+  "status": {
+    "topic_rule_created": "✅ Die Topic-Regel '{}' leitet {} an den JITR-Handler weiter",
+    "handler_code_deployed": "✅ Code des JITR-Handlers in '{}' bereitgestellt",
+    "certs_registered_header": "ℹ️  {} Zertifikat(e) unter CA {} registriert:",
+    "cert_line": "   - {}  status={}",
+    "thing_attributes": "ℹ️  Attribute des Things '{}': {}"
+  },
+  "cli": {
+    "description": "Ressourcen für Just-in-Time Provisioning (JITP) und JITR verwalten.",
+    "register_ca": {
+      "help": "Eigene CA mit JITP-Konfiguration registrieren.",
+      "role_arn": "ARN der JITP-Registrierungsrolle.",
+      "template_file": "Pfad zum JSON des JITP-Templates.",
+      "ca_common_name": "Common Name der Stamm-CA.",
+      "debug": "Ausführliche Ausgabe."
+    },
+    "deploy_jitr_rule": {
+      "help": "JITR-Topic-Regel erstellen (create-topic-rule).",
+      "rule_name": "Name der Topic-Regel.",
+      "function_arn": "Lambda-ARN des JITR-Handlers.",
+      "debug": "Ausführliche Ausgabe."
+    },
+    "deploy_jitr_code": {
+      "help": "Code des JITR-Handlers bereitstellen (update-function-code).",
+      "function_name": "Funktionsname des JITR-Handlers.",
+      "debug": "Ausführliche Ausgabe."
+    },
+    "observe": {
+      "help": "Registrierungsergebnisse beobachten (list-certificates-by-ca / describe-thing).",
+      "ca_cert_id": "ID des CA-Zertifikats.",
+      "thing_name": "Zu beschreibendes Thing.",
+      "debug": "Ausführliche Ausgabe."
+    }
+  },
+  "operations": {
+    "create_jitr_topic_rule": "JITR-Topic-Regel erstellen",
+    "deploy_jitr_handler_code": "Code des JITR-Handlers bereitstellen",
+    "describe_thing": "Thing beschreiben",
+    "list_certificates_by_ca": "Zertifikate nach CA auflisten"
+  }
+}

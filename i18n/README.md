@@ -122,7 +122,7 @@ Only human-readable console output and `input()` prompts move into catalogs.
 ## 🌍 Languages
 
 The 9 workshop locales (`en`, `de`, `es`, `fr`, `it`, `ja`, `ko`, `pt`, `zh`) are all recognized by
-`language_selector.py`. **`i18n/en/*`, `i18n/es/*`, `i18n/ko/*`, `i18n/ja/*`, `i18n/zh/*`, `i18n/it/*`, and `i18n/pt/*` ship today**; the remaining locales run in
+`language_selector.py`. **`i18n/en/*`, `i18n/es/*`, `i18n/ko/*`, `i18n/ja/*`, `i18n/zh/*`, `i18n/it/*`, `i18n/pt/*`, and `i18n/de/*` ship today**; the remaining locales run in
 English (per-key fallback) until their catalogs are added under `i18n/<lang>/` with the same nested
 structure. No code changes are required to add a language.
 

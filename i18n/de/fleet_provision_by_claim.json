@@ -1,0 +1,99 @@
+{
+  "errors": {
+    "claim_create_failed": "❌ Das Claim-Zertifikat konnte nicht erstellt werden",
+    "provisioning_failed": "❌ Fleet Provisioning wurde nicht abgeschlossen: {}",
+    "provisioning_rejected": "Fleet Provisioning auf {} abgelehnt: {}",
+    "reply_timeout": "Zeitüberschreitung beim Warten auf eine Antwort auf {}"
+  },
+  "status": {
+    "claim_cert_id": "ℹ️  ID des Claim-Zertifikats: {}",
+    "saved_claim_files": "   Gespeichert: {} / {} / {}",
+    "claim_ready": "🎉 Claim-Zertifikat bereit und nur auf Fleet Provisioning beschränkt",
+    "claim_ready_detail": "   CA/Lambda/Template sind getrennt — dieses Claim-Zertifikat kann NUR das Bootstrapping übernehmen.",
+    "template_created": "✅ Provisioning-Template '{}' erstellt (aktiviert)",
+    "hook_attached": "   Pre-Provisioning-Hook angehängt: {}",
+    "version_line": "   - Version {}{}",
+    "version_default_marker": " (Standard)",
+    "version_created": "✅ Version {} erstellt{}",
+    "version_set_default_suffix": " und als Standard festgelegt",
+    "version_deleted": "✅ Version {} gelöscht (Rollback)",
+    "thing_info": "ℹ️  Thing '{}' type={} attributes={}",
+    "principal_line": "   - principal: {}",
+    "extracted_cert": "🔑 Dauerhaftes Zertifikat ({}...) und certificateOwnershipToken extrahiert",
+    "saved_cert_key": "   Gespeichert: {} / {}",
+    "extracted_cert_csr_note": "   (im CSR-Pfad wird kein privater Schlüssel zurückgegeben — das Gerät hat seinen eigenen behalten)",
+    "saved_cert_csr": "   Gespeichert: {} (verwende deinen eigenen privaten Schlüssel aus dem CSR-Arbeitsschritt weiter)",
+    "connecting_claim": "🔌 Verbindung mit dem CLAIM-Zertifikat zu {} wird hergestellt ...",
+    "provisioned": "🎉 Gerät per Claim provisioniert",
+    "provisioned_thing_name": "   thingName: {}",
+    "provisioned_device_config": "   deviceConfiguration: {}",
+    "provisioned_reconnect": "   Verbinde dich jetzt erneut mit dem DAUERHAFTEN Zertifikat ({}), um Telemetrie zu veröffentlichen — das Claim-Zertifikat hat seine Aufgabe erfüllt."
+  },
+  "mqtt": {
+    "subscribe": "📡 SUBSCRIBE {}",
+    "publish": "📨 PUBLISH → {}",
+    "received": "📥 EMPFANGEN ← {}",
+    "publish_empty_payload": "   payload: {}   (leerer Body — CreateKeysAndCertificate erwartet keine Eingabe)",
+    "publish_csr_payload": "   payload: {{ \"certificateSigningRequest\": <PEM aus {}> }}"
+  },
+  "cli": {
+    "description": "Fleet Provisioning per Claim: Claim-Zertifikat, Template, Versionierung, Provisionierung über MQTT.",
+    "create_claim": {
+      "help": "Claim-Zertifikat und eingeschränkte Richtlinie erstellen.",
+      "policy_name": "Name der Claim-Richtlinie.",
+      "policy_file": "JSON der Claim-Richtlinie.",
+      "claim_cert_out": "Ausgabepfad des Claim-Zertifikats.",
+      "claim_key_out": "Ausgabe des Claim-Schlüssels.",
+      "claim_pub_out": "Ausgabe des öffentlichen Claim-Schlüssels.",
+      "debug": "Ausführliche Ausgabe."
+    },
+    "create_template": {
+      "help": "Fleet-Provisioning-Template erstellen.",
+      "template_name": "Name des Templates.",
+      "provisioning_role_arn": "ARN der Fleet-Provisioning-Rolle.",
+      "template_file": "Pfad zum JSON des Templates.",
+      "hook_arn": "Lambda-ARN des Pre-Provisioning-Hooks.",
+      "debug": "Ausführliche Ausgabe."
+    },
+    "provision": {
+      "help": "Claim-basierten MQTT-Nachrichtenaustausch zur Provisionierung ausführen.",
+      "template_name": "Name des Templates.",
+      "claim_cert": "Pfad zum Claim-Zertifikat.",
+      "claim_key": "Pfad zum privaten Claim-Schlüssel.",
+      "serial_number": "SerialNumber des Geräts (Name des Things).",
+      "model_type": "Parameter ModelType des Geräts.",
+      "endpoint": "iot:Data-ATS-Endpoint (wird automatisch ermittelt, wenn weggelassen).",
+      "out_prefix": "Ausgabepräfix für das dauerhafte Zertifikat und den Schlüssel.",
+      "csr_file": "CSR-PEM, um CreateCertificateFromCsr zu verwenden (das Gerät behält seinen eigenen Schlüssel). Weglassen, um CreateKeysAndCertificate zu verwenden. Diesen Pfad nutzt das optionale Certificate-Provider-Lab.",
+      "debug": "Ausführliche Ausgabe."
+    },
+    "versions": {
+      "help": "Versionen des Provisioning-Templates verwalten.",
+      "template_name": "Name des Templates.",
+      "list": "Versionen auflisten.",
+      "new_version_file": "JSON mit dem neuen Template-Body, der hinzugefügt wird.",
+      "set_default": "Neue Version als Standard festlegen.",
+      "delete_version_id": "ID der zu löschenden Version (Rollback).",
+      "debug": "Ausführliche Ausgabe."
+    },
+    "observe": {
+      "help": "describe-thing / list-thing-principals.",
+      "thing_name": "Name des provisionierten Things.",
+      "debug": "Ausführliche Ausgabe."
+    }
+  },
+  "operations": {
+    "attach_claim_policy_to_claim_certificate": "Claim-Richtlinie an Claim-Zertifikat anhängen",
+    "create_claim_certificate": "Claim-Zertifikat erstellen",
+    "create_claim_policy": "Claim-Richtlinie erstellen",
+    "create_fleet_provisioning_template": "Fleet-Provisioning-Template erstellen",
+    "create_provisioning_template_version": "Version des Provisioning-Templates erstellen",
+    "delete_provisioning_template_version": "Version des Provisioning-Templates löschen",
+    "describe_thing": "Thing beschreiben",
+    "list_provisioning_template_versions": "Versionen des Provisioning-Templates auflisten",
+    "list_thing_principals": "Principals des Things auflisten"
+  },
+  "operation_resources": {
+    "template_version": "{} v{}"
+  }
+}

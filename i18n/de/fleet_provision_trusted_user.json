@@ -1,0 +1,75 @@
+{
+  "errors": {
+    "claim_create_failed": "❌ Der Provisioning-Claim konnte nicht erstellt werden — ist deine IAM-Identität für iot:CreateProvisioningClaim auf dieses Template beschränkt?",
+    "provisioning_failed": "❌ Fleet Provisioning wurde nicht abgeschlossen: {}",
+    "provisioning_rejected": "Fleet Provisioning auf {} abgelehnt: {}",
+    "reply_timeout": "Zeitüberschreitung beim Warten auf eine Antwort auf {}"
+  },
+  "status": {
+    "template_created": "✅ Provisioning-Template '{}' erstellt (aktiviert)",
+    "template_no_hook": "   Kein Pre-Provisioning-Hook — die eingeschränkte IAM-Identität des vertrauenswürdigen Benutzers ist die Kontrollinstanz.",
+    "claim_minted": "🎟️  Temporärer Provisioning-Claim für das Template '{}' ausgestellt",
+    "saved_claim_files": "   Gespeichert: {} / {}",
+    "claim_expires": "   Läuft ab: {} (etwa fünf Minuten — provisioniere jetzt)",
+    "claim_note": "   Hinweis: Dieses temporäre Claim-Zertifikat erscheint NICHT in list-certificates.",
+    "thing_info": "ℹ️  Thing '{}' type={} attributes={}",
+    "principal_line": "   - principal: {}",
+    "connecting_claim": "🔌 Verbindung mit dem TEMPORÄREN Claim-Zertifikat zu {} wird hergestellt ...",
+    "extracted_cert": "🔑 Dauerhaftes Zertifikat ({}...) und certificateOwnershipToken extrahiert",
+    "saved_cert_key": "   Gespeichert: {} / {}",
+    "extracted_cert_csr_note": "   (im CSR-Pfad wird kein privater Schlüssel zurückgegeben — das Gerät hat seinen eigenen behalten)",
+    "saved_cert_csr": "   Gespeichert: {} (verwende deinen eigenen privaten Schlüssel aus dem CSR-Arbeitsschritt weiter)",
+    "provisioned": "🎉 Gerät per vertrauenswürdigem Benutzer provisioniert",
+    "provisioned_thing_name": "   thingName: {}",
+    "provisioned_device_config": "   deviceConfiguration: {}",
+    "provisioned_reconnect": "   Verbinde dich jetzt erneut mit dem DAUERHAFTEN Zertifikat ({}), um Telemetrie zu veröffentlichen — der temporäre Claim hat seine Aufgabe erfüllt."
+  },
+  "mqtt": {
+    "subscribe": "📡 SUBSCRIBE {}",
+    "publish": "📨 PUBLISH → {}",
+    "received": "📥 EMPFANGEN ← {}",
+    "publish_empty_payload": "   payload: {}   (leerer Body — CreateKeysAndCertificate erwartet keine Eingabe)",
+    "publish_csr_payload": "   payload: {{ \"certificateSigningRequest\": <PEM aus {}> }}"
+  },
+  "cli": {
+    "description": "Fleet Provisioning per vertrauenswürdigem Benutzer: Template, CreateProvisioningClaim, Provisionierung über MQTT.",
+    "create_template": {
+      "help": "Provisioning-Template für den vertrauenswürdigen Benutzer erstellen.",
+      "template_name": "Name des Templates.",
+      "provisioning_role_arn": "ARN der Fleet-Provisioning-Rolle.",
+      "template_file": "Pfad zum JSON des Templates.",
+      "debug": "Ausführliche Ausgabe."
+    },
+    "create_claim": {
+      "help": "CreateProvisioningClaim als vertrauenswürdiger Benutzer ausführen.",
+      "template_name": "Name des Templates.",
+      "claim_cert_out": "Ausgabepfad des temporären Claim-Zertifikats.",
+      "claim_key_out": "Ausgabe des temporären Claim-Schlüssels.",
+      "claim_pub_out": "Ausgabe des temporären öffentlichen Claim-Schlüssels (optional).",
+      "debug": "Ausführliche Ausgabe."
+    },
+    "provision": {
+      "help": "MQTT-Nachrichtenaustausch zur Provisionierung per vertrauenswürdigem Benutzer ausführen.",
+      "template_name": "Name des Templates.",
+      "claim_cert": "Pfad zum temporären Claim-Zertifikat.",
+      "claim_key": "Pfad zum temporären privaten Claim-Schlüssel.",
+      "serial_number": "SerialNumber des Geräts (Name des Things).",
+      "device_type": "Parameter DeviceType des Geräts.",
+      "endpoint": "iot:Data-ATS-Endpoint (wird automatisch ermittelt, wenn weggelassen).",
+      "out_prefix": "Ausgabepräfix für das dauerhafte Zertifikat und den Schlüssel.",
+      "csr_file": "CSR-PEM, um CreateCertificateFromCsr zu verwenden (das Gerät behält seinen eigenen Schlüssel). Weglassen, um CreateKeysAndCertificate zu verwenden.",
+      "debug": "Ausführliche Ausgabe."
+    },
+    "observe": {
+      "help": "describe-thing / list-thing-principals.",
+      "thing_name": "Name des provisionierten Things.",
+      "debug": "Ausführliche Ausgabe."
+    }
+  },
+  "operations": {
+    "create_provisioning_claim_trusted_user": "Provisioning-Claim erstellen (vertrauenswürdiger Benutzer)",
+    "create_trusted_user_provisioning_template": "Provisioning-Template für den vertrauenswürdigen Benutzer erstellen",
+    "describe_thing": "Thing beschreiben",
+    "list_thing_principals": "Principals des Things auflisten"
+  }
+}
